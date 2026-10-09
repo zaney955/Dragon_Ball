@@ -20,6 +20,7 @@ export function register({
       if (
         e.code === 'Enter' &&
         matchModule.game.screen === 'menu' &&
+        matchModule.game.menuPage !== 'online' &&
         !e.repeat &&
         !['SELECT', 'BUTTON'].includes(e.target.tagName)
       ) {

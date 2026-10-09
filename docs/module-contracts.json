@@ -625,6 +625,7 @@
     ],
     "requires": [
       "ai.aiThink",
+      "app.online",
       "combat.NEUTRAL_INPUT",
       "combat.advanceCombat",
       "combat.collectCombatHits",
@@ -2025,6 +2026,51 @@
       "render.updateUltimateVisuals",
       "ui.updateSelection",
       "world.currentMap"
+    ]
+  },
+  {
+    "module": "online/session",
+    "domain": "online",
+    "testing": false,
+    "provides": [
+      "app.online",
+      "combat.advanceCombat",
+      "match.backToMenu",
+      "match.beginVictory",
+      "match.setPaused"
+    ],
+    "requires": [
+      "ai.setCombatSeed",
+      "ai.tacticalSeed",
+      "combat.advanceCombat",
+      "combat.inputEdges",
+      "input.clearPresses",
+      "input.justPressed",
+      "input.keys",
+      "input.readPlayerInput",
+      "match.backToMenu",
+      "match.beginVictory",
+      "match.clearVictory",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.setPaused",
+      "match.startFight"
+    ]
+  },
+  {
+    "module": "online/lobby-ui",
+    "domain": "online",
+    "testing": false,
+    "provides": [],
+    "requires": [
+      "app.online",
+      "characters.CHARACTERS",
+      "match.game",
+      "match.previewMap",
+      "ui.updateSelection",
+      "world.MAPS",
+      "world.daylight"
     ]
   }
 ]

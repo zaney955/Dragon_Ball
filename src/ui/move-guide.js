@@ -28,7 +28,8 @@ export function register({ match: matchModule, training: trainingModule, ui: uiM
     if (!panel.classList.contains('show')) return;
     panel.classList.remove('show');
     document.getElementById('menu').inert =
-      matchModule.game.screen !== 'menu' || matchModule.game.menuPage !== 'select';
+      matchModule.game.screen !== 'menu' ||
+      !['select', 'online'].includes(matchModule.game.menuPage);
     if (matchModule.game.screen === 'fight' && !matchModule.game.over)
       matchModule.setPaused(guideWasPaused);
     if (restoreFocus) guidePreviousFocus?.focus();

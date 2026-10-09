@@ -1,3 +1,5 @@
+import { register as registerOnlineSession } from '../online/session.js';
+import { register as registerOnlineLobby } from '../online/lobby-ui.js';
 import { register as registerRenderScene } from '../render/scene.js';
 import { register as registerAudioSound } from '../audio/sound.js';
 import { register as registerAnimationPoses } from '../animation/poses.js';
@@ -340,4 +342,6 @@ export const modulePlan = [
     id: 'testing/v2-regression',
     test: true,
   },
+  { id: 'online/session', register: registerOnlineSession },
+  { id: 'online/lobby-ui', register: registerOnlineLobby },
 ];

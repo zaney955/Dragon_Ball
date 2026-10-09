@@ -1,7 +1,13 @@
 import globals from 'globals';
 
 export default [
-  { ignores: ['dist/**', 'node_modules/**'] },
+  { ignores: ['dist/**', 'node_modules/**', '**/.wrangler/**'] },
+  {
+    files: ['workers/**/*.js'],
+    languageOptions: {
+      globals: { WebSocketPair: 'readonly', WebSocketRequestResponsePair: 'readonly' },
+    },
+  },
   {
     files: ['**/*.js'],
     languageOptions: {

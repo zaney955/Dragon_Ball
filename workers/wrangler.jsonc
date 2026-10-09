@@ -1,0 +1,13 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "dragon-ball-online",
+  "main": "index.js",
+  "compatibility_date": "2026-10-09",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "LOBBY", "class_name": "OnlineLobby" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["OnlineLobby"] }],
+  "vars": { "ALLOWED_ORIGIN": "https://dragon-ball-budokai.pages.dev" },
+  "observability": { "enabled": false },
+}

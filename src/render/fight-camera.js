@@ -41,7 +41,7 @@ export function register({
         );
     const front = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw)),
       right = new THREE.Vector3(-front.z, 0, front.x);
-    const split = matchModule.game.difficulty === 'local',
+    const split = matchModule.game.difficulty === 'local' && !matchModule.game.online,
       back = (split ? 4.9 : 4.8) + Math.min(1.8, dist * 0.07 + Math.abs(delta.y) * 0.2),
       shoulder =
         (split ? 1.3 : 1.45) + Math.max(0, 1 - dist / 5) * 2 + Math.max(0, f.baseScale - 1) * 0.3;
@@ -98,13 +98,17 @@ export function register({
     if (!matchModule.player || !matchModule.enemy) return;
     updateShoulderView(
       renderModule.camera,
-      matchModule.player,
-      matchModule.enemy,
+      matchModule.game.onlineSeat === 1 && matchModule.game.online
+        ? matchModule.enemy
+        : matchModule.player,
+      matchModule.game.onlineSeat === 1 && matchModule.game.online
+        ? matchModule.player
+        : matchModule.enemy,
       renderModule.shoulderStates[0],
       dt,
       snap,
     );
-    if (matchModule.game.difficulty === 'local')
+    if (matchModule.game.difficulty === 'local' && !matchModule.game.online)
       updateShoulderView(
         renderModule.camera2,
         matchModule.enemy,
@@ -118,6 +122,7 @@ export function register({
   };
   renderModule.renderGameViews = function renderGameViews() {
     const split =
+      !matchModule.game.online &&
       matchModule.game.difficulty === 'local' &&
       matchModule.game.screen !== 'menu' &&
       !!matchModule.player &&

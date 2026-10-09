@@ -26,7 +26,7 @@ npm run clean        # 删除构建产物、测试报告与构建缓存
 
 线上地址：<https://dragon-ball-budokai.pages.dev/>。
 
-网站以纯静态文件部署到 Cloudflare Pages，使用免费 `.pages.dev` 域名。游戏在浏览器内运行，不需要 Pages Functions、数据库或付费服务。
+网站以静态文件部署到 Cloudflare Pages，使用免费 `.pages.dev` 域名。联机大厅另用免费 Workers + Durable Objects 协调三个房间，战斗优先由浏览器直连。
 
 已连接 GitHub 仓库 `zaney955/Dragon_Ball`。推送到 `main` 会自动构建并发布到正式地址，其他分支会生成预览部署。Cloudflare 的构建设置如下：
 
@@ -55,6 +55,12 @@ npm run deploy:pages
 
 不要把源码目录或包含离线导出的旧构建目录手动上传；`npm run deploy:pages` 会先重新生成网站产物。
 
+## 联机对战
+
+首页进入「联机对战」，创建或加入三个房间之一。每房最多两人，双方准备后自动开战；最后一人离开后房间关闭。键盘和触屏控制自己的角色，对局结束后可返回房间重新准备。
+
+大厅只建立一条 WebSocket，无轮询；战斗优先走 WebRTC 直连，不消耗服务器战斗请求。直连不可用时沿用该连接低频中继，中继会占用免费额度。具体同步、开发、测试和后端部署见 [联机说明](docs/online.md)。离线单文件保留本地玩法，联机需使用网页版。
+
 ## 目录
 
 ```text
@@ -72,10 +78,12 @@ src/input/                  键盘、触屏、双人输入
 src/match/                  对局状态、回合与界面切换
 src/ui/                     HUD、选角、招式指南、美术图鉴
 src/training/               陪练、专项练习与训练工具
+src/online/                 联机大厅、连接和战斗同步
 src/styles/                 按原级联顺序组织的 CSS
 src/assets/                 图片资源
 src/testing/                原有游戏验收与测试接口
 scripts/                    构建辅助工具
+workers/                    免费联机 Worker 与房间协调对象
 tests/                     单元测试与浏览器回归
 docs/                      架构、模块接口与当前验收记录
 ```

@@ -12,7 +12,7 @@ export function register({
   uiModule.popDamage = function popDamage(worldPos, dmg, color, healing = false) {
     if (matchModule.game.manualTest) return;
     const list =
-      matchModule.game.difficulty === 'local'
+      matchModule.game.difficulty === 'local' && !matchModule.game.online
         ? [
             [renderModule.camera, 0, innerHeight / 2],
             [renderModule.camera2, innerHeight / 2, innerHeight / 2],

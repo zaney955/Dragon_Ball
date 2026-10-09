@@ -44,10 +44,10 @@ export function register({
     });
     addEventListener('blur', () => {
       inputModule.clearPresses();
-      matchModule.setPaused(true);
+      if (!matchModule.game.online) matchModule.setPaused(true);
     });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) matchModule.setPaused(true);
+      if (document.hidden && !matchModule.game.online) matchModule.setPaused(true);
     });
     for (const btn of document.querySelectorAll('[data-key]')) {
       const release = (e) => {

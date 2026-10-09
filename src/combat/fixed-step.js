@@ -1,4 +1,5 @@
 export function register({
+  app: appModule,
   ai: aiModule,
   combat: combatModule,
   input: inputModule,
@@ -106,6 +107,7 @@ export function register({
     requestAnimationFrame(combatModule.loop);
     const raw = Math.min(renderModule.clock.getDelta(), 0.1),
       paused = matchModule.game.paused || matchModule.game.manualTest;
+    appModule.online?.frame();
     if (matchModule.game.screen === 'menu') {
       renderModule.updateMenuCamera(raw);
       worldModule.currentMap?.update?.(raw);
@@ -118,9 +120,11 @@ export function register({
     }
     if (matchModule.player && matchModule.enemy) {
       const alpha =
-          matchModule.game.hitStop > 0 || paused
-            ? 1
-            : Math.min(1, matchModule.stepAccumulator / matchModule.STEP),
+          appModule.online?.active && !appModule.online.host
+            ? appModule.online.renderAlpha()
+            : matchModule.game.hitStop > 0 || paused
+              ? 1
+              : Math.min(1, matchModule.stepAccumulator / matchModule.STEP),
         visualDt = matchModule.game.hitStop > 0 || paused ? 0 : raw;
       matchModule.player.render(visualDt, alpha);
       matchModule.enemy.render(visualDt, alpha);
