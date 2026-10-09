@@ -1,0 +1,26 @@
+# Browser automation snapshots and debugging output
+/.playwright-cli/
+/output/playwright/
+
+# Dependencies and local caches
+node_modules/
+/.cache/
+
+# Logs and editor temporary files
+*.log
+*.swp
+*.swo
+*~
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local environment configuration (keep reusable examples)
+.env
+.env.*
+!.env.example
+!.env.*.example
+!.env.sample
+!.env.template
