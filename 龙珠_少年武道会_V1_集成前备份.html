@@ -318,26 +318,6 @@ select,.smallBtn,.backHome,.rbtn,#pause button,.artOpen,.artHeader button{min-he
 
 #touch .touchGroup.move{grid-template-columns:repeat(3,44px);width:auto;gap:6px}
 </style>
-<style id="combatTransparency">
-/* Keep combat HUD transparent: user-requested appearance. Preserve this block when integrating gameplay changes. */
-#hud .side,#splitOverlay .viewStats,#splitOverlay .viewEnemy,#fightbar,#senzuStatus,#splitClock{background:transparent!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important}
-#hud .bar,#hud .guardBar,#splitOverlay .viewHP,#splitOverlay .viewKi{background:#ffffff24!important;box-shadow:none!important}
-#hud .bar{border-color:#f3e4c2d9}
-#hud .pname,#hud .ultname,#hud .value,#hud .escapeRow,#fightbar,#splitOverlay .viewEnemy{color:var(--paper);text-shadow:0 1px 2px #071725,0 0 4px #07172599}
-#hud .ultname{color:var(--gold)}
-#splitClock{text-shadow:0 2px 2px #071725}
-#senzuStatus{color:#e4ffc4;text-shadow:0 1px 2px #173325,0 0 4px #17332599}
-#hud kbd{background:transparent;border-color:#f3e4c299;color:var(--paper)}
-#fightbar button{background:#f3e4c2a6!important;border:1px solid #f3e4c2cc;color:var(--ink);text-shadow:none}
-#fightbar .dashTrack{background:#ffffff40}
-#touch .touchGroup button{background:#f3e4c238!important;border-color:#f3e4c2cc;color:var(--paper);text-shadow:0 1px 2px #071725,0 0 3px #07172599}
-#touch .touchGroup button.held{background:var(--gold)!important;color:var(--ink)!important;text-shadow:none}
-#trainingPanel{background:#f3e4c2b3!important;border-color:#f3e4c2b3;color:var(--ink);box-shadow:none;backdrop-filter:none}
-#trainingPanel h3,#trainingPanel summary,#trainingPanel #inputHistory{color:#714213}
-#trainingPanel #frameReadout,#trainingPanel .boxLegend{color:#315365}
-#trainingPanel select,#trainingPanel button{background:#f3e4c2a6!important;border-color:#8b805d;color:var(--ink);color-scheme:light}
-#trainingPanel #drillReadout,#trainingPanel #tacticReadout{color:var(--ink)}
-</style>
 </head>
 <body>
 
@@ -1035,7 +1015,7 @@ class Fighter{
   this.attack=finalizeMove({...ULT_ATK,kiCost:100,anim:this.def.ultAnim,motion:this.def.ultStyle,level:'mid',guardDamage:42,...profiles[this.def.id],cancelRules:{hit:[],block:[],whiff:[]}});
   this.state='ult';this.stateTimer=0;this.hasHit=false;this.attackMask=0;this.hitResult=null;this.attack.costCommitted=this.attack.shape==='wolf';if(this.attack.costCommitted)this.ki=0;this.comboType=null;this.comboTimer=0;this.clearQueue();this.vel.copy(this.forward()).multiplyScalar(this.attack.drive??0);this.stageFired=false;
   if(this.def.id==='tien')this.hp=Math.max(1,this.hp-this.maxHp*.08);
-  beginMoveEvent(this,entryPose);if(this.attack.costCommitted)emitCombatEvent('kiSpent',this,null,this.attack,{remaining:this.ki});castUltVisual(this,this.def);sfxUlt(this);notify(this.def.ultName,1.0);
+  beginMoveEvent(this,entryPose);castUltVisual(this,this.def);sfxUlt(this);notify(this.def.ultName,1.0);
  }
 
  updateAttack(dt,foe,input){
@@ -1859,7 +1839,7 @@ function renderGameViews(){
  const split=game.difficulty==='local'&&game.screen!=='menu'&&!!player&&!!enemy;
  document.body.classList.toggle('splitMode',split);const W=innerWidth,H=innerHeight;
  renderer.setScissorTest(split);renderer.setViewport(0,0,W,H);renderer.setScissor(0,0,W,H);renderer.clear();
- if(split){const top=Math.ceil(H/2),bottom=H-top;renderer.setViewport(0,bottom,W,top);renderer.setScissor(0,bottom,W,top);renderer.render(scene,camera);renderer.setViewport(0,0,W,bottom);renderer.setScissor(0,0,W,bottom);const shadowUpdate=renderer.shadowMap.autoUpdate;renderer.shadowMap.autoUpdate=false;try{renderer.render(scene,camera2);}finally{renderer.shadowMap.autoUpdate=shadowUpdate;}renderer.setScissorTest(false);renderer.setViewport(0,0,W,H);}
+ if(split){const top=Math.ceil(H/2),bottom=H-top;renderer.setViewport(0,bottom,W,top);renderer.setScissor(0,bottom,W,top);renderer.render(scene,camera);renderer.setViewport(0,0,W,bottom);renderer.setScissor(0,0,W,bottom);renderer.render(scene,camera2);renderer.setScissorTest(false);renderer.setViewport(0,0,W,H);}
  else{if(game.screen==='menu'){camera.aspect=W/H;camera.updateProjectionMatrix();}renderer.render(scene,camera);}
  updateViewHUD(split);
 }
@@ -2239,7 +2219,7 @@ function combatPose(f){
   pose.aR=[THREE.MathUtils.lerp(pose.aR[0],-1.48,reach),0,THREE.MathUtils.lerp(pose.aR[2],-.64,reach)];
   pose.t=[THREE.MathUtils.lerp(pose.t[0],.08,reach),THREE.MathUtils.lerp(pose.t[1],0,reach),0];pose.ry=0;
  }
- if(a.motion==='uppercut'){const rise=THREE.MathUtils.clamp((f.stateTimer-a.hitT)/a.active,0,1),fit=a.id==='launcher'?THREE.MathUtils.clamp(Math.atan2((f.baseScale-(a.targetScale??f.baseScale))*1.71,.66*f.baseScale),0,.85):0;pose.aR=[-1.8+fit-rise*.35,0,-.6];pose.t=[-.08,pose.t[1]*.35,0];pose.eR=-.3;if(a.id==='launcher'){pose.ry=(pose.ry??0)*rise;pose.y-=fit*.14*(1-rise);}}
+ if(a.motion==='uppercut'){const rise=THREE.MathUtils.clamp((f.stateTimer-a.hitT)/a.active,0,1);pose.aR=[-1.8-rise*.35,0,-.6];pose.t=[-.08,pose.t[1]*.35,0];pose.eR=-.3;}
  // Shorter fighters remain visible targets for tall punchers: incline the authored arm.
  const foe=f===player?enemy:player;
  if(a.isUlt&&a.shape==='wolf'){
@@ -2387,16 +2367,15 @@ const specialButton=document.createElement('button');specialButton.dataset.key='
 const table=document.createElement('section');table.id='characterMoves';table.hidden=true;table.setAttribute('role','tabpanel');table.setAttribute('aria-labelledby','framesTab');document.querySelector('.guideContent').appendChild(table);
 addEventListener('keydown',e=>{if(e.code==='KeyB'&&!e.repeat&&game.screen==='fight'){game.showBoxes=!game.showBoxes;document.getElementById('boxesToggle').checked=game.showBoxes;}if(['KeyR','NumpadAdd'].includes(e.code)&&!e.repeat&&game.screen==='fight'&&!game.paused){game.inputHistory??=[];}});
 const capture=Fighter.prototype.captureInput;Fighter.prototype.captureInput=function(input){capture.call(this,input);if(this===player&&input.actions?.length){game.inputHistory??=[];for(const a of input.actions)game.inputHistory.push({frame:Math.round(game.simTime*60),action:typeof a==='string'?a:a.type});if(game.inputHistory.length>12)game.inputHistory.splice(0,game.inputHistory.length-12);}};
-function preciseFrames(a){return '精确换算（60FPS）：'+[a.startup,a.active,a.recovery].map(t=>Number((t*60).toFixed(2))).join(' / ')+' F；模拟 120Hz';}
 function refreshMoveTable(){
  const c=player?.def??CHARACTERS[game.selectedChar],special=SPECIAL_MOVES[c.id],m=[...c.combos.light,...c.combos.heavy,finalizeMove({id:special.name,level:'mid',...special,anim:ANIM[special.motion]})];let html='<h3>'+c.name+' · '+c.role+'</h3><p class="frameLegend">单位：帧（60 帧/秒） · 前 / 有 / 后 = 起手 / 判定 / 收招</p><div class="tableScroll"><table class="frameTable"><tr><th>招式</th><th>前 / 有 / 后</th><th>伤害</th><th>段位</th><th>命中 / 格挡优势</th></tr>';
- for(const a of m){const rec=Math.round(a.recovery*60);html+='<tr title="'+preciseFrames(a)+'"><td>'+(a.name??(/^l[1-4]$/.test(a.id)?'轻击 '+a.id.slice(1):/^h[1-4]$/.test(a.id)?'重击 '+a.id.slice(1):a.id))+'</td><td>'+Math.round(a.startup*60)+' / '+Math.round(a.active*60)+' / '+rec+'</td><td>'+a.dmg+'</td><td>'+({high:'高',mid:'中',low:'下',overhead:'上'})[a.level]+'</td><td>'+Math.round((a.stun-a.active-a.recovery)*60)+' / '+Math.round((a.blockstun-a.active-a.recovery)*60)+'</td></tr>';}
- html+='</table></div><details><summary>帧数与招式规则</summary><p>表中帧数为整数近似，悬停查看精确换算。优势按首个有效帧计算；晚命中会改变优势，以训练读数为准。特殊技的有效时间含段间间隔。</p><p>命中后最早 3 帧取消；格挡时仅轻击可接重击，空挥需等收招。</p><p>特殊技消耗 30 气。重型霸体可承受一次普通非下段攻击，仍扣生命；天津饭气功炮额外消耗 8% 最大生命。</p></details>';table.innerHTML=html;
+ for(const a of m){const rec=Math.round(a.recovery*60);html+='<tr><td>'+(a.name??(/^l[1-4]$/.test(a.id)?'轻击 '+a.id.slice(1):/^h[1-4]$/.test(a.id)?'重击 '+a.id.slice(1):a.id))+'</td><td>'+Math.round(a.startup*60)+' / '+Math.round(a.active*60)+' / '+rec+'</td><td>'+a.dmg+'</td><td>'+({high:'高',mid:'中',low:'下',overhead:'上'})[a.level]+'</td><td>'+Math.round((a.stun-a.active-a.recovery)*60)+' / '+Math.round((a.blockstun-a.active-a.recovery)*60)+'</td></tr>';}
+ html+='</table></div><details><summary>帧数与招式规则</summary><p>优势按首个有效帧计算；晚命中会改变优势，以训练读数为准。特殊技的有效时间含段间间隔。</p><p>命中后最早 3 帧取消；格挡时仅轻击可接重击，空挥需等收招。</p><p>特殊技消耗 30 气。重型霸体可承受一次普通非下段攻击，仍扣生命；天津饭气功炮额外消耗 8% 最大生命。</p></details>';table.innerHTML=html;
 }
 function updateTrainingHUD(){
  const active=game.screen==='fight'&&game.difficulty==='training';trainingPanel.hidden=!active||!game.trainingUiOpen;document.getElementById('trainingToggle').hidden=!active;document.body.classList.toggle('training',active);
  if(!active||!player||!enemy)return;
- const a=player.attack;document.getElementById('frameReadout').title=a?preciseFrames(a):'';document.getElementById('frameReadout').textContent='当前招式：'+(a?(a.name??(/^l[1-4]$/.test(a.id)?'轻击 '+a.id.slice(1):/^h[1-4]$/.test(a.id)?'重击 '+a.id.slice(1):a.id))+' '+Math.round(a.startup*60)+' / '+Math.round(a.active*60)+' / '+Math.round(a.recovery*60)+' F':'空闲')+'\n上次接触：'+enemy.lastHitText+' · 优势 '+(enemy.lastAdvantage??0)+' F\n'+enemy.receivedCombo+' HIT / '+enemy.damageTotal.toFixed(1)+' DMG / 递减 '+Math.round((enemy.lastScaling??1)*100)+'%';
+ const a=player.attack;document.getElementById('frameReadout').textContent='当前招式：'+(a?(a.name??(/^l[1-4]$/.test(a.id)?'轻击 '+a.id.slice(1):/^h[1-4]$/.test(a.id)?'重击 '+a.id.slice(1):a.id))+' '+Math.round(a.startup*60)+' / '+Math.round(a.active*60)+' / '+Math.round(a.recovery*60)+' F':'空闲')+'\n上次接触：'+enemy.lastHitText+' · 优势 '+(enemy.lastAdvantage??0)+' F\n'+enemy.receivedCombo+' HIT / '+enemy.damageTotal.toFixed(1)+' DMG / 递减 '+Math.round((enemy.lastScaling??1)*100)+'%';
  document.getElementById('inputHistory').textContent=(game.inputHistory??[]).map(x=>x.frame+'F '+x.action).join('  ');
 }
 function updateRoundRules(dt){
@@ -2668,7 +2647,7 @@ function ensureKiVisual(f){
  f.kiVisual={aura,shell,rings,flames,particles,positions,hand,glow,intensity:0};return f.kiVisual;
 }
 function updateKiVisual(f,dt){
- const active=f.state==='charge'&&f.hp>0&&!game.over,handActive=!!(f.hp>0&&!game.over&&(f.state==='blastCharge'||f.attack?.isKiBlast&&!f.attack.costCommitted));
+ const active=f.state==='charge'&&f.hp>0&&!game.over,handActive=(f.state==='blastCharge'||f.attack?.isKiBlast&&!f.attack.costCommitted)&&!game.over;
  if(!active&&!handActive&&!f.kiVisual){stopChargeSound(f);return;}
  const v=ensureKiVisual(f),time=game.simTime,ramp=Math.min(1,(f.chargeHeld??0)/.8),target=active?.4+ramp*.55:0;
  v.intensity=THREE.MathUtils.lerp(v.intensity,target,1-Math.exp(-dt*(active?12:22)));if(f.hp<=0||['hit','grabbed','dead','guardbreak','knockdown'].includes(f.state))v.intensity=0;
@@ -2843,15 +2822,6 @@ function runV1Tests(){
  const step=(n,p={},e={})=>{for(let i=0;i<n;i++){window.__db.tick(typeof p==='function'?p(i):i===0?p:{...p,actions:[],light:false,heavy:false,special:false,ult:false,pursuit:false,dash:false},typeof e==='function'?e(i):e);game.hitStop=0;}};
  const events=(type)=>combatEvents.history.filter(e=>e.type===type);
  try{
- test('并发必杀扣气按真实生效阶段执行且仅扣一次',()=>{for(let c=0;c<7;c++){const[p]=fresh(c,c,4);p.ki=100;p.startUlt();const a=p.attack;if(a.shape==='wolf'){assert(p.ki===0&&a.costCommitted);}else{assert(p.ki===100&&!a.costCommitted);step(Math.floor(a.hitT/STEP)-1);assert(p.ki===100&&!a.costCommitted);}step(160);assert(a.costCommitted&&events('kiSpent').filter(e=>e.serial===a.serial).length===1);}});
- test('必杀发射前被真实轻击打断不扣气且无发射事件',()=>{const[p,e]=fresh(0,0,.8);p.ki=100;p.startUlt();e.startAttack('light');step(40);assert(p.hp<p.maxHp&&p.ki===100&&!p.attack);assert(events('kiSpent').filter(x=>x.side===0).length===0);});
- test('气弹真实启动仅结算一次投射物伤害而非手部命中',()=>{const[p,e]=fresh(0,0,.8);p.ki=30;p.startKiBlast(0);const a=p.attack;assert(a.isKiBlast&&!combatIntersects(p,e,a));step(90);assert(e.maxHp-e.hp===a.dmg&&events('contact').filter(x=>x.side===0).length===1);assert(events('kiSpent').filter(x=>x.side===0).length===1);});
- test('七角色气弹发射和后续必杀结束无手部光球残留',()=>{for(let c=0;c<7;c++){const[p]=fresh(c,0,4);p.ki=100;step(80,{blastHeld:true});p.render(STEP,1);assert(p.kiVisual.hand.visible===true);step(1);step(20);p.render(STEP,1);assert(p.kiVisual.hand.visible===false);step(120);p.render(STEP,1);assert(!p.attack&&p.kiVisual.hand.visible===false);p.ki=100;p.startUlt();step(260);p.render(STEP,1);assert(!p.attack&&p.kiVisual.hand.visible===false);}});
- test('双人镜头独立渲染且同帧阴影仅更新一次',()=>{fresh();game.difficulty='local';const calls=[],render=renderer.render,original=renderer.shadowMap.autoUpdate;renderer.render=(scene,cam)=>calls.push([cam,renderer.shadowMap.autoUpdate]);try{renderer.shadowMap.autoUpdate=true;renderGameViews();assert(calls.length===2&&calls[0][0]===camera&&calls[1][0]===camera2);assert(calls[0][1]===true&&calls[1][1]===false&&renderer.shadowMap.autoUpdate===true);}finally{renderer.render=render;renderer.shadowMap.autoUpdate=original;}});
- test('七乘七通用挑空近身站立真实命中而非越过头顶',()=>{for(let c=0;c<7;c++)for(let foe=0;foe<7;foe++){const[p,e]=fresh(c,foe,.9);step(110,{heavy:true,up:true});assert(e.hp<e.maxHp&&events('contact').some(x=>x.side===0),p.def.id+' 对 '+e.def.id);}});
- test('三角色跨七对手确认挑空和12气追击具有真实接触',()=>{for(const c of [0,2,3])for(let foe=0;foe<7;foe++){const[p,e]=fresh(c,foe,.8);let links=0,seen=new Set(),hit=false;step(220,i=>{if(i===0)return {light:true};if(p.attack&&p.hitResult==='hit'&&!seen.has(p.attack)){seen.add(p.attack);if(links===0){links++;return {heavy:true,up:true};}if(links===1){links++;return {pursuit:true};}}if(links===2&&!p.attack&&p.dashTime<=0){links++;return {light:true};}return {};},()=>{hit=hit||e.receivedCombo>0;return {block:hit};});assert(events('contact').filter(x=>x.side===0&&!x.blocked).length>=3,p.def.id+' 对 '+e.def.id);assert(events('pursuit').some(x=>x.cost===12));}});
- test('挑空不会背后侧面射程外误判且保留闪避无敌',()=>{for(const [x,z,invincible] of [[-.9,0,false],[0,.9,false],[5,0,false],[.9,0,true]]){const[p,e]=fresh(3,5,.9);e.pos.set(x,0,z);e.previousPos.copy(e.pos);p.facingAngle=Math.PI/2;p.face=Math.PI/2;if(invincible)e.invulnerable=2;p.startAttack('heavy',{up:true});step(110);assert(e.hp===e.maxHp&&events('contact').length===0,x+','+z);}});
- test('帧表与当前招式保留精确60FPS换算且空闲清除旧数据',()=>{const[p]=fresh();game.difficulty='training';p.startSpecial();updateTrainingHUD();assert(document.getElementById('frameReadout').title.includes('14.4 / 6 / 22.2 F'));refreshMoveTable();assert([...table.querySelectorAll('tr')].at(-1).title.includes('14.4'));p.attack=null;updateTrainingHUD();assert(document.getElementById('frameReadout').title==='');assert(preciseFrames({startup:STEP,active:2*STEP,recovery:3*STEP}).includes('0.5 / 1 / 1.5 F'));});
  test('反馈按招式类别而非伤害阈值分类',()=>{assert(impactKind({chainType:'heavy',dmg:1})==='heavy');assert(impactKind({chainType:'light',dmg:24})==='light');assert(impactKind({isUlt:true,dmg:1})==='ultimate');assert(impactKind({id:'special',dmg:2})==='special');});
  test('真实轻击、重击、特殊技与必杀事件独立',()=>{for(const [action,kind] of [['light','light'],['heavy','heavy'],['special','special'],['ult','ultimate']]){const[p]=fresh();if(action==='ult')p.ki=100;step(220,{[action]:true});assert(events('contact').some(e=>e.feedback===kind),'未记录 '+kind);assert(events('swing').length===1,'重复挥动');}});
  test('空挥只有动作和挥动事件，没有接触反馈',()=>{fresh(0,0,4);step(90,{heavy:true});assert(events('attack').length===1&&events('active').length===1&&events('whiff').length===1);assert(events('contact').length===0);});
