@@ -45,6 +45,15 @@ export function register({
     );
   };
   charactersModule.characterMoveData = function characterMoveData(c) {
+    if (c.skills && c.directionMoves && c.throwMove)
+      return [
+        ...c.combos.light,
+        ...c.combos.heavy,
+        ...c.directionMoves,
+        c.throwMove,
+        ...c.skills.map((s, i) => ({ ...s, name: (i ? 'S+R ' : 'R ') + s.name })),
+        c.ult,
+      ];
     const scale =
         {
           goku: 0.95,
@@ -166,9 +175,10 @@ export function register({
         startup: 1.02,
         active: 0.15,
         recovery: 0.5,
-        range: 18,
-        dmg: 36,
-        shape: 'disc',
+        range: 8,
+        dmg: 32,
+        shape: 'beam',
+        width: 0.28,
       },
       yamcha: {
         startup: 0.3,

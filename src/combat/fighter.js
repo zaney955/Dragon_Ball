@@ -100,6 +100,7 @@ export function register({
         renderModule.scene.add(this.shadow);
         renderModule.scene.add(this.root);
         combatModule.initV2Fighter(this);
+        combatModule.initYouthFighter(this);
         this.nimbus = def.id === 'goku' ? combatModule.makeFlyingNimbus() : null;
         this.render(1 / 60, 1);
       }
@@ -318,8 +319,23 @@ export function register({
           if (!this.isAI) matchModule.notify('脱身需要 15 气与残像次数', 0.7);
         }
         if (foe && !this.attack && this.dashTime <= 0) {
-          this.facingAngle = Math.atan2(foe.pos.x - this.pos.x, foe.pos.z - this.pos.z);
-          this.facingDir = Math.sign(foe.pos.x - this.pos.x) || this.facingDir;
+          const seen =
+            combatModule.inYouthSmoke?.(this) || combatModule.inYouthSmoke?.(foe)
+              ? this.isAI
+                ? this.observations?.at(-1)
+                : this.youth?.lastSeen
+              : null;
+          const obscured = combatModule.inYouthSmoke?.(this) || combatModule.inYouthSmoke?.(foe);
+          const target =
+            seen ??
+            (obscured
+              ? {
+                  x: this.pos.x + Math.sin(this.facingAngle),
+                  z: this.pos.z + Math.cos(this.facingAngle),
+                }
+              : foe.pos);
+          this.facingAngle = Math.atan2(target.x - this.pos.x, target.z - this.pos.z);
+          this.facingDir = Math.sign(target.x - this.pos.x) || this.facingDir;
         }
         if (this.dashTime > 0) {
           this.dashTime -= dt;
@@ -465,7 +481,7 @@ export function register({
           }
           return;
         }
-        if (input.blastHeld && this.pos.y < 0.1) {
+        if (!this.youth && input.blastHeld && this.pos.y < 0.1) {
           if (this.state !== 'blastCharge') {
             if (this.ki < combatModule.KI_RULES.blastCost) {
               if (!this.blastRejected) combatModule.warnKi(this, combatModule.KI_RULES.blastCost);
@@ -681,17 +697,16 @@ export function register({
             recoveryRemaining: Math.max(0, a.dur - this.stateTimer),
           });
         }
-        if (a.isUlt && a.shape === 'wolf' && this.stateTimer < a.hitT) {
+        if (a.isUlt && a.shape === 'wolf' && this.stateTimer < a.hitT + a.active) {
           const distance = Math.hypot(foe.pos.x - this.pos.x, foe.pos.z - this.pos.z);
           this.vel.copy(this.forward()).multiplyScalar(distance > 0.85 ? (a.drive ?? 11) : 0);
         }
         if (a.isUlt && !this.stageFired && this.stateTimer + 1e-9 >= a.hitT) {
           this.stageFired = true;
           renderModule.sfxUlt(this, true);
-          if (this.def.ultStyle === 'kienzan') combatModule.fireKiDisc(this, a);
-          else worldModule.damageStage(this, a);
+          worldModule.damageStage(this, a);
         }
-        if (this.stateTimer < a.hitT * 0.65) {
+        if (!a.isYouth && this.stateTimer < a.hitT * 0.65) {
           const wanted = Math.atan2(foe.pos.x - this.pos.x, foe.pos.z - this.pos.z);
           this.facingAngle += THREE.MathUtils.clamp(
             renderModule.angleDelta(wanted, this.facingAngle),
@@ -733,7 +748,7 @@ export function register({
             }
             if (q.type === 'special' && this.ki >= 30) {
               this.pull(q.type);
-              this.startSpecial();
+              this.startSpecial(q.context);
               return;
             }
             if (q.type === 'light' || q.type === 'heavy') {

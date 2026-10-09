@@ -9,7 +9,8 @@ export function register({ audio: audioModule, combat: combatModule, match: matc
       limiter.attack.value = 0.003;
       limiter.release.value = 0.1;
       const master = audioModule.actx.createGain();
-      master.gain.value = 0.72;
+      master.gain.value = (audioModule.sfxVolume ?? 0.8) * 0.9;
+      audioModule.sfxGain = master;
       limiter.connect(master);
       master.connect(audioModule.actx.destination);
       audioModule.combatAudioMaster = limiter;

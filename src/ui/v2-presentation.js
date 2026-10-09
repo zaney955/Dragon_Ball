@@ -11,7 +11,6 @@ export function register({
   world: worldModule,
 }) {
   let v1Portrait,
-    v1SpecialAvailability,
     v1Selection,
     v1ExtraHUD,
     v1ViewHUD,
@@ -20,72 +19,31 @@ export function register({
     v1ProcessDrill,
     v2RemoveBase;
   function abilityStatus(f) {
-    const v = f.v2,
-      id = f.def.id;
-    if (id === 'chichi') return v.bladeOut ? '飞刃：离手 · 等待回收' : '飞刃：可投掷';
-    if (id === 'bulma')
-      return (
-        '装置 ' +
-        combatModule.v2Devices
-          .filter((d) => d.owner === f)
-          .map((d) => d.kind + ' ' + Math.ceil(d.hp) + '耐久/' + d.life.toFixed(1) + 's')
-          .join(' · ') +
-        '（' +
-        combatModule.v2Devices.filter((d) => d.owner === f).length +
-        '/2）'
-      );
-    if (id === 'chiaotzu')
-      return (
-        '念力冷却 ' +
-        v.cooldown.toFixed(1) +
-        's · 控制 ' +
-        v.controlTime.toFixed(2) +
-        's · 保护 ' +
-        v.controlGrace.toFixed(1) +
-        's'
-      );
-    if (id === 'oolong')
-      return (
-        {
-          pig: '乌龙',
-          bull: '巨牛',
-          bat: '蝙蝠',
-          robot: '机器人',
-        }[v.form] +
-        ' ' +
-        v.formTime.toFixed(1) +
-        's · 恢复 ' +
-        v.formCooldown.toFixed(1) +
-        's'
-      );
-    if (id === 'korin')
-      return (
-        '直觉 ' +
-        v.intuition.toFixed(1) +
-        's · 仙豆 ' +
-        v.heals +
-        '/1 · 残像步 ' +
-        v.cooldown.toFixed(1) +
-        's'
-      );
-    if (id === 'pilaf')
-      return (
-        '机甲耐久 ' +
-        Math.ceil(f.hp) +
-        '/' +
-        f.maxHp +
-        ' · ' +
-        (v.mode === 'flame' ? '喷火' : '导弹') +
-        ' ' +
-        v.modeTime.toFixed(1) +
-        's · 武装CD ' +
-        v.cooldown.toFixed(1) +
-        's'
-      );
-    if (id === 'gyumao')
-      return '巨斧 · ' + (aiModule.armorWindow(f) ? '一次承伤窗口' : '可用下段/投技反制');
-    return f.def.tactics.mechanic;
+    const y = f.youth;
+    if (!y) return f.def.tactics.mechanic;
+    return [
+      y.form
+        ? {
+            ape: '大猩猩',
+            muscle: '肌肉强化',
+            fourArms: '四妖拳',
+            ogre: '巨鬼',
+            bat: '蝙蝠',
+            armor: '装甲',
+            combined: '三机合体',
+          }[y.form] +
+          ' ' +
+          y.formTime.toFixed(1) +
+          's'
+        : '',
+      f.def.id === 'korin' ? '仙豆 ' + y.heals + '/1' : '',
+      f.def.id === 'pilaf' ? '武装 ' + (y.weapon === 'flame' ? '喷火' : '导弹') : '',
+      ...f.def.skills.map((a, i) => a.name + ' ' + combatModule.skillAvailability(f, i).reason),
+    ]
+      .filter(Boolean)
+      .join(' · ');
   }
+
   return function initialize() {
     v1Portrait = uiModule.portrait;
     uiModule.portrait = function (def) {
@@ -129,34 +87,13 @@ export function register({
       op.textContent = c.name;
       uiModule.assetSelect.querySelector('optgroup').appendChild(op);
     }
-    v1SpecialAvailability = uiModule.specialAvailability;
     uiModule.specialAvailability = function (f) {
-      if (!f.anatomy) return v1SpecialAvailability(f);
-      const v = f.v2,
-        name = combatModule.SPECIAL_MOVES[f.def.id].name,
-        cost = 30;
-      const reason =
-        v.bladeOut && f.def.id === 'chichi'
-          ? '飞刃回收中'
-          : v.formCooldown > 0 && f.def.id === 'oolong'
-            ? '变身恢复 ' + v.formCooldown.toFixed(1) + 's'
-            : v.cooldown > 0
-              ? '冷却 ' + v.cooldown.toFixed(1) + 's'
-              : f.ki < cost
-                ? '资源不足'
-                : f.attack ||
-                    [
-                      'hit',
-                      'blockstun',
-                      'landing',
-                      'block',
-                      'knockdown',
-                      'grabbed',
-                      'dead',
-                    ].includes(f.state)
-                  ? '等待行动恢复'
-                  : '可发动';
-      return name + ' · ' + cost + ' ' + f.def.resource + ' · ' + reason;
+      return f.def.skills
+        .map((s, i) => {
+          const info = combatModule.skillAvailability(f, i);
+          return s.name + ' · ' + info.cost + ' ' + f.def.resource + ' · ' + info.reason;
+        })
+        .join(' / ');
     };
     v1Selection = uiModule.updateSelection;
     uiModule.updateSelection = function () {
@@ -168,7 +105,7 @@ export function register({
         c = charactersModule.CHARACTERS[i];
       document.getElementById('heroTitle').textContent = c.role;
       document.getElementById('heroUlt').textContent =
-        'R ' + combatModule.SPECIAL_MOVES[c.id].name + ' / U ' + c.ultName;
+        'R ' + c.skills[0].name + ' / S+R ' + c.skills[1].name + ' / U ' + c.ultName;
       let n = document.getElementById('heroTactics');
       if (!n) {
         n = document.createElement('p');
@@ -181,6 +118,23 @@ export function register({
     v1ViewHUD = renderModule.updateViewHUD;
     uiModule.updateExtraHUD = function () {
       v1ExtraHUD();
+      if (matchModule.player) {
+        for (const [i, id] of [
+          [0, 'primarySkill'],
+          [1, 'secondarySkill'],
+        ]) {
+          const n = document.getElementById(id),
+            info = combatModule.skillAvailability(matchModule.player, i);
+          n.textContent = info.skill.name;
+          n.title = info.reason;
+          n.setAttribute('aria-label', info.skill.name + ' · ' + info.reason);
+          n.classList.toggle('unavailable', !info.available);
+        }
+        const remote = document.querySelector('[data-key="KeyF"]');
+        remote.textContent = ['gyumao', 'oolong', 'korin'].includes(matchModule.player.def.id)
+          ? '无远程'
+          : '远程';
+      }
       if (!matchModule.player || !matchModule.enemy) return;
       for (const [f, id] of [
         [matchModule.player, 'p1'],
@@ -246,7 +200,7 @@ export function register({
         t.weak +
         '</p><p>W+K 反空 · S+K 下段 · O 投技/拆投。F 在有科技或念力的角色上使用对应装备；其他新增角色保留此键但没有虚构气功。</p>';
       trainingModule.table.appendChild(details);
-      if (c.ult) {
+      if (c.ult && !c.youth) {
         const a = combatModule.finalizeMove({
             ...c.ult,
             stun: c.ult.stun ?? 0.4,

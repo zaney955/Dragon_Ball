@@ -26,7 +26,6 @@ export function register({ combat: combatModule }) {
         {
           bull: 0.6,
           bat: 1.55,
-          robot: 0.85,
         }[f.v2.form] ?? 1;
     if (f.v2?.bladeOut && f.def.id === 'chichi') s *= 0.94;
     return s;

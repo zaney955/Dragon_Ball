@@ -103,7 +103,10 @@ export function register({
               pilaf: 'mech',
             }[def.id],
         );
-        assert(def.combos.light.length === 4 && def.combos.heavy.length === 4);
+        assert(
+          def.combos.light.length === def.youth.light.length &&
+            def.combos.heavy.length === def.youth.heavy.length,
+        );
         const image = document.querySelectorAll('.char-card')[index].querySelector('img');
         assert(image.src.startsWith('data:image/png'));
       });
@@ -210,8 +213,8 @@ export function register({
         const [p] = v2Fixture(index, 0, 1.2);
         p.startUlt();
         const a = p.attack;
-        assert(a && p.ki === 100);
-        v2TestTicks(290);
+        assert(a && p.ki === 0 && a.costCommitted);
+        v2TestTicks(Math.ceil(a.dur / matchModule.STEP) + 10);
         assert(a.costCommitted);
         assert(
           combatModule.combatEvents.history.filter(
@@ -247,10 +250,10 @@ export function register({
             b = p.parts.axe.localToWorld(new THREE.Vector3(0.56, 1.1, 0));
           assert(a.distanceTo(r.hit[0].a) < 1e-6 && b.distanceTo(r.hit[0].b) < 1e-6);
         });
-        test('霸体一次承伤，下段及投技可反制', () => {
+        test('横扫霸体一次承伤与投技反制', () => {
           const [p, e] = v2Fixture(index);
-          p.startAttack('heavy');
-          p.stateTimer = 0.1;
+          p.startSpecial();
+          p.stateTimer = p.attack.hitT;
           const a = p.attack;
           e.startAttack('light');
           p.takeHit(e, {
@@ -258,10 +261,8 @@ export function register({
             level: 'mid',
           });
           assert(p.hp < p.maxHp && p.attack === a);
-          p.takeHit(e, {
-            ...e.attack,
-            level: 'mid',
-          });
+          p.invulnerable = 0;
+          p.takeHit(e, { ...e.attack, level: 'mid' });
           assert(p.attack === null);
         });
       }
@@ -281,20 +282,20 @@ export function register({
           assert(!p.v2.bladeOut && !combatModule.v2Projectiles.some((x) => x.kind === 'blade'));
         });
       if (def.id === 'bulma') {
-        test('机关有耐久、数量上限、过期清理', () => {
+        test('掩体耐久、数量上限、过期清理', () => {
           const [p] = v2Fixture(index, 0, 5);
-          for (let i = 0; i < 3; i++) {
-            p.v2.cooldown = 0;
-            p.attack = null;
-            p.state = 'idle';
-            p.ki = 100;
-            p.startSpecial();
-            v2TestTicks(140);
-          }
-          assert(combatModule.v2Devices.filter((x) => x.owner === p).length === 2);
-          assert(combatModule.v2Devices.every((x) => x.hp === 18 && x.life > 0));
+          p.startSpecial();
+          v2TestTicks(100);
+          const d = combatModule.youthEntities.find((e) => e.kind === 'cover');
+          assert(d && d.hp === 30);
+          p.attack = null;
+          p.state = 'idle';
+          p.ki = 100;
+          p.youth.cooldowns[0] = 0;
+          const ki = p.ki;
+          assert(!p.startSpecial() && p.ki === ki);
           v2TestTicks(1100);
-          assert(combatModule.v2Devices.length === 0);
+          assert(!combatModule.youthEntities.length);
         });
         test('受击打断部署不产生装置', () => {
           const [p, e] = v2Fixture(index);
@@ -322,13 +323,9 @@ export function register({
           [p, e] = v2Fixture(index, 0, 2);
           p.startSpecial();
           v2TestTicks(55);
-          assert(e.v2.controlChain === 1);
-          const grace = e.v2.controlGrace;
-          assert(
-            !combatModule.applyControl(p, e, {
-              control: 0.48,
-            }),
-          );
+          assert(e.youth.controlCount === 1);
+          const grace = e.youth.controlGrace;
+          assert(combatModule.applyControl(p, e, { control: 0.48 }));
           e.ki = 50;
           e.evade(p);
           assert(e.v2.controlTime === 0 && e.escapeCharges === 1 && grace > 0);
@@ -344,28 +341,28 @@ export function register({
         });
       }
       if (def.id === 'oolong') {
-        test('三形态模型、受击盒、速度、持续与恢复同步', () => {
+        test('巨鬼蝙蝠模型、受击盒、速度、持续与恢复同步', () => {
           const [p] = v2Fixture(index, 0, 4);
           const kinds = new Set();
-          for (const form of ['bull', 'bat', 'robot']) {
-            combatModule.switchForm(p, form);
-            p.v2.formTime = 0.1;
+          for (const form of ['ogre', 'bat']) {
+            combatModule.setYouthBody(p, form);
+            p.youth.formTime = 0.1;
             kinds.add(p.anatomy.kind);
             combatModule.sampleCombatRig(p);
-            assert(p.combatRig.hurt[1].r === (form === 'bull' ? 0.4 : p.anatomy.torsoR));
+            assert(p.combatRig.hurt[1].r === p.anatomy.torsoR);
             v2TestTicks(20);
-            assert(p.v2.form === 'pig' && p.anatomy.kind === 'pig' && p.v2.formCooldown > 0);
+            assert(!p.youth.form && p.anatomy.kind === 'pig' && p.youth.cooldowns[0] > 0);
           }
-          assert(kinds.size === 3);
+          assert(kinds.size === 2);
         });
-        test('变身受到重击中断且无免费生命', () => {
+        test('变化受到重击中断且无免费生命', () => {
           const [p, e] = v2Fixture(index);
           const hp = p.hp;
-          combatModule.switchForm(p, 'robot');
-          p.v2.formTime = 5;
+          combatModule.setYouthBody(p, 'ogre');
+          p.youth.formTime = 5;
           e.startAttack('heavy');
           p.takeHit(e, e.attack);
-          assert(p.v2.form === 'pig' && p.hp < hp && p.v2.formCooldown > 0);
+          assert(!p.youth.form && p.hp < hp && p.youth.cooldowns[0] > 0);
         });
       }
       if (def.id === 'korin') {
@@ -376,7 +373,7 @@ export function register({
             down: true,
           });
           v2TestTicks(170);
-          assert(p.v2.heals === 0 && p.v2.healTotal === Math.floor(p.maxHp * 0.12));
+          assert(p.v2.heals === 0 && Math.abs(p.v2.healTotal - p.maxHp * 0.12) < 1e-8);
           const hp = p.hp;
           p.v2.cooldown = 0;
           p.ki = 100;
@@ -406,35 +403,30 @@ export function register({
         });
       }
       if (def.id === 'pilaf') {
-        test('武装切换、5秒持续与统一生命耐久', () => {
+        test('武装切换持续到下次切换且不恢复生命', () => {
           const [p] = v2Fixture(index, 0, 4);
+          const hp = p.hp;
           p.startSpecial();
-          v2TestTicks(80);
-          assert(p.v2.mode === 'flame' && p.maxHp === def.hp);
+          v2TestTicks(100);
+          assert(p.youth.weapon === 'flame' && p.hp === hp);
           v2TestTicks(650);
-          assert(p.v2.mode === 'missile' && p.v2.modeCooldown === 0);
+          assert(p.youth.weapon === 'flame');
+          p.startSpecial();
+          v2TestTicks(100);
+          assert(p.youth.weapon === 'missile');
         });
-        test('修舞支援预警、归属和限时释放', () => {
-          const [p] = v2Fixture(index, 0, 4);
+        test('三机实际接合、限时冲撞与恢复', () => {
+          const [p, e] = v2Fixture(index, 0, 4);
           p.startUlt();
           v2TestTicks(118);
+          assert(p.youth.form === 'combined' && p.parts.combinedMechs.length === 2);
           assert(
-            combatModule.v2Supports.length === 2 &&
-              combatModule.v2Supports.every(
-                (x) =>
-                  x.owner === p &&
-                  !x.fired &&
-                  x.mesh.userData.supportPilot &&
-                  x.mesh.getObjectByName('armR'),
-              ),
-          );
-          v2TestTicks(300);
-          assert(combatModule.v2Supports.length === 0);
-          assert(
-            combatModule.combatEvents.history.some(
-              (x) => x.type === 'contact' && x.character === 'pilaf',
+            p.parts.combinedMechs.every(
+              (m) => m.parent === p.parts.torsoGroup && m.userData.supportPilot,
             ),
           );
+          v2TestTicks(300);
+          assert(!p.youth.form && e.hp < e.maxHp);
         });
       }
       test('再战和切换清理全部特殊能力 ' + def.id, () => {
@@ -707,17 +699,21 @@ export function register({
     };
     for (const index of [1, 4, 5, 6]) {
       const c = charactersModule.CHARACTERS[index];
-      test(c.id + ' 四轻四重独立动作', () => {
-        assert(c.combos.light.length === 4 && c.combos.heavy.length === 4);
+      test(c.id + ' 最终连招段数与独立动作', () => {
+        assert(
+          c.combos.light.length === c.youth.light.length &&
+            c.combos.heavy.length === c.youth.heavy.length,
+        );
         assert(c.combos.light.slice(1).every((a) => a.anim !== animationModule.ANIM[a.motion]));
       });
       test(c.id + ' 后续八段真实接触', () => {
         for (const type of ['light', 'heavy'])
-          for (let n = 0; n < 4; n++) {
+          for (let n = 0; n < c.combos[type].length; n++) {
             const [p, e] = v2Fixture(index, index, 0.65 * pScale(index));
             p.comboType = type;
             p.comboIdx = n - 1;
             p.comboTimer = n ? 1 : 0;
+            p.hitResult = n ? 'hit' : null;
             p.startAttack(type);
             v2TestTicks(150);
             assert(e.hp < e.maxHp, type + n + ' 无接触');
@@ -904,68 +900,47 @@ export function register({
           assert(!combatModule.combatIntersects(x, y, x.attack));
         }
     });
-    test('乌龙三形态不能背击或高差命中、无无敌且准确恢复', () => {
-      for (const form of ['bull', 'bat', 'robot']) {
-        const [p, e] = v2Fixture(11, 12, 0.8);
-        combatModule.switchForm(p, form);
-        p.v2.formTime = 5;
-        p.startAttack('light');
-        v2TestTicks(150);
-        assert(e.hp < e.maxHp, form + '无法攻击');
+    test('乌龙变化的攻击限制、无无敌与恢复', () => {
+      for (const form of ['ogre', 'bat']) {
+        const [p] = v2Fixture(11, 12, 0.8);
+        combatModule.setYouthBody(p, form);
+        p.youth.formTime = 0.1;
+        if (form === 'bat') assert(!p.startAttack('light') && !p.startThrow() && !p.startUlt());
         assert(p.invulnerable === 0);
-        combatModule.switchForm(p, form);
-        p.v2.formTime = 0.1;
         v2TestTicks(20);
-        assert(p.v2.form === 'pig' && !p.attack && p.v2.formCooldown > 0);
+        assert(!p.youth.form && p.youth.cooldowns[0] > 0);
       }
     });
-    test('机关炮台、地雷、碰撞、耐久与地形', () => {
-      const [p, e] = v2Fixture(9, 0, 3);
-      assert(
-        combatModule.deployDevice(
-          p,
-          {
-            name: '测试',
-          },
-          'turret',
-          1,
-        ),
-      );
-      const d = combatModule.v2Devices[0];
-      e.pos.copy(d.pos).add(new THREE.Vector3(0.8, 0, -0.4));
+    test('胶囊掩体真实耐久与移动阻挡', () => {
+      const [p, e] = v2Fixture(9, 0, 5);
+      p.startSpecial();
+      v2TestTicks(100);
+      const d = combatModule.youthEntities.find((x) => x.kind === 'cover');
+      assert(d && d.hp === 30);
+      e.pos.copy(d.pos).add(new THREE.Vector3(0.7, 0, 0));
       e.previousPos.copy(e.pos);
       e.facingAngle = -Math.PI / 2;
-      e.startAttack('heavy', {
-        down: true,
-      });
+      e.startAttack('heavy', { down: true });
       v2TestTicks(150);
-      assert(d.hp < 18, '攻击无法破坏装置');
-      combatModule.cleanupAbilities();
-      const b = matchModule.player.pos.clone();
-      combatModule.deployDevice(p, {}, 'mine', 0.5);
-      v2TestTicks(1);
-      assert(p.pos.distanceTo(combatModule.v2Devices[0]?.pos ?? b) > 0.3);
-      combatModule.cleanupAbilities();
-      const prop = worldModule.currentMap.destructibles.find((x) => !x.tile && !x.broken);
-      if (prop) {
-        p.pos.copy(prop.mesh.position);
-        p.pos.y = 0;
-        assert(!combatModule.deployDevice(p, {}, 'turret', 0));
-      }
+      assert(d.hp < 30, '攻击必须破坏掩体');
+      combatModule.cleanupYouthEntities();
+      assert(!combatModule.youthEntities.length);
     });
-    test('布尔玛部署后根据延迟位置防御等待火力', () => {
+    test('布尔玛烟幕冻结AI观察而不关闭碰撞', () => {
       const [p, e] = v2Fixture(9, 0, 2);
       matchModule.game.difficulty = 'hard';
-      combatModule.deployDevice(p, {}, 'turret', 1);
-      let guarded = false;
-      for (let n = 0; n < 90; n++) {
-        const x = aiModule.aiThink(p, e, matchModule.STEP);
-        guarded ||= !!x.block;
-      }
-      assert(guarded, '装置就位后仍无防守');
+      for (let n = 0; n < 90; n++) aiModule.aiThink(e, p, matchModule.STEP);
+      p.startSpecial({ down: true });
+      v2TestTicks(100);
+      e.pos.copy(p.pos);
+      const count = e.observations.length;
+      e.pos.x += 0.4;
+      for (let n = 0; n < 90; n++) aiModule.aiThink(e, p, matchModule.STEP);
+      assert(e.observations.length === count);
+      assert(combatModule.inYouthSmoke(e));
     });
-    test('饺子CPU在安全外缘施放而不在贴近时盲用束缚', () => {
-      for (const dist of [2, 3.2]) {
+    test('饺子CPU只在实际念力射程内施放', () => {
+      for (const dist of [2, 8]) {
         const [p, e] = v2Fixture(10, 0, dist);
         matchModule.game.difficulty = 'hard';
         aiModule.setCombatSeed(7129);
@@ -974,7 +949,7 @@ export function register({
           const x = aiModule.aiThink(p, e, matchModule.STEP);
           special ||= x.actions?.some((a) => a.type === 'special');
         }
-        assert(dist > 3 ? special : !special, '念力决策距离 ' + dist);
+        assert(dist < 3.6 ? special : !special, '念力决策距离 ' + dist);
       }
     });
     test('七新增必杀真实载荷均可造成实际接触', () => {
@@ -1000,68 +975,52 @@ export function register({
         }
       }
     });
-    test('饺子高手CPU使用真实念力命中确认衔接', () => {
+    test('饺子CPU的念力决策保留观察延迟', () => {
       const [p, e] = v2Fixture(10, 0, 2);
       matchModule.game.difficulty = 'hard';
-      p.startSpecial();
-      v2TestTicks(60);
-      let action;
-      for (let i = 0; i < 35; i++) {
-        const input = aiModule.aiThink(p, e, matchModule.STEP);
-        if (input.actions?.some((x) => x.type === 'blast')) {
-          action = input;
-          break;
-        }
-      }
-      assert(action, 'AI没有使用已发生的命中');
-      v2TestTicks(140, action);
+      for (let n = 0; n < 180; n++) aiModule.aiThink(p, e, matchModule.STEP);
       assert(
-        combatModule.combatEvents.history.some((x) => x.type === 'attack' && x.move === '洞洞波'),
+        p.lastDecision && p.lastDecision.decisionTime - p.lastDecision.observedTime >= 0.12 - 1e-9,
       );
     });
-    test('胶囊方向在起手提交，松开下键仍部署地雷', () => {
+    test('胶囊技能变体在起手提交', () => {
       const [p] = v2Fixture(9, 0, 5);
-      p.startSpecial({
-        down: true,
-      });
+      p.startSpecial({ down: true });
       p.lastInput = {};
       v2TestTicks(100);
-      assert(combatModule.v2Devices.length === 1 && combatModule.v2Devices[0].kind === 'mine');
+      assert(
+        combatModule.youthEntities.some((e) => e.kind === 'smoke') &&
+          !combatModule.youthEntities.some((e) => e.kind === 'cover'),
+      );
     });
-    test('念力连续保护、硬直结束、防御、无敌与脱身', () => {
+    test('念力三次控制衰减、免疫与脱身', () => {
       const [p, e] = v2Fixture(10, 0, 2);
-      p.startSpecial();
-      v2TestTicks(55);
-      assert(e.v2.controlTime > 0);
-      assert(
-        !combatModule.applyControl(p, e, {
-          control: 0.55,
-        }),
-      );
-      v2TestTicks(100);
-      assert(e.v2.controlTime === 0 && e.state !== 'hit');
-      e.v2.controlGrace = 0;
-      e.v2.controlChain = 1;
-      assert(
-        combatModule.applyControl(p, e, {
-          control: 0.48,
-        }),
-      );
-      assert(e.v2.controlTime === 0.24);
+      for (const duration of [0.48, 0.24, 0.12]) {
+        e.invulnerable = 0;
+        assert(combatModule.applyControl(p, e, { control: 0.48 }));
+        assert(Math.abs(e.v2.controlTime - duration) < 1e-8);
+      }
+      assert(!combatModule.applyControl(p, e, { control: 0.48 }));
       e.ki = 50;
       e.evade(p);
       assert(e.v2.controlTime === 0 && e.escapeCharges === 1);
+      v2TestTicks(500);
+      assert(e.youth.controlCount === 0);
     });
-    test('念力命中可实际衔接洞洞波且支付资源', () => {
+    test('念力与独立洞洞波均需真实接触和资源', () => {
       const [p, e] = v2Fixture(10, 0, 2);
       p.startSpecial();
-      v2TestTicks(60);
-      p.enqueue('blast');
+      v2TestTicks(120);
+      const hp = e.hp;
+      p.state = 'idle';
+      p.attack = null;
+      const ki = p.ki;
+      assert(p.startKiBlast() && p.ki < ki);
       v2TestTicks(170);
       assert(
-        combatModule.combatEvents.history.some((x) => x.type === 'attack' && x.move === '洞洞波'),
+        e.hp < hp &&
+          combatModule.combatEvents.history.some((x) => x.type === 'attack' && x.move === '洞洞波'),
       );
-      assert(e.maxHp - e.hp > 2 && p.ki < 70);
     });
     test('仙豆储备与地图仙豆叠加仍受生命上限限制', () => {
       const [p] = v2Fixture(12, 0, 5);
@@ -1071,8 +1030,7 @@ export function register({
         down: true,
       });
       v2TestTicks(170);
-      const own = Math.floor(p.maxHp * 0.12);
-      assert(p.v2.healTotal === own && p.v2.heals === 0);
+      assert(Math.abs(p.v2.healTotal - p.maxHp * 0.12) < 1e-8 && p.youth.heals === 0);
       const bean = worldModule.currentMap.senzus[0];
       bean.active = true;
       bean.x = p.pos.x;
@@ -1082,11 +1040,10 @@ export function register({
       v2TestTicks(1);
       assert(p.hp === p.maxHp && !bean.active);
       p.ki = 100;
-      p.v2.cooldown = 0;
-      p.startSpecial({
-        down: true,
-      });
-      assert(!p.attack && p.hp === p.maxHp);
+      p.youth.cooldowns[1] = 0;
+      const previousAttack = p.attack;
+      assert(!p.startSpecial({ down: true }));
+      assert(p.attack === previousAttack && p.hp === p.maxHp);
     });
     test('十次再战与切换后实体和特殊状态无累积', () => {
       for (let i = 0; i < 10; i++) {

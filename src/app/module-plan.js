@@ -1,5 +1,11 @@
+import { register as registerMusic } from '../audio/music.js';
 import { register as registerOnlineSession } from '../online/session.js';
 import { register as registerOnlineLobby } from '../online/lobby-ui.js';
+import { register as registerVictory } from '../match/victory.js';
+import { register as registerYouthMoves } from '../animation/youth-moves.js';
+import { register as registerYouthModels } from '../characters/youth-models.js';
+import { register as registerYouthProfiles } from '../characters/youth-profiles.js';
+import { register as registerYouthAbilities } from '../combat/youth-abilities.js';
 import { register as registerRenderScene } from '../render/scene.js';
 import { register as registerAudioSound } from '../audio/sound.js';
 import { register as registerAnimationPoses } from '../animation/poses.js';
@@ -334,10 +340,17 @@ export const modulePlan = [
     id: 'characters/frame-data',
     register: registerCharactersFrameData,
   },
+  { id: 'animation/youth-moves', register: registerYouthMoves },
+  { id: 'characters/youth-models', register: registerYouthModels },
+  { id: 'characters/youth-profiles', register: registerYouthProfiles },
+  { id: 'combat/youth-abilities', register: registerYouthAbilities },
+  { id: 'audio/music', register: registerMusic },
+  { id: 'match/victory', register: registerVictory },
   {
     id: 'training/character-practice',
     register: registerTrainingCharacterPractice,
   },
+  { id: 'testing/youth-regression', test: true },
   {
     id: 'testing/v2-regression',
     test: true,

@@ -13,37 +13,13 @@ export function register({
       const c =
           matchModule.player?.def ?? charactersModule.CHARACTERS[matchModule.game.selectedChar],
         body = trainingModule.table.querySelector('tbody');
-      const list = charactersModule
-        .characterMoveData(c)
-        .filter((a) => ['launcher', 'sweep', 'throw'].includes(a.id) || (a.id === 'ult' && !c.ult));
-      if (c.id === 'krillin')
-        list.push(
-          combatModule.finalizeMove({
-            id: 'kame',
-            name: '短蓄龟派气功 S+U',
-            startup: 0.48,
-            active: 0.16,
-            recovery: 0.62,
-            dmg: 27,
-            range: 6,
-            stun: 0.4,
-            blockstun: 0.13,
-            kiCost: 100,
-          }),
-        );
-      if (c.id === 'korin')
-        list.push(
-          combatModule.finalizeMove({
-            id: 'heal',
-            name: '仙豆储备 S+R（30）',
-            startup: 0.95,
-            active: 0.025,
-            recovery: 0.4,
-            dmg: 0,
-            stun: 0,
-            blockstun: 0,
-          }),
-        );
+      const list = c.youth
+        ? []
+        : charactersModule
+            .characterMoveData(c)
+            .filter(
+              (a) => ['launcher', 'sweep', 'throw'].includes(a.id) || (a.id === 'ult' && !c.ult),
+            );
       for (const a of list) {
         const row = document.createElement('tr');
         row.title =

@@ -562,6 +562,7 @@ export function register({
     }
   };
   combatModule.legalCancel = function legalCancel(f, a, q) {
+    if (a.terminal && ['light', 'heavy'].includes(q.type)) return false;
     if (q.type === 'light' && f.comboType === 'heavy') return false;
     if (q.type === 'light' && a.terminal) return false;
     if (q.type === 'heavy' && (q.context.up || q.context.down))

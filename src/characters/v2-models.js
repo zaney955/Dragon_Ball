@@ -419,9 +419,24 @@ export function register({ art: artModule, characters: charactersModule }) {
       0.08,
       0.05,
     );
-    charactersModule.box(p.handR, charactersModule.M(0x627780), 0, 0.015, 0.09, 0.13, 0.16, 0.16);
-    charactersModule.box(p.handR, charactersModule.M(0x2e3943), 0, 0.06, 0.2, 0.05, 0.055, 0.18);
-    p.gun = p.handR;
+    p.gun = new THREE.Group();
+    p.handR.add(p.gun);
+    charactersModule.box(p.gun, charactersModule.M(0x627780), 0, 0.015, 0.09, 0.13, 0.16, 0.16);
+    charactersModule.box(p.gun, charactersModule.M(0x2e3943), 0, 0.06, 0.2, 0.05, 0.055, 0.18);
+    p.bag = new THREE.Group();
+    p.handR.add(p.bag);
+    charactersModule.box(p.bag, charactersModule.M(0x95634a), 0, -0.27, 0.04, 0.28, 0.28, 0.14);
+    charactersModule.tube(
+      p.bag,
+      charactersModule.M(0xe8c5a0),
+      [
+        [-0.1, -0.14, 0.04],
+        [0, 0, 0.04],
+        [0.1, -0.14, 0.04],
+      ],
+      0.025,
+    );
+    p.bag.visible = false;
     return outlinedBody(b);
   };
   charactersModule.buildChiaotzu = function buildChiaotzu() {
@@ -526,49 +541,30 @@ export function register({ art: artModule, characters: charactersModule }) {
               torsoR: 0.2,
               headR: 0.24,
             }
-          : form === 'robot'
-            ? {
-                kind: 'robot',
-                hip: 1.17,
-                neck: 0.71,
-                shoulder: 0.48,
-                armY: 0.44,
-                upper: 0.43,
-                fore: 0.4,
-                legX: 0.24,
-                legY: 1.04,
-                thigh: 0.47,
-                shin: 0.48,
-                armR: 0.16,
-                handR: 0.19,
-                legR: 0.17,
-                torsoR: 0.38,
-                headR: 0.29,
-              }
-            : {
-                kind: 'pig',
-                hip: 0.74,
-                neck: 0.62,
-                shoulder: 0.25,
-                armY: 0.33,
-                upper: 0.24,
-                fore: 0.24,
-                legX: 0.16,
-                legY: 0.63,
-                thigh: 0.28,
-                shin: 0.28,
-                armR: 0.085,
-                handR: 0.09,
-                legR: 0.13,
-                torsoR: 0.28,
-                headR: 0.29,
-              };
+          : {
+              kind: 'pig',
+              hip: 0.74,
+              neck: 0.62,
+              shoulder: 0.25,
+              armY: 0.33,
+              upper: 0.24,
+              fore: 0.24,
+              legX: 0.16,
+              legY: 0.63,
+              thigh: 0.28,
+              shin: 0.28,
+              armR: 0.085,
+              handR: 0.09,
+              legR: 0.13,
+              torsoR: 0.28,
+              headR: 0.29,
+            };
     const b = anatomyRig(d),
       p = b.parts,
       s = charactersModule.M(form === 'bat' ? 0x7f748e : form === 'bull' ? 0x8e5935 : 0xefb38f),
-      cloth = charactersModule.M(form === 'robot' ? 0x829ba5 : 0xb5aa68),
+      cloth = charactersModule.M(0xb5aa68),
       black = charactersModule.M(0x333b42);
-    limbGeometry(p, cloth, s, d, form === 'robot');
+    limbGeometry(p, cloth, s, d, false);
     p.skull = simpleFace(p.head, s, d.headR, {
       noEars: true,
     });
@@ -663,14 +659,6 @@ export function register({ art: artModule, characters: charactersModule }) {
           0,
         );
       }
-    }
-    if (form === 'robot') {
-      charactersModule.box(p.torsoGroup, cloth, 0, 0.17, 0, 0.78, 0.8, 0.51);
-      charactersModule.box(p.head, cloth, 0, 0, 0, 0.59, 0.42, 0.42);
-      for (const sign of [-1, 1])
-        charactersModule.ball(p.head, charactersModule.M(0xffd65e), sign * 0.13, 0.02, 0.23, 0.055);
-      charactersModule.box(p.torsoGroup, black, 0, 0.2, 0.27, 0.48, 0.3, 0.05);
-      charactersModule.badge(p.torsoGroup, '!', 0, 0.2, 0.3, 0.13);
     }
     return outlinedBody(b);
   };

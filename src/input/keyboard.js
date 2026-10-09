@@ -23,22 +23,7 @@ export function register({ combat: combatModule, input: inputModule, match: matc
         e.preventDefault();
     });
     addEventListener('keyup', (e) => {
-      const held = inputModule.keys[e.code];
       inputModule.keys[e.code] = false;
-      if (
-        held &&
-        matchModule.game.screen === 'fight' &&
-        !matchModule.game.paused &&
-        !matchModule.game.over &&
-        matchModule.game.ready <= 0
-      ) {
-        const second = e.code === 'NumpadSubtract' && matchModule.game.difficulty === 'local',
-          f = second ? matchModule.enemy : matchModule.player;
-        if ((e.code === 'KeyF' || second) && f?.state !== 'blastCharge' && !f?.blastRejected)
-          (second ? inputModule.inputEdges2 : combatModule.inputEdges).push({
-            type: 'blast',
-          });
-      }
     });
     addEventListener('blur', () => {
       for (const k in inputModule.keys) inputModule.keys[k] = false;

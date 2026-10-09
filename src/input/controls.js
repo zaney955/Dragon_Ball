@@ -51,23 +51,8 @@ export function register({
     });
     for (const btn of document.querySelectorAll('[data-key]')) {
       const release = (e) => {
-        const held = inputModule.keys[btn.dataset.key];
         inputModule.keys[btn.dataset.key] = false;
         btn.classList.remove('held');
-        if (
-          held &&
-          btn.dataset.key === 'KeyF' &&
-          e.type === 'pointerup' &&
-          matchModule.game.screen === 'fight' &&
-          !matchModule.game.paused &&
-          !matchModule.game.over &&
-          matchModule.game.ready <= 0 &&
-          matchModule.player?.state !== 'blastCharge' &&
-          !matchModule.player?.blastRejected
-        )
-          combatModule.inputEdges.push({
-            type: 'blast',
-          });
       };
       btn.addEventListener('pointerdown', (e) => {
         e.preventDefault();
@@ -79,7 +64,7 @@ export function register({
           combatModule.inputEdges.push({
             type: combatModule.EDGE_KEYS[c],
             up: !!inputModule.keys.KeyW,
-            down: !!inputModule.keys.KeyS,
+            down: btn.dataset.variant === '1' || !!inputModule.keys.KeyS,
           });
         btn.classList.add('held');
         audioModule.initAudio();

@@ -15,11 +15,14 @@ export function register({
           specialAvailability: uiModule.specialAvailability,
           combatDiagnostics: matchModule.combatDiagnostics,
           getStats: matchModule.debugStats,
+          endGame: matchModule.endGame,
+          sampleCombatRig: combatModule.sampleCombatRig,
           resetStats() {
             matchModule.combatDiagnostics.rounds.length = 0;
           },
           updateExtraHUD: uiModule.updateExtraHUD,
           updateHUD: uiModule.updateHUD,
+          renderGameViews: renderModule.renderGameViews,
           neutralCombatPose: combatModule.neutralCombatPose,
           combatPose: combatModule.combatPose,
           capsuleDistanceSq: combatModule.capsuleDistanceSq,
@@ -39,6 +42,7 @@ export function register({
             combatModule.collectCombatHits();
             for (const h of matchModule.pendingHits) h.foe.takeHit(h.attacker, h.attack);
             combatModule.updateKiBlasts(matchModule.STEP);
+            combatModule.updateYouthEntities(matchModule.STEP);
             combatModule.updateV2Abilities(matchModule.STEP);
             combatModule.updateKiDiscs(matchModule.STEP);
             worldModule.updateSenzu(matchModule.STEP);

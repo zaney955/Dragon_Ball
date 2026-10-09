@@ -11,7 +11,8 @@ export function register({
     matchModule.messageUntil = performance.now() + seconds * 1000;
   };
   matchModule.setPaused = function setPaused(value) {
-    if (matchModule.game.screen !== 'fight' || matchModule.game.over) return;
+    if ((matchModule.game.screen !== 'fight' || matchModule.game.over) && !matchModule.victory)
+      return;
     matchModule.game.paused = value;
     if (value) combatModule.cancelKiHolds();
     if (matchModule.player) matchModule.player.clearQueue();

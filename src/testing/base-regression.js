@@ -369,7 +369,8 @@ export function register({
         charactersModule.CHARACTERS[3].combos.light[0].startup >
           charactersModule.CHARACTERS[0].combos.light[0].startup,
       );
-      assert(charactersModule.CHARACTERS[3].combos.heavy[2].armor);
+      assert(!charactersModule.CHARACTERS[3].combos.heavy[2].armor);
+      assert(charactersModule.CHARACTERS[3].skills[1].limitedArmor === 'light');
     });
     test('P0', '前摇不可命中', () => {
       const [p, e] = fresh();
@@ -424,6 +425,7 @@ export function register({
       const [p, e] = fresh();
       e.crouching = true;
       p.startAttack('light');
+      p.attack.level = 'high';
       p.stateTimer = p.attack.hitT;
       combatModule.sampleCombatRig(p);
       combatModule.sampleCombatRig(e);
@@ -562,10 +564,10 @@ export function register({
       step(1);
       assert(p.comboType === 'light');
     });
-    test('P0', '格挡取消只允许轻接重', () => {
+    test('P0', '格挡取消只允许继续轻击', () => {
       fresh();
       const a = matchModule.player.def.combos.light[0];
-      assert(a.cancelRules.block.length === 1 && a.cancelRules.block[0] === 'heavy');
+      assert(a.cancelRules.block.length === 1 && a.cancelRules.block[0] === 'light');
       assert(
         !combatModule.legalCancel(
           matchModule.player,
@@ -680,15 +682,14 @@ export function register({
     });
     test('P0', '霸体仅吸收一次并扣血', () => {
       const [p, e] = fresh(0, 3);
-      e.comboIdx = 1;
-      e.comboType = 'heavy';
-      e.comboTimer = 1;
-      e.startAttack('heavy');
+      e.ki = 100;
+      e.startSpecial({ down: true });
       const a = e.attack;
-      e.stateTimer = 0.1;
+      e.stateTimer = a.hitT;
       e.takeHit(
         p,
         combatModule.finalizeMove({
+          chainType: 'light',
           dmg: 4,
           kb: 1,
           stun: 0.3,
@@ -699,6 +700,7 @@ export function register({
       e.takeHit(
         p,
         combatModule.finalizeMove({
+          chainType: 'light',
           dmg: 4,
           kb: 1,
           stun: 0.3,
@@ -761,9 +763,9 @@ export function register({
       assert(!p.attack);
       p.ki = 100;
       p.startUlt();
-      assert(p.ki === 100 && p.attack.isUlt && !p.attack.costCommitted);
+      assert(p.ki === 0 && p.attack.isUlt && p.attack.costCommitted);
       step(100);
-      assert(p.ki === 0 && p.attack.costCommitted);
+      assert(p.ki < 5);
     });
     test('P0', '资源数值边界', () => {
       const [p] = fresh();
@@ -1224,14 +1226,14 @@ export function register({
         e.pos.x = dist;
         p.ki = 100;
         p.startUlt();
-        step(110);
+        step(Math.ceil((p.attack.hitT + p.attack.active) / matchModule.STEP) + 1);
         assert(e.receivedCombo === 4, '狼牙未形成四段：' + e.receivedCombo);
         assert(e.lastDamage > 0);
       }
     });
     test('P0', '狼牙超出突进距离正确空挥', () => {
       const [p, e] = fresh(6, 0);
-      e.pos.x = 6;
+      e.pos.x = 12;
       p.ki = 100;
       p.startUlt();
       step(250);
@@ -1311,11 +1313,11 @@ export function register({
         p.attack = null;
         p.ki = 100;
         p.startUlt();
-        shapes.add(p.attack.shape + ':' + p.attack.startup);
+        shapes.add(p.attack.motion);
         step(240);
         assert(p.state !== 'ult');
       }
-      assert(shapes.size >= 6);
+      assert(shapes.size >= 5);
     });
     test('P1', '越肩镜头绕背、空中高差保持有限且渐变', () => {
       const [, e] = fresh();

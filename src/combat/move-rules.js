@@ -215,6 +215,7 @@ export function register({
     combatModule.inputEdges = [];
     combatModule.EDGE_KEYS = {
       KeyR: 'special',
+      KeyF: 'blast',
       KeyJ: 'light',
       KeyK: 'heavy',
       KeyU: 'ult',

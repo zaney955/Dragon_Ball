@@ -49,13 +49,19 @@ export function register({
           continue;
         }
       }
-      const travel = kindTravel(b, dt);
+      const travel = b.returning ? b.speed * dt : kindTravel(b, dt);
       b.pos.addScaledVector(b.direction, travel);
       b.distance += travel;
       b.mesh.position.copy(b.pos);
       b.mesh.rotation.y += dt * (b.kind === 'blade' ? 22 : 3);
       const foe = b.owner === matchModule.player ? matchModule.enemy : matchModule.player;
-      if (foe && !b.hits.has(foe) && foe.invulnerable <= 0 && foe.hp > 0) {
+      if (combatModule.projectileHitsCover?.(b)) {
+        if (b.kind === 'blade') {
+          b.returning = true;
+          b.hits.clear();
+        } else b.life = 0;
+      }
+      if (b.life > 0 && foe && !b.hits.has(foe) && foe.invulnerable <= 0 && foe.hp > 0) {
         const body = combatModule.sampleCombatRig(foe),
           sweep = {
             a: b.previous.clone().add(foe.pos).sub(foe.previousPos),
@@ -68,6 +74,15 @@ export function register({
           )
         ) {
           b.hits.add(foe);
+          if (
+            body.hurt.some(
+              (tail) =>
+                tail.tag === 'tail' &&
+                tail.enabled &&
+                combatModule.capsuleDistanceSq(sweep, tail) < (b.r + tail.r) ** 2,
+            )
+          )
+            foe.youth.pendingTail = b.attack.serial;
           foe.takeHit(b.owner, b.attack);
           b.owner.hasHit = true;
           b.owner.hitResult = foe.lastHitText === '格挡' ? 'blocked' : 'hit';
@@ -78,8 +93,12 @@ export function register({
         worldModule.currentMap.destructibles.some(
           (x) => !x.tile && !x.broken && x.mesh.position.distanceTo(b.pos) < 0.6,
         )
-      )
-        b.life = 0;
+      ) {
+        if (b.kind === 'blade') {
+          b.returning = true;
+          b.hits.clear();
+        } else b.life = 0;
+      }
       if (
         b.life <= 0 ||
         (b.kind !== 'blade' && Number.isFinite(b.attack.range) && b.distance >= b.attack.range) ||
@@ -198,58 +217,6 @@ export function register({
       }
       if (s.life <= 0) combatModule.removeAbility(combatModule.v2Supports, s);
     }
-    for (const f of [matchModule.player, matchModule.enemy])
-      if (f?.v2.formSequence) {
-        const seq = f.v2.formSequence;
-        seq.time += dt;
-        if (seq.time >= seq.next && seq.index < 3) {
-          const form = ['bull', 'bat', 'robot'][seq.index];
-          combatModule.switchForm(f, form);
-          const motion = form === 'bull' ? 'pigBelly' : form === 'bat' ? 'pigSlap' : 'mechPunch';
-          f.attack = combatModule.finalizeMove({
-            id: 'transformUlt',
-            name: '变化奇袭·' + form,
-            isUlt: true,
-            costCommitted: true,
-            kiCost: 0,
-            ki: 0,
-            motion,
-            anim: animationModule.ANIM[motion],
-            shape: form === 'bull' ? 'ram' : undefined,
-            startup: 0.1,
-            active: 0.22,
-            recovery: 0.16,
-            dmg: form === 'bat' ? 3 : 14,
-            range: form === 'bull' ? 2.2 : form === 'bat' ? 1.05 : 2.1,
-            stun: 0.32,
-            kb: 1,
-            guardDamage: 15,
-            targetY: Math.min(
-              f.anatomy.hip + f.anatomy.armY + 0.25,
-              combatModule.stature(seq.foe) * 0.7,
-            ),
-            transformPhase: seq.index,
-          });
-          f.attack.serial = seq.serial;
-          f.state = 'ult';
-          f.stateTimer = 0;
-          f.attackMask = 0;
-          f.hasHit = false;
-          f.hitResult = null;
-          f.stageFired = false;
-          f.vel.copy(f.forward()).multiplyScalar(form === 'bat' ? 8 : 9);
-          seq.index++;
-          seq.next += 0.48;
-        }
-        if (seq.time > 1.6) {
-          f.v2.formSequence = null;
-          combatModule.switchForm(f, 'pig');
-          f.v2.formTime = 0;
-          f.v2.formCooldown = 2;
-          f.attack = null;
-          f.state = 'idle';
-        }
-      }
   };
   return function initialize() {
     v1UpdateAttack = combatModule.Fighter.prototype.updateAttack;
@@ -344,12 +311,6 @@ export function register({
           this.v2.formCooldown = 2.0;
           this.v2.formSequence = null;
         }
-        if (a.control > 0) combatModule.applyControl(attacker, this, a);
-        if (attacker.def.id === 'roshi' && a.isUlt && this.lastHitText !== '格挡')
-          combatModule.applyControl(attacker, this, {
-            ...a,
-            control: 0.45,
-          });
       }
       if (this.def.id === 'korin' && (this.parryCooldown ?? 0) > parryBefore)
         this.v2.intuition = 1.25;

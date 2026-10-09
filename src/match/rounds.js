@@ -65,6 +65,14 @@ export function register({
       matchModule.game.endReason === 'RING OUT'
         ? matchModule.game.ringWinner
         : matchModule.roundWinner(matchModule.player, matchModule.enemy);
+    const snapshots = [matchModule.player, matchModule.enemy].map((f) => ({
+      id: f.def.id,
+      form: f.youth.form,
+      tailIntact: f.youth.tailIntact,
+      hp: f.hp,
+      velocity: f.vel.toArray(),
+      velocityY: f.jumpVel,
+    }));
     recordRoundDiagnostics(matchModule.game.endReason, winner);
     matchModule.game.over = true;
     combatModule.cancelKiHolds();
@@ -79,11 +87,7 @@ export function register({
     if (winner !== 'draw') matchModule.game.wins[winner === 'player' ? 0 : 1]++;
     matchModule.game.matchFinished = matchModule.game.wins.some((x) => x >= 2);
     matchModule.game.lastWinner = winner;
-    const round = matchModule.game.round;
-    setTimeout(() => {
-      if (round === matchModule.game.round && matchModule.game.screen === 'over')
-        matchModule.showResult(winner);
-    }, 750);
+    matchModule.beginVictory(winner, snapshots);
   };
   matchModule.roundWinner = function roundWinner(p, e) {
     if (p.hp <= 0 || e.hp <= 0) return p.hp <= 0 ? (e.hp <= 0 ? 'draw' : 'enemy') : 'player';

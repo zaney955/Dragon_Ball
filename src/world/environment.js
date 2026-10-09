@@ -6,14 +6,21 @@ export function register({
   world: worldModule,
 }) {
   worldModule.daylight = function daylight(sky = 0x88ceef) {
+    const moon = matchModule.game?.lightPreset === 'moon';
     const warm = matchModule.game?.lightPreset === 'sunset';
-    renderModule.scene.background = warm ? worldModule.warmSkyBackdrop : combatModule.skyBackdrop;
-    renderModule.scene.fog = new THREE.Fog(warm ? 0xe4b883 : 0xb7d6d1, 46, 160);
+    renderModule.scene.background = moon
+      ? new THREE.Color(0x17253d)
+      : warm
+        ? worldModule.warmSkyBackdrop
+        : combatModule.skyBackdrop;
+    renderModule.scene.fog = new THREE.Fog(moon ? 0x293951 : warm ? 0xe4b883 : 0xb7d6d1, 46, 160);
     renderModule.hemi.color.set(warm ? 0xffd9a4 : 0xddeef4);
     renderModule.hemi.groundColor.set(0x526450);
-    renderModule.hemi.intensity = warm ? 0.7 : 0.85;
+    renderModule.hemi.intensity = moon ? 0.65 : warm ? 0.7 : 0.85;
+    if (worldModule.moon) worldModule.moon.visible = moon;
     renderModule.sun.color.set(warm ? 0xffbd76 : 0xffedcb);
-    renderModule.sun.intensity = warm ? 2.4 : 2.15;
+    renderModule.sun.intensity = moon ? 0.85 : warm ? 2.4 : 2.15;
+    if (moon) renderModule.sun.color.set(0xc1d9ff);
     renderModule.sun.position.set(warm ? -18 : -12, warm ? 14 : 23, 12);
     renderModule.rim.color.set(warm ? 0x9bb8cd : 0xb3dcff);
     renderModule.rim.intensity = 0.75;
@@ -59,6 +66,13 @@ export function register({
     return t;
   };
   return function initialize() {
+    worldModule.moon = new THREE.Mesh(
+      new THREE.SphereGeometry(2.7, 24, 18),
+      new THREE.MeshBasicMaterial({ color: 0xfff1c3 }),
+    );
+    worldModule.moon.position.set(-25, 27, -48);
+    worldModule.moon.visible = false;
+    renderModule.scene.add(worldModule.moon);
     worldModule.warmSkyBackdrop = (() => {
       const c = document.createElement('canvas');
       c.width = 8;

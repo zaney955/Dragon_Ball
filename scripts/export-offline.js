@@ -1,5 +1,5 @@
 import { build } from 'vite';
-import { mkdtemp, readFile, writeFile, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rm, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { resolve, dirname, extname, join } from 'node:path';
 
@@ -25,7 +25,16 @@ try {
   const script = html.match(/<script[^>]+src="([^"]+)"[^>]*><\/script>/);
   const stylesheet = html.match(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"[^>]*>/);
   if (!script || !stylesheet) throw new Error('Expected one bundled script and stylesheet');
-  const javascript = await readFile(resolve(scratch, script[1]), 'utf8');
+  let javascript = await readFile(resolve(scratch, script[1]), 'utf8');
+  for (const name of await readdir(join(scratch, 'assets'))) {
+    if (!name.endsWith('.mp3')) continue;
+    const bytes = await readFile(join(scratch, 'assets', name));
+    const embedded = 'data:audio/mpeg;base64,' + bytes.toString('base64');
+    javascript = javascript
+      .replaceAll('./assets/' + name, embedded)
+      .replaceAll('/assets/' + name, embedded)
+      .replaceAll(name, embedded);
+  }
   const cssPath = resolve(scratch, stylesheet[1]);
   let css = await readFile(cssPath, 'utf8');
   const assets = [...css.matchAll(/url\((['"]?)([^)'"\s]+)\1\)/g)];

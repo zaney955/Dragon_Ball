@@ -67,9 +67,11 @@
           <button data-key="KeyJ">轻击</button><button data-key="KeyK">重击</button
           ><button data-key="KeyL">格挡</button><button data-key="ShiftLeft">闪身</button
           ><button data-key="KeyU">必杀</button><button data-key="KeyI">聚气</button
-          ><button data-key="KeyF" aria-label="气弹：点按发射，长按蓄力后松开发射">气弹</button
+          ><button data-key="KeyF" aria-label="远程：按下发射">气弹</button
           ><button data-key="KeyE">追击</button><button data-key="KeyQ">残像</button
-          ><button data-key="KeyO">投技</button>
+          ><button data-key="KeyO">投技</button
+          ><button data-key="KeyR" id="primarySkill">技能</button
+          ><button data-key="KeyR" data-variant="1" id="secondarySkill">第二技能</button>
         </div>
       </div>
     </div>
@@ -208,6 +210,7 @@
               <div class="settingsContent">
                 <label
                   >光影<select id="lighting">
+                    <option value="moon">满月夜</option>
                     <option value="day">晴日</option>
                     <option value="sunset">暖夕</option>
                   </select></label
@@ -413,24 +416,23 @@
               <tr>
                 <td>I / U</td>
                 <td>
-                  聚气起势 0.25 秒，每秒恢复 15 气；站定且受击打断。满气必杀，远程必杀实际发射消耗
-                  100 气。
+                  聚气起势 0.25 秒，每秒恢复 15 气；站定且受击打断。满气必杀，必杀在发动时消耗 100
+                  资源。
                 </td>
               </tr>
               <tr>
                 <td>F / 2P 小键盘 −</td>
                 <td>
-                  点按发气弹消耗 5 气；长按 0.35～0.9 秒蓄力，松开发射消耗 12～20
-                  气。气不足时限制蓄力等级。实际发射扣气，打空也消耗；发射前被打断不扣气，可格挡和侧闪。
+                  按下发射对应气弹或装备；牛魔王、乌龙、猫仙人没有远程攻击。克林蓄力气功使用 S+R。
                 </td>
               </tr>
               <tr>
                 <td>Space / 2P 小键盘 0</td>
-                <td>按住升空、松开下降；消耗气力，持续时间有限。悟空使用筋斗云。</td>
+                <td>悟空使用筋斗云；天津饭、饺子、比克大魔王可短时舞空，其余角色跳跃。</td>
               </tr>
               <tr>
                 <td>R / 2P 小键盘 +</td>
-                <td>角色专属特殊技，消耗 30 气。</td>
+                <td>主技能 R；第二技能 S+R（2P ↓+小键盘+）。费用、条件、独立冷却见角色指南。</td>
               </tr>
               <tr>
                 <td>自由练习 / T</td>

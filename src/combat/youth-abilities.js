@@ -1,0 +1,1175 @@
+import * as THREE from 'three';
+export function register({ combat, characters, animation, match, render, world, ui, audio }) {
+  const foeOf = (f) => (f === match.player ? match.enemy : match.player);
+  const blockedStates = [
+    'dead',
+    'hit',
+    'knockdown',
+    'grabbed',
+    'guardbreak',
+    'blockstun',
+    'block',
+    'landing',
+  ];
+  combat.initYouthFighter = function (f) {
+    f.youth = {
+      cooldowns: [0, 0],
+      normalHeight: new THREE.Box3().setFromObject(f.root).getSize(new THREE.Vector3()).y,
+      form: null,
+      formTime: 0,
+      tailHits: 0,
+      tailSerials: new Set(),
+      tailIntact: true,
+      apeUsed: false,
+      heals: 1,
+      controlGrace: 0,
+      controlCount: 0,
+      wolfUntil: 0,
+      catUntil: 0,
+      armorSpent: false,
+      weapon: 'missile',
+      normalBody: null,
+    };
+  };
+  combat.skillAvailability = function (f, variant = 0, { cancel = false } = {}) {
+    const s = f.def.skills[variant],
+      v = f.youth;
+    let reason = '';
+    const reverting =
+      f.def.id === 'oolong' &&
+      v.form &&
+      (s.ability === v.form || (s.ability === 'ogre' && v.form === 'ogre'));
+    if (f.hp <= 0 || blockedStates.includes(f.state) || (!cancel && f.attack))
+      reason = '等待行动恢复';
+    else if (v.form === 'ape' || v.form === 'combined' || (v.form === 'bat' && !reverting))
+      reason = '当前形态不可发动';
+    else if (reverting)
+      return { available: true, reason: '恢复本体', cost: 0, skill: s, reverting: true };
+    else if (v.cooldowns[variant] > 0) reason = '冷却 ' + v.cooldowns[variant].toFixed(1) + 's';
+    else if (f.ki < s.kiCost) reason = '资源不足';
+    else if (s.ability === 'ape' && match.game.lightPreset !== 'moon') reason = '需要满月夜';
+    else if (s.ability === 'ape' && f.hp / f.maxHp > 0.25) reason = '生命需不高于25%';
+    else if (s.ability === 'ape' && (v.apeUsed || !v.tailIntact)) reason = '本回合已变身';
+    else if (['ape', 'muscle', 'fourArms', 'ogre', 'bat', 'armor'].includes(s.ability) && v.form)
+      reason = '已有形态';
+    else if (
+      ['ape', 'muscle', 'fourArms', 'ogre', 'bat', 'cover', 'heal'].includes(s.ability) &&
+      f.pos.y > 0.1
+    )
+      reason = '需要站在地面';
+    else if (s.ability === 'heal' && (v.heals <= 0 || f.hp >= f.maxHp))
+      reason = v.heals <= 0 ? '仙豆已用完' : '生命已满';
+    else if (s.ability === 'blade' && f.v2.bladeOut) reason = '飞刃回收中';
+    else if (
+      s.ability === 'demon' &&
+      combat.youthEntities.some((e) => e.owner === f && e.kind === 'demon')
+    )
+      reason = '手下已在场';
+    else if (
+      s.ability === 'cover' &&
+      combat.youthEntities.some((e) => e.owner === f && e.kind === 'cover')
+    )
+      reason = '掩体已在场';
+    return { available: !reason, reason: reason || '可发动', cost: s.kiCost, skill: s };
+  };
+  combat.setYouthBody = function (f, form) {
+    const v = f.youth;
+    if (!form) {
+      if (v.normalBody) {
+        render.scene.remove(f.root);
+        world.disposeGroup(f.root);
+        Object.assign(f, v.normalBody);
+        v.normalBody = null;
+        render.scene.add(f.root);
+      }
+      v.form = null;
+      v.formTime = 0;
+      f.combatRig = null;
+      f.kiVisual = null;
+      return;
+    }
+    if (v.normalBody) combat.setYouthBody(f, null);
+    v.normalBody = {
+      root: f.root,
+      parts: f.parts,
+      anatomy: f.anatomy,
+      baseScale: f.baseScale,
+      materials: f.materials,
+    };
+    render.scene.remove(f.root);
+    combat.stopChargeSound(f);
+    render.stopUltSound(f);
+    const body =
+      form === 'ape'
+        ? characters.buildGreatApe()
+        : form === 'ogre'
+          ? characters.buildOgre()
+          : form === 'bat'
+            ? characters.buildOolong('bat')
+            : characters.addYouthForm(f.def.buildBody(), form);
+    if (form === 'ape') {
+      v.normalBody.root.updateMatrixWorld(true);
+      body.root.updateMatrixWorld(true);
+      const humanHeight = v.normalHeight;
+      const factor =
+        (humanHeight * 2.2) /
+        new THREE.Box3().setFromObject(body.root).getSize(new THREE.Vector3()).y;
+      body.root.traverse((o) => {
+        o.position.multiplyScalar(factor);
+        if (o.isMesh) o.geometry.scale(factor, factor, factor);
+      });
+      for (const key of Object.keys(body.parts.anatomy))
+        if (typeof body.parts.anatomy[key] === 'number') body.parts.anatomy[key] *= factor;
+      body.parts.restTorsoY = body.parts.anatomy.hip;
+      v.apeScale = factor;
+    }
+    f.root = body.root;
+    f.parts = body.parts;
+    f.anatomy = body.parts.anatomy ?? null;
+    f.baseScale = body.root.scale.x;
+    f.combatRig = null;
+    f.kiVisual = null;
+    f.materials = [];
+    const mats = new Set();
+    f.root.traverse((o) => {
+      if (o.material?.isMeshToonMaterial) mats.add(o.material);
+    });
+    for (const m of mats)
+      f.materials.push({ m, em: m.emissive.clone(), intensity: m.emissiveIntensity });
+    f.root.position.copy(f.pos);
+    f.root.rotation.y = f.facingAngle;
+    render.scene.add(f.root);
+    v.form = form;
+    f.flightMode = false;
+    f.jumpVel = 0;
+  };
+  combat.endYouthForm = function (f, recovery = true) {
+    const v = f.youth,
+      old = v.form;
+    if (!old) return;
+    combat.setYouthBody(f, null);
+    if (['ogre', 'bat'].includes(old)) {
+      v.cooldowns[0] = v.cooldowns[1] = 3;
+    }
+    f.attack = null;
+    f.comboType = null;
+    f.comboTimer = 0;
+    f.clearQueue();
+    if (recovery && f.hp > 0) {
+      f.state = 'landing';
+      f.stunTime = old === 'ape' ? 0.5 : 0.12;
+      f.stateTimer = 0;
+    }
+  };
+  function launch(f, a, type = 'attack') {
+    const actualFoe = foeOf(f),
+      hidden = combat.inYouthSmoke(f) || combat.inYouthSmoke(actualFoe),
+      seen = hidden ? (f.isAI ? f.observations?.at(-1) : f.youth.lastSeen) : null,
+      foe = seen
+        ? {
+            pos: new THREE.Vector3(seen.x, seen.y, seen.z),
+            baseScale: actualFoe.baseScale,
+            anatomy: actualFoe.anatomy,
+          }
+        : hidden
+          ? null
+          : actualFoe,
+      entry = animation.cloneCombatPose(combat.combatPose(f));
+    if (seen) f.facingAngle = Math.atan2(seen.x - f.pos.x, seen.z - f.pos.z);
+    let tailAim = null;
+    if (!hidden && actualFoe?.youth.form === 'ape' && !a.isThrow) {
+      const rear = f.pos.clone().sub(actualFoe.pos);
+      if (rear.dot(actualFoe.forward()) < -0.3) {
+        const tails = combat
+          .sampleCombatRig(actualFoe)
+          .hurt.filter((h) => h.tag === 'tail' && h.enabled);
+        const center = tails
+          .map((h) => h.a.clone().add(h.b).multiplyScalar(0.5))
+          .sort((a, b) => a.distanceToSquared(f.pos) - b.distanceToSquared(f.pos))[0];
+        if (f.pos.distanceTo(center) < 2.8) {
+          tailAim = center;
+          f.facingAngle = Math.atan2(center.x - f.pos.x, center.z - f.pos.z);
+        }
+      }
+    }
+    f.attack = combat.finalizeMove({
+      ...a,
+      targetDistance: tailAim
+        ? Math.hypot(tailAim.x - f.pos.x, tailAim.z - f.pos.z)
+        : foe?.pos.distanceTo(f.pos),
+      targetScale: foe?.baseScale ?? f.baseScale,
+      targetY:
+        tailAim?.y ??
+        (foe
+          ? Math.min(
+              foe.pos.y + combat.stature(foe) * 0.7,
+              f.pos.y + (f.anatomy ? f.anatomy.hip + f.anatomy.armY : 1.71 * f.baseScale) + 0.35,
+            )
+          : 1),
+      isYouth: true,
+    });
+    if (a.chainType && f.anatomy && f.anatomy.upper + f.anatomy.fore < 0.7)
+      f.attack.drive = (a.drive ?? 2.5) + 2;
+    if (a.chainType && !f.anatomy && foe && combat.stature(foe) < combat.stature(f) * 0.75)
+      f.attack.drive = (a.drive ?? 2.5) + 0.65;
+    if (a.chainType && a.effector === 'torso') f.attack.drive = (a.drive ?? 3) + 2;
+    if (a.chainType && f.def.id === 'krillin' && a.chainType === 'light')
+      f.attack.drive = (a.drive ?? 2.5) + 1.5;
+    if (a.chainType && a.effector === 'axe' && a.motion === 'axeSweep') f.attack.drive = 0;
+    f.attackMask = 0;
+    f.hasHit = false;
+    f.hitResult = null;
+    f.armorSpent = false;
+    f.state = type;
+    f.stateTimer = 0;
+    f.stageFired = false;
+    f.vel.copy(f.forward()).multiplyScalar(f.attack.drive ?? 0);
+    combat.beginMoveEvent(f, entry);
+    return true;
+  }
+  combat.startYouthAttack = function (f, type, input = {}) {
+    if (f.youth.form === 'bat') return false;
+    let list = f.def.combos[type];
+    if (f.youth.form === 'ape')
+      list = (
+        type === 'light'
+          ? [
+              ['横拍', 'claw', 8, 0.25],
+              ['反手扫', 'backClaw', 12, 0.35],
+            ]
+          : [
+              ['砸地', 'doublePalm', 18, 0.55],
+              ['踩踏', 'heavyKick', 24, 0.65],
+            ]
+      ).map(([name, motion, dmg, startup], i) => {
+        const a = combat.finalizeMove({
+          id: type[0] + (i + 1),
+          name,
+          motion,
+          dmg,
+          startup,
+          active: 0.12,
+          recovery: type === 'light' ? 0.35 : 0.7,
+          range: type === 'light' ? 2.6 : 3.2,
+          stun: 0.4,
+          kb: 3,
+          guardDamage: 22,
+          chainType: type,
+          chainIndex: i,
+          terminal: i === 1,
+          authored: true,
+          effector: animation.youthEffector(motion, i, 'goku'),
+          cancelRules: { hit: i === 0 ? [type] : [], block: [], whiff: [] },
+        });
+        a.anim = animation.authorYouthMove(f.def, a, i);
+        return a;
+      });
+    const idx =
+      f.comboType === type && f.comboTimer > 0 ? Math.min(f.comboIdx + 1, list.length - 1) : 0;
+    let a = { ...list[idx] };
+    if (type === 'heavy' && (input.up || input.down) && f.youth.form !== 'ape')
+      a = { ...f.def.directionMoves[input.up ? 0 : 1] };
+    if (
+      f.def.id === 'tien' &&
+      type === 'heavy' &&
+      idx > 0 &&
+      (f.hitResult !== 'hit' || foeOf(f).pos.distanceTo(f.pos) > a.range + 0.35)
+    )
+      return false;
+    if (f.pos.y > 0.15) a.level = 'overhead';
+    if (f.youth.form === 'muscle' && type === 'heavy') a.dmg *= 1.15;
+    if (f.youth.form === 'fourArms') a.dmg *= 1.1;
+    if (f.youth.catUntil > match.game.simTime && type === 'light') {
+      a = { ...a, name: '短杖反敲', motion: 'caneTap', dmg: 8, effector: 'cane' };
+      a.anim = animation.authorYouthMove(f.def, a, 0);
+      f.youth.catUntil = 0;
+    }
+    f.comboType = type;
+    f.comboIdx = idx;
+    f.comboTimer = a.dur + 0.25;
+    return launch(f, a);
+  };
+  combat.startYouthSpecial = function (f, context = {}) {
+    const variant = context.down || context.variant === 1 ? 1 : 0;
+    if (f.def.id === 'yamcha' && variant === 0 && f.youth.wolfUntil > match.game.simTime) {
+      f.youth.wolfUntil = 0;
+      const a = {
+        ...f.def.skills[0],
+        name: '狼牙终掌',
+        dmg: 6,
+        hits: undefined,
+        ability: undefined,
+        motion: 'doublePalm',
+        effector: 'both',
+        active: 0.1,
+        startup: 0.12,
+        kiCost: 0,
+      };
+      a.anim = animation.authorYouthMove(f.def, a);
+      return launch(f, a);
+    }
+    const info = combat.skillAvailability(f, variant, { cancel: !!f.attack });
+    if (!info.available) {
+      if (!f.isAI && !match.game.manualTest)
+        match.notify(info.skill.name + ' · ' + info.reason, 0.7);
+      return false;
+    }
+    if (info.reverting) {
+      combat.endYouthForm(f);
+      return true;
+    }
+    const a = { ...info.skill };
+    if (f.def.id === 'goku' && variant === 0 && context.up) {
+      a.name = '如意挑空';
+      a.launch = 5.7;
+      a.stun = 0.55;
+    }
+    f.ki -= a.kiCost;
+    f.youth.cooldowns[variant] = a.cooldown;
+    f.comboType = null;
+    f.comboTimer = 0;
+    launch(f, a);
+    combat.emitCombatEvent('kiSpent', f, null, f.attack, { remaining: f.ki });
+    if (!match.game.manualTest) match.notify(a.name + ' · ' + a.kiCost + ' ' + f.def.resource, 0.7);
+    return true;
+  };
+  combat.startYouthUlt = function (f) {
+    if (
+      f.hp <= 0 ||
+      blockedStates.includes(f.state) ||
+      f.ki < 100 ||
+      ['ape', 'bat', 'combined'].includes(f.youth.form)
+    )
+      return false;
+    f.ki -= 100;
+    const a = { ...f.def.ult, costCommitted: true };
+    if (a.lifeCost) f.hp = Math.max(1, f.hp - f.maxHp * a.lifeCost);
+    f.comboType = null;
+    f.comboTimer = 0;
+    f.clearQueue();
+    launch(f, a, 'ult');
+    combat.emitCombatEvent('kiSpent', f, null, f.attack, { remaining: f.ki });
+    if (!f.anatomy) render.castUltVisual(f, f.def);
+    render.sfxUlt(f);
+    if (!match.game.manualTest) match.notify(f.def.ultName, 1);
+    return true;
+  };
+  function moveBy(f, delta) {
+    const before = f.pos.clone();
+    f.pos.add(delta);
+    f.clampPos();
+    for (const e of combat.youthEntities.filter((e) => e.kind === 'cover')) {
+      if (f.pos.distanceTo(e.pos) < 0.7) f.pos.copy(before);
+    }
+    combat.resolveOverlap();
+  }
+  function shoot(f, a, kind = 'psychic', damage = a.dmg, delay = 0) {
+    combat.newProjectile(
+      f,
+      { ...a, dmg: damage, control: 0, shape: undefined, ability: undefined },
+      kind,
+      {
+        speed: kind === 'missile' ? 10 : 18,
+        life: Math.max(0.6, a.range / (kind === 'missile' ? 10 : 18) + 0.02),
+        radius: kind === 'missile' ? 0.13 : 0.09,
+        delay,
+      },
+    );
+  }
+  function entity(f, kind, life, hp, mesh, pos) {
+    render.scene.add(mesh);
+    mesh.position.copy(pos);
+    const e = {
+      owner: f,
+      kind,
+      life,
+      hp,
+      mesh,
+      pos: pos.clone(),
+      hits: new Set(),
+      attackTime: 1.2,
+      warning: 0,
+    };
+    combat.youthEntities.push(e);
+    return e;
+  }
+  combat.releaseYouthAbility = function (f, a) {
+    const v = f.youth,
+      foe = foeOf(f),
+      kind = a.ability;
+    if (a.shape === 'beam' && !a.isUlt) {
+      const hit = combat.sampleCombatRig(f).hit[0],
+        length = hit.a.distanceTo(hit.b),
+        dir = hit.b.clone().sub(hit.a).normalize();
+      const mesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(a.width ?? 0.12, a.width ?? 0.12, length, 12),
+        render.energyMat(combat.kiColor(f), 0.8),
+      );
+      mesh.position.copy(hit.a).add(hit.b).multiplyScalar(0.5);
+      mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+      render.scene.add(mesh);
+      render.effects.push({ mesh, life: a.active, maxLife: a.active, type: 'beam' });
+    }
+    if (!kind) return;
+    if (kind === 'equipment') {
+      const k = a.equipment;
+      combat.newProjectile(f, a, k, {
+        speed: k === 'missile' ? 10 : k === 'flame' ? 7 : 18,
+        life: k === 'flame' ? 0.36 : Math.max(0.6, a.range / (k === 'missile' ? 10 : 18) + 0.02),
+        radius: k === 'flame' ? 0.3 : k === 'missile' ? 0.13 : 0.075,
+      });
+    }
+    if (kind === 'ape') {
+      v.apeUsed = true;
+      combat.setYouthBody(f, 'ape');
+      v.formTime = 10;
+    }
+    if (kind === 'muscle' || kind === 'fourArms') {
+      combat.setYouthBody(f, kind);
+      v.formTime = 8;
+    }
+    if (kind === 'ogre' || kind === 'bat') {
+      combat.setYouthBody(f, kind);
+      v.formTime = kind === 'ogre' ? 5 : 3;
+    }
+    if (kind === 'heal') {
+      const healed = Math.min(f.maxHp - f.hp, f.maxHp * 0.12);
+      f.hp += healed;
+      v.heals--;
+      f.v2.heals = v.heals;
+      f.v2.healTotal += healed;
+      combat.emitCombatEvent('selfHeal', f, null, a, { healed });
+      ui.popDamage(
+        f.pos.clone().add(new THREE.Vector3(0, 1.5, 0)),
+        Math.round(healed),
+        '#c6ff9f',
+        true,
+      );
+    }
+    if (kind === 'weapon') {
+      v.weapon = v.weapon === 'missile' ? 'flame' : 'missile';
+      f.v2.mode = v.weapon;
+    }
+    if (kind === 'armor') {
+      v.form = 'armor';
+      v.formTime = 3;
+      v.armorSpent = false;
+    }
+    if (kind === 'retreat') f.youth.retreat = { time: 0.2, remaining: 1.2 };
+    if (kind === 'sidestep' || kind === 'catStep') {
+      const side = f.lastInput?.left ? -1 : 1;
+      moveBy(
+        f,
+        new THREE.Vector3(Math.cos(f.facingAngle), 0, -Math.sin(f.facingAngle)).multiplyScalar(
+          1.2 * side,
+        ),
+      );
+      if (kind === 'catStep') {
+        f.invulnerable = Math.max(f.invulnerable, 0.075);
+        v.catUntil = match.game.simTime + 0.35;
+      }
+      combat.spawnAfterimage(f);
+    }
+    if (kind === 'floatRetreat') {
+      v.floatTime = 0.5;
+      v.floatRemaining = 1.2;
+    }
+    if (kind === 'blade') {
+      f.v2.bladeOut = true;
+      combat.newProjectile(f, { ...a, control: 0 }, 'blade', {
+        speed: 10,
+        life: 2.1,
+        radius: 0.14,
+      });
+    }
+    if (kind === 'solar' && foe) {
+      const delta = foe.pos.clone().sub(f.pos),
+        dist = delta.length();
+      delta.normalize();
+      if (
+        dist <= 3 &&
+        f.forward().dot(delta) > 0.5 &&
+        foe.forward().dot(delta.clone().negate()) > 0.25 &&
+        !combat.coverBlocks(f.pos, foe.pos)
+      ) {
+        combat.applyControl(f, foe, a);
+        render.spawnShockRing(f.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xfff5bd, 1.8);
+      }
+    }
+    if (kind === 'demon') {
+      const pos = f.pos.clone().addScaledVector(f.forward(), 0.9);
+      const b = characters.buildDemon();
+      entity(f, 'demon', 6, 24, b.root, pos);
+      const egg = new THREE.Mesh(new THREE.SphereGeometry(0.2, 10, 8), characters.M(0xe3dcc6));
+      entity(f, 'egg', 0.4, 0, egg, pos.clone().add(new THREE.Vector3(0, 1.1, 0)));
+    }
+    if (kind === 'cover') {
+      const mesh = new THREE.Group();
+      characters.box(mesh, characters.M(0x6c8c85), 0, 0.6, 0, 1.1, 1.2, 0.35);
+      characters.box(mesh, characters.M(0xe5cba1), 0, 1.23, 0, 1.2, 0.08, 0.45);
+      entity(f, 'cover', 8, 30, mesh, f.pos.clone().addScaledVector(f.forward(), 1.2));
+    }
+    if (kind === 'smoke') {
+      const mesh = new THREE.Group();
+      for (let i = 0; i < 7; i++)
+        characters.ball(
+          mesh,
+          characters.M(0xbbb8bd, { transparent: true, opacity: 0.27 }),
+          Math.cos(i) * 0.8,
+          0.6 + (i % 3) * 0.4,
+          Math.sin(i) * 0.8,
+          0.75,
+        );
+      entity(f, 'smoke', 3, 0, mesh, f.pos.clone().addScaledVector(f.forward(), 1.2));
+    }
+    if (kind === 'helmetCombo') shoot(f, { ...a, range: 8 }, 'helmet', 26, 0.12);
+    if (kind === 'barrage') {
+      for (let i = 0; i < 4; i++) shoot(f, a, 'bullet', 7, i * 0.12);
+    }
+    if (kind === 'psychicVolley') {
+      for (let i = 0; i < 3; i++) shoot(f, { ...a, range: 8 }, 'psychic', 8, 0.12 + i * 0.12);
+    }
+    if (kind === 'trial') {
+      combat.spawnAfterimage(f);
+      if (!f.parts.trialWater) {
+        const water = new THREE.Group();
+        characters.ball(water, characters.M(0xb89065), 0, 0, 0, 0.12, [1, 1.2, 1]);
+        f.parts.handL.add(water);
+        f.parts.trialWater = water;
+      }
+    }
+    if (kind === 'shapeRush') {
+      combat.setYouthBody(f, 'ogre');
+      v.formTime = 3;
+      v.rushTime = 0;
+    }
+    if (kind === 'combine') {
+      combat.setYouthBody(f, 'combined');
+      v.formTime = 3;
+      shoot(f, { ...a, range: 8 }, 'missile', 10, 0);
+      shoot(f, { ...a, range: 8 }, 'missile', 10, 0.12);
+    }
+  };
+  combat.coverBlocks = function (from, to) {
+    const segment = to.clone().sub(from),
+      len = segment.lengthSq();
+    return combat.youthEntities.some((e) => {
+      if (e.kind !== 'cover' || e.hp <= 0) return false;
+      const k = Math.max(
+        0,
+        Math.min(1, e.pos.clone().sub(from).dot(segment) / Math.max(0.001, len)),
+      );
+      const at = from.clone().addScaledVector(segment, k);
+      return at.y < 1.3 && Math.hypot(at.x - e.pos.x, at.z - e.pos.z) < 0.65;
+    });
+  };
+  combat.projectileHitsCover = function (b) {
+    for (const e of combat.youthEntities) {
+      if (e.kind !== 'cover' || e.hp <= 0) continue;
+      const h = {
+        a: e.pos.clone().add(new THREE.Vector3(0, 0.1, 0)),
+        b: e.pos.clone().add(new THREE.Vector3(0, 1.2, 0)),
+        r: 0.4,
+      };
+      if (combat.capsuleDistanceSq({ a: b.previous, b: b.pos, r: b.r }, h) < (b.r + h.r) ** 2) {
+        if (!e.hits.has(b)) {
+          e.hp -= b.attack.dmg;
+          e.hits.add(b);
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+  combat.inYouthSmoke = function (f) {
+    return combat.youthEntities.some(
+      (e) => e.kind === 'smoke' && Math.hypot(f.pos.x - e.pos.x, f.pos.z - e.pos.z) < 1.8,
+    );
+  };
+  combat.tickYouthFighter = function (f, dt) {
+    const v = f.youth;
+    if (!v) return;
+    if (v.form === 'combined' && !f.attack) combat.endYouthForm(f, false);
+    v.cooldowns = v.cooldowns.map((t) => Math.max(0, t - dt));
+    if (v.controlGrace > 0) {
+      v.controlGrace = Math.max(0, v.controlGrace - dt);
+      if (v.controlGrace === 0) v.controlCount = 0;
+    }
+    if (v.formTime > 0) {
+      v.formTime -= dt;
+      if (v.form === 'muscle' || v.form === 'fourArms')
+        f.ki = Math.max(0, f.ki - dt * (v.form === 'muscle' ? 5 : 4));
+      if (v.formTime <= 0 || (['muscle', 'fourArms'].includes(v.form) && f.ki <= 0))
+        combat.endYouthForm(f);
+    }
+    if (v.form === 'bat' && !blockedStates.includes(f.state)) {
+      f.pos.y = 0.8;
+      f.jumpVel = 0;
+    }
+    if (v.floatTime > 0) {
+      const d = Math.min(dt, v.floatTime);
+      f.pos.y = Math.min(0.8, f.pos.y + d * 1.6);
+      f.jumpVel = 0;
+      moveBy(f, f.forward().multiplyScalar((-v.floatRemaining * d) / v.floatTime));
+      v.floatRemaining *= 1 - d / v.floatTime;
+      v.floatTime -= d;
+    }
+    if (v.retreat) {
+      const d = Math.min(dt, v.retreat.time);
+      moveBy(f, f.forward().multiplyScalar((-v.retreat.remaining * d) / v.retreat.time));
+      v.retreat.remaining *= 1 - d / v.retreat.time;
+      v.retreat.time -= d;
+      if (v.retreat.time <= 0) v.retreat = null;
+    }
+    if (
+      v.form === 'combined' &&
+      f.attack?.isUlt &&
+      f.stateTimer >= f.attack.hitT + 1.25 &&
+      f.stateTimer < f.attack.hitT + 1.55
+    )
+      f.vel.copy(f.forward()).multiplyScalar(8);
+    if (v.rushTime != null && f.attack?.ability === 'shapeRush') {
+      v.rushTime += dt;
+      const form = v.rushTime < 0.35 ? 'ogre' : v.rushTime < 0.7 ? 'bat' : null;
+      if (v.form !== form) {
+        const time = v.formTime;
+        combat.setYouthBody(f, form);
+        v.formTime = time;
+      }
+      if (v.rushTime >= 0.7) {
+        v.rushTime = null;
+      }
+    }
+  };
+  combat.cleanupYouthEntities = function (owner = null) {
+    for (const e of [...combat.youthEntities])
+      if (!owner || e.owner === owner) {
+        render.scene.remove(e.mesh);
+        world.disposeGroup(e.mesh);
+        combat.youthEntities.splice(combat.youthEntities.indexOf(e), 1);
+      }
+  };
+  combat.updateYouthEntities = function (dt) {
+    for (const e of [...combat.youthEntities]) {
+      e.life -= dt;
+      const foe = foeOf(e.owner);
+      if (e.kind === 'demon' && foe) {
+        e.attackTime -= dt;
+        const delta = foe.pos.clone().sub(e.pos);
+        delta.y = 0;
+        const dist = delta.length();
+        e.mesh.rotation.y = Math.atan2(delta.x, delta.z);
+        if (dist > 1.2) e.pos.addScaledVector(delta.normalize(), Math.min(dist - 1.2, dt * 2));
+        e.mesh.position.copy(e.pos);
+        if (dist < 3 && e.attackTime <= 0) {
+          e.warning += dt;
+          e.mesh.scale.setScalar(1 + Math.sin(e.warning * 20) * 0.08);
+          if (e.warning >= 0.3) {
+            const attacker = {
+              ...e.owner,
+              pos: e.pos,
+              forward: () => delta.clone().normalize(),
+              attack: null,
+            };
+            if (dist < 1.8)
+              foe.takeHit(
+                attacker,
+                combat.finalizeMove({
+                  id: 'demonPounce',
+                  dmg: 6,
+                  stun: 0.25,
+                  kb: 1,
+                  guardDamage: 8,
+                  ki: 0,
+                  serial: ++combat.combatEvents.serial,
+                  level: 'mid',
+                }),
+              );
+            e.attackTime = 1.5;
+            e.warning = 0;
+            e.mesh.scale.setScalar(1);
+          }
+        }
+      }
+      if (e.kind === 'cover' || e.kind === 'demon') {
+        for (const f of [match.player, match.enemy]) {
+          const a = f?.attack;
+          if (
+            !a ||
+            e.hits.has(a.serial) ||
+            f.stateTimer < a.hitT ||
+            f.stateTimer > a.hitT + a.active ||
+            (e.kind === 'demon' && f === e.owner)
+          )
+            continue;
+          const r = combat.sampleCombatRig(f),
+            body = {
+              a: e.pos.clone().add(new THREE.Vector3(0, 0.1, 0)),
+              b: e.pos.clone().add(new THREE.Vector3(0, e.kind === 'cover' ? 1.2 : 1.5, 0)),
+              r: 0.4,
+            };
+          if (
+            r.hit.some((h) => h.enabled && combat.capsuleDistanceSq(h, body) < (h.r + body.r) ** 2)
+          ) {
+            e.hits.add(a.serial);
+            e.hp -= a.dmg;
+          }
+        }
+        for (const b of [...combat.v2Projectiles])
+          if (e.kind === 'demon' && b.owner !== e.owner) {
+            const body = {
+              a: e.pos.clone().add(new THREE.Vector3(0, 0.1, 0)),
+              b: e.pos.clone().add(new THREE.Vector3(0, 1.2, 0)),
+              r: 0.4,
+            };
+            if (
+              combat.capsuleDistanceSq({ a: b.previous, b: b.pos, r: b.r }, body) <
+              (b.r + 0.4) ** 2
+            ) {
+              e.hp -= b.attack.dmg;
+              combat.removeAbility(combat.v2Projectiles, b);
+            }
+          }
+      }
+      if (e.kind === 'cover')
+        for (const f of [match.player, match.enemy])
+          if (f && f.pos.y < 1.2) {
+            const d = f.pos.clone().sub(e.pos);
+            d.y = 0;
+            const len = d.length(),
+              min = 0.65 + (f.anatomy ? f.anatomy.torsoR * 0.4 : 0.12);
+            if (len < min) {
+              if (len < 0.001) d.copy(f.forward());
+              else d.divideScalar(len);
+              f.pos.addScaledVector(d, min - len);
+              f.clampPos();
+            }
+          }
+      if (
+        e.life <= 0 ||
+        Math.abs(e.pos.x) > (world.currentMap?.bounds.x ?? 14) + 0.5 ||
+        Math.abs(e.pos.z) > (world.currentMap?.bounds.z ?? 9) + 0.5 ||
+        (e.hp <= 0 && ['cover', 'demon'].includes(e.kind)) ||
+        e.owner.hp <= 0 ||
+        (e.kind === 'demon' && e.owner.state === 'knockdown')
+      ) {
+        render.scene.remove(e.mesh);
+        world.disposeGroup(e.mesh);
+        combat.youthEntities.splice(combat.youthEntities.indexOf(e), 1);
+      }
+    }
+  };
+  return function initialize() {
+    combat.youthEntities = [];
+    const proto = combat.Fighter.prototype;
+    proto.startAttack = function (type, context = {}) {
+      return combat.startYouthAttack(this, type, context);
+    };
+    proto.startSpecial = function (context = {}) {
+      return combat.startYouthSpecial(this, context);
+    };
+    proto.startUlt = function () {
+      return combat.startYouthUlt(this);
+    };
+    proto.startThrow = function () {
+      if (['ape', 'bat', 'combined'].includes(this.youth.form)) return false;
+      return launch(this, this.def.throwMove);
+    };
+    combat.releaseV2Ability = combat.releaseYouthAbility;
+    const update = proto.update;
+    proto.update = function (dt, foe, input = {}) {
+      if (match.game.over) return;
+      if (foe && !combat.inYouthSmoke(this) && !combat.inYouthSmoke(foe))
+        this.youth.lastSeen = { x: foe.pos.x, y: foe.pos.y, z: foe.pos.z };
+      combat.tickYouthFighter(this, dt);
+      update.call(this, dt, foe, input);
+    };
+    const flight = combat.flightPhysics;
+    combat.flightPhysics = function (f, dt, input) {
+      if (
+        !['goku', 'tien', 'chiaotzu', 'piccolo'].includes(f.def.id) ||
+        ['ape', 'bat'].includes(f.youth.form)
+      ) {
+        f.flightMode = false;
+        return false;
+      }
+      return flight(f, dt, input);
+    };
+    proto.startKiBlast = function () {
+      if (
+        this.attack ||
+        blockedStates.includes(this.state) ||
+        ['ape', 'bat'].includes(this.youth.form)
+      )
+        return false;
+      const id = this.def.id;
+      if (['gyumao', 'oolong', 'korin'].includes(id)) {
+        if (!match.game.manualTest) match.notify(this.def.name + '没有远程攻击', 0.7);
+        return false;
+      }
+      const kind =
+        id === 'pilaf'
+          ? this.youth.weapon
+          : id === 'bulma'
+            ? 'bullet'
+            : id === 'chichi'
+              ? 'helmet'
+              : ['taopaipai', 'tien', 'chiaotzu'].includes(id)
+                ? 'psychic'
+                : 'ki';
+      const cost = kind === 'flame' ? 12 : kind === 'missile' ? 10 : kind === 'helmet' ? 8 : 5;
+      if (this.ki < cost) return false;
+      this.ki -= cost;
+      const a = combat.finalizeMove({
+        id: 'equipment',
+        name: {
+          ki: '气弹',
+          psychic: '洞洞波',
+          bullet: '手枪',
+          helmet: '头盔光束',
+          missile: '导弹',
+          flame: '喷火',
+        }[kind],
+        motion: kind === 'ki' ? 'kamehameha' : 'capsuleCast',
+        startup: 0.17,
+        active: 0.08,
+        recovery: 0.25,
+        dmg: kind === 'missile' ? 9 : kind === 'flame' ? 12 : kind === 'psychic' ? 6 : 4,
+        range: kind === 'flame' ? 2.5 : 8,
+        ki: 0,
+        kiCost: cost,
+        stun: 0.2,
+        kb: 1,
+        shape: 'ability',
+        ability: 'equipment',
+        equipment: kind,
+        authored: true,
+      });
+      if (this.youth.form === 'muscle') a.dmg *= 1.15;
+      a.anim = animation.authorYouthMove(this.def, a);
+      return launch(this, a);
+    };
+
+    const draw = proto.render;
+    proto.render = function (...args) {
+      draw.apply(this, args);
+      if (this.parts.tail && this.def.id === 'goku') {
+        this.parts.tail.visible = this.youth.tailIntact;
+        if (this.youth.form === 'ape') this.parts.tail.rotation.set(0, 0, 0);
+      }
+      if (this.parts.bag) {
+        const swinging = this.attack?.motion === 'bagSwing';
+        this.parts.bag.visible = swinging;
+        this.parts.gun.visible = !swinging;
+      }
+      if (this.attack?.authored) {
+        this.root.rotation.set(0, this.facingAngle, 0);
+        characters.applyPose(this.parts, combat.combatPose(this), 0, true);
+        if (this.parts.staff && this.attack.effector === 'staff') {
+          const length = this.attack.range / this.baseScale;
+          this.parts.staff.rotation.set(0, 0, 0);
+          this.parts.staff.scale.set(1, length / 2.5, 1);
+          this.parts.staff.position.set(0, -length / 2, 0);
+          this.parts.staff.visible = true;
+        }
+      }
+      if (this.parts.extraArms) {
+        const pose = combat.combatPose(this);
+        for (const [i, arm] of this.parts.extraArms.entries()) {
+          const side = i ? 'R' : 'L';
+          arm.rotation.set(...pose['a' + side]);
+          arm.rotation.x += 0.2 * Math.sin(this.stateTimer * 24 + i * Math.PI);
+          arm.children
+            .find((o) => o.name === 'elbow' + side)
+            ?.rotation.set(pose['e' + side] ?? -0.7, 0, 0);
+        }
+      }
+    };
+    const mobility = combat.mobilitySpeed;
+    combat.mobilitySpeed = (f) =>
+      mobility(f) *
+      (f.youth?.form === 'ape'
+        ? 0.6
+        : f.youth?.form === 'muscle'
+          ? 0.85
+          : f.youth?.form === 'armor'
+            ? 0.7
+            : f.youth?.form === 'bat'
+              ? 1.3
+              : 1);
+    const oldRig = combat.sampleCombatRig;
+    combat.sampleCombatRig = function (f) {
+      const r = oldRig(f),
+        a = f.attack;
+      if (
+        a?.authored &&
+        a.shape !== 'beam' &&
+        a.shape !== 'ground' &&
+        a.shape !== 'ability' &&
+        !a.isThrow
+      ) {
+        const p = r.parts;
+        for (const h of r.hit) h.enabled = false;
+        const effect = a.effector;
+        const segment = (i, n1, n2, radius) => {
+          p[n1].getWorldPosition(r.hit[i].a);
+          p[n2].getWorldPosition(r.hit[i].b);
+          r.hit[i].r = radius;
+          r.hit[i].enabled = true;
+        };
+        const radius = f.anatomy?.handR ?? 0.1 * f.baseScale;
+        if (effect === 'handR' || effect === 'handL') {
+          const side = effect.endsWith('R') ? 'R' : 'L';
+          segment(0, 'elbow' + side, 'hand' + side, radius + 0.035);
+          if (a.motion === 'bagSwing') {
+            p.handR.localToWorld(r.hit[0].a.set(-0.12, -0.27, 0.04));
+            p.handR.localToWorld(r.hit[0].b.set(0.12, -0.27, 0.04));
+            r.hit[0].r = 0.14;
+          }
+        }
+        if (effect === 'both') {
+          segment(0, 'elbowR', 'handR', radius + 0.035);
+          segment(1, 'elbowL', 'handL', radius + 0.035);
+        }
+        if (effect === 'footR')
+          segment(0, 'kneeR', 'footR', (f.anatomy?.legR ?? 0.13 * f.baseScale) + 0.04);
+        if (effect === 'kneeR')
+          segment(0, 'legR', 'kneeR', (f.anatomy?.legR ?? 0.14 * f.baseScale) + 0.04);
+        if (effect === 'head') segment(0, 'head', 'head', f.anatomy?.headR ?? 0.3 * f.baseScale);
+        if (effect === 'torso') {
+          r.hit[0].a.copy(r.hurt[1].a);
+          r.hit[0].b.copy(r.hurt[1].b);
+          r.hit[0].r = r.hurt[1].r;
+          r.hit[0].enabled = true;
+        }
+        if (effect === 'staff') {
+          p.handR.localToWorld(r.hit[0].a.set(0, 0, 0));
+          p.handR.localToWorld(r.hit[0].b.set(0, -(a.range ?? 2) / f.baseScale, 0));
+          r.hit[0].r = 0.09 * f.baseScale;
+          r.hit[0].enabled = true;
+        }
+        if (effect === 'axe' || effect === 'cane') {
+          const h = r.hit[0];
+          h.enabled = true;
+          if (effect === 'axe') {
+            const weapon = f.parts.axe;
+            weapon.rotation.z = Math.PI;
+            weapon.updateMatrix();
+            const handle = a.motion === 'axeJab';
+            p.handR.localToWorld(
+              h.a.set(handle ? 0 : -0.56, handle ? 0.05 : 1.1, 0).applyMatrix4(weapon.matrix),
+            );
+            p.handR.localToWorld(
+              h.b.set(handle ? 0 : 0.56, handle ? -0.9 : 1.1, 0).applyMatrix4(weapon.matrix),
+            );
+            h.r = handle ? 0.16 : 0.13;
+          } else {
+            p.handR.localToWorld(h.a.set(0, -0.7, 0.08));
+            p.handR.localToWorld(h.b.set(0, 0.5, 0.08));
+            h.r = 0.075;
+          }
+        }
+      }
+      if (a?.authored && a.shape === 'beam') {
+        const hit = r.hit[0];
+        r.parts.handR.getWorldPosition(hit.a);
+        if (a.motion !== 'dodonpa') {
+          const other = r.parts.handL.getWorldPosition(new THREE.Vector3());
+          hit.a.add(other).multiplyScalar(0.5);
+        }
+        const direction = f.forward();
+        direction.y = (a.targetY - hit.a.y) / Math.max(0.5, a.targetDistance ?? a.range);
+        direction.normalize();
+        hit.b.copy(hit.a).addScaledVector(direction, a.range);
+        hit.r = a.width ?? 0.18;
+        hit.enabled = true;
+      }
+      if (f.youth.form === 'ape') {
+        const curve = f.parts.tail.geometry.parameters.path;
+        for (let i = 0; i < 6; i++) {
+          const tail = r.hurt[6 + i] ?? {
+            a: new THREE.Vector3(),
+            b: new THREE.Vector3(),
+            r: 0.15,
+            tag: 'tail',
+          };
+          r.root.localToWorld(
+            tail.a.copy(curve.getPoint(i / 6)).multiplyScalar(f.youth.apeScale ?? 1),
+          );
+          r.root.localToWorld(
+            tail.b.copy(curve.getPoint((i + 1) / 6)).multiplyScalar(f.youth.apeScale ?? 1),
+          );
+          tail.r = 0.15 * (f.youth.apeScale ?? 1);
+          tail.enabled = true;
+          r.hurt[6 + i] = tail;
+        }
+      } else for (const h of r.hurt) if (h.tag === 'tail') h.enabled = false;
+      return r;
+    };
+    const intersects = combat.combatIntersects;
+    combat.combatIntersects = function (f, foe, a) {
+      if (a.contactDelay && f.stateTimer < a.hitT + a.contactDelay) return false;
+      if (a.ability === 'counter') return false;
+      if (a.shape === 'ground' && (f.pos.y > 0.3 || foe.pos.y > 0.35)) return false;
+      if (
+        a.shape === 'beam' &&
+        combat.coverBlocks(
+          f.pos.clone().add(new THREE.Vector3(0, 1, 0)),
+          foe.pos.clone().add(new THREE.Vector3(0, 1, 0)),
+        )
+      )
+        return false;
+      const hit = intersects(f, foe, a);
+      let tailHit = false;
+      if (
+        foe.youth.form === 'ape' &&
+        foe.hp > 0 &&
+        foe.invulnerable <= 0 &&
+        a.shape !== 'ability' &&
+        !a.isThrow
+      ) {
+        if (
+          foe.combatRig.hurt.some(
+            (tail) =>
+              tail.tag === 'tail' &&
+              tail.enabled &&
+              f.combatRig.hit.some(
+                (h) => h.enabled && combat.capsuleDistanceSq(h, tail) < (h.r + tail.r) ** 2,
+              ),
+          )
+        ) {
+          foe.youth.pendingTail = a.serial;
+          tailHit = true;
+        }
+      }
+      return hit || tailHit;
+    };
+    const take = proto.takeHit;
+    proto.takeHit = function (attacker, a) {
+      const v = this.youth,
+        old = this.attack,
+        oldTimer = this.stateTimer,
+        hp = this.hp;
+      if (
+        old?.ability === 'counter' &&
+        this.stateTimer >= 0.1 &&
+        this.stateTimer <= 0.26 &&
+        !a.projectile &&
+        !a.isUlt &&
+        !a.isThrow &&
+        ['light', 'heavy'].includes(a.chainType)
+      ) {
+        attacker.hitResult = 'countered';
+        attacker.attack = null;
+        attacker.state = 'hit';
+        attacker.stateTimer = 0;
+        attacker.stunTime = 0.25;
+        const palm = {
+          ...this.def.skills[0],
+          ability: undefined,
+          name: '残像反掌·反击',
+          dmg: 16,
+          shape: undefined,
+          startup: 0.05,
+          active: 0.1,
+          recovery: 0.4,
+          effector: 'both',
+        };
+        launch(this, palm);
+        combat.spawnAfterimage(this);
+        return;
+      }
+      const armored =
+        !a.isThrow &&
+        !a.isUlt &&
+        !a.projectile &&
+        ((v.form === 'armor' && !v.armorSpent) ||
+          (old?.limitedArmor &&
+            !this.armorSpent &&
+            this.stateTimer >= old.hitT * (old.limitedArmor === 'ordinary' ? 0.5 : 1) &&
+            this.stateTimer < old.hitT + old.active &&
+            (old.limitedArmor === 'ordinary' || a.chainType === 'light')));
+      take.call(this, attacker, { ...a, armor: false });
+      if (this.hp < hp && this.lastHitText !== '格挡' && this.lastHitText !== '完美格挡') {
+        for (const e of combat.youthEntities)
+          if (e.owner !== this && e.owner.v2.controlTarget === this)
+            e.owner.v2.controlTarget = null;
+        this.v2.controlTime = 0;
+        v.retreat = null;
+        v.floatTime = 0;
+        if (this.v2.controlTarget) {
+          const target = this.v2.controlTarget;
+          target.v2.controlTime = 0;
+          target.stunTime = 0;
+          this.v2.controlTarget = null;
+        }
+        if (armored && this.hp > 0) {
+          this.attack = old;
+          this.state = old?.isUlt ? 'ult' : old ? 'attack' : 'idle';
+          this.stateTimer = oldTimer;
+          this.armorSpent = true;
+          v.armorSpent = true;
+          this.lastHitText = '霸体承伤';
+        }
+        if (['ogre', 'bat'].includes(v.form)) combat.endYouthForm(this, false);
+        if (v.pendingTail === a.serial && !v.tailSerials.has(a.serial)) {
+          v.tailSerials.add(a.serial);
+          v.tailHits++;
+          if (v.tailHits >= 3) {
+            v.tailIntact = false;
+            combat.endYouthForm(this);
+          }
+        }
+        if (attacker.youth && a.ability === 'wolf')
+          attacker.youth.wolfUntil = match.game.simTime + 0.25;
+        if (a.control > 0) combat.applyControl(attacker, this, a);
+      }
+    };
+    combat.applyControl = function (owner, foe, a) {
+      if (foe.hp <= 0 || foe.invulnerable > 0 || ['block', 'blockstun'].includes(foe.state))
+        return false;
+      const v = foe.youth;
+      if (v.controlGrace > 0 && v.controlCount >= 3) return false;
+      const duration = a.control * [1, 0.5, 0.25][Math.min(2, v.controlCount)];
+      v.controlCount++;
+      if (v.controlGrace <= 0) v.controlGrace = 4;
+      foe.v2.controlTime = duration;
+      owner.v2.controlTarget = foe;
+      foe.attack = null;
+      foe.clearQueue();
+      foe.state = 'hit';
+      foe.stateTimer = 0;
+      foe.stunTime = duration;
+      foe.vel.set(0, 0, 0);
+      combat.emitCombatEvent('control', owner, foe, a, { duration });
+      return true;
+    };
+    queueMicrotask(() => {
+      if (window.__db)
+        Object.assign(window.__db, {
+          skillAvailability: combat.skillAvailability,
+          applyControl: combat.applyControl,
+          youthEntities: combat.youthEntities,
+          setYouthBody: combat.setYouthBody,
+          endYouthForm: combat.endYouthForm,
+          releaseYouthAbility: combat.releaseYouthAbility,
+          tickYouthFighter: combat.tickYouthFighter,
+          inYouthSmoke: combat.inYouthSmoke,
+          cleanupYouthEntities: combat.cleanupYouthEntities,
+          getVictory: () => match.victory,
+          skipVictory: () => match.skipVictory(),
+          updateVictory: (dt) => match.updateVictory(dt),
+          bgmState: () => audio?.bgmState,
+          musicDiagnostics: () => audio.musicDiagnostics?.(),
+          updateBGM: audio.updateBGM,
+          playBGM: audio.playBGM,
+        });
+    });
+    const dispose = proto.dispose;
+    proto.dispose = function () {
+      combat.cleanupYouthEntities(this);
+      combat.setYouthBody(this, null);
+      dispose.call(this);
+    };
+  };
+}

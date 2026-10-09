@@ -45,3 +45,6 @@ Desktop.ini
 # Build artifacts
 dist/
 coverage/
+
+# Local visual/audio acceptance artifacts and uncompressed masters
+/performance/

@@ -10,6 +10,17 @@
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
+@media (max-width: 360px) {
+  #touch .touchGroup:not(.move) {
+    grid-template-columns: repeat(3, 44px);
+  }
+  #fightbar {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 206px);
+  }
+  .actionReadout {
+    bottom: calc(max(12px, env(safe-area-inset-bottom)) + 260px);
+  }
+}
 #hud .bar,
 #hud .guardBar,
 #splitOverlay .viewHP,
@@ -96,4 +107,100 @@
 #trainingPanel #drillReadout,
 #trainingPanel #tacticReadout {
   color: var(--ink);
+}
+
+#victorySubtitle {
+  position: fixed;
+  bottom: 18px;
+  left: 5vw;
+  right: 5vw;
+  text-align: center;
+  z-index: 32;
+  color: #fff4d4;
+  font-size: clamp(18px, 2.2vw, 30px);
+  font-weight: 700;
+  text-shadow: 0 2px 8px #000;
+  background: #14202bba;
+  border-radius: 12px;
+  padding: 12px;
+  pointer-events: none;
+}
+#victorySubtitle:empty {
+  display: none;
+}
+#skipVictory {
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  z-index: 35;
+  padding: 10px 18px;
+  background: #253a4ddd;
+  color: white;
+  border: 1px solid #efd6a3;
+  border-radius: 8px;
+}
+#result.victoryResult {
+  background: transparent;
+  backdrop-filter: none;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 12px 100px;
+  pointer-events: none;
+}
+#result.victoryResult .dialogCard {
+  pointer-events: auto;
+  max-width: 440px;
+  background: #14202bbb;
+  color: #fff4d4;
+  padding: 16px;
+}
+#result.victoryResult #resultTitle {
+  font-size: 26px;
+  margin: 0 0 6px;
+}
+#result.victoryResult .dialogEyebrow {
+  margin-bottom: 4px;
+}
+#result.victoryResult .btnrow {
+  margin-top: 12px;
+}
+.audioSettings {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+.audioSettings label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+#touch button.unavailable {
+  opacity: 0.6;
+}
+
+@media (max-width: 600px) {
+  #result.victoryResult {
+    align-items: center;
+    justify-content: flex-end;
+    padding: 12px;
+  }
+  #result.victoryResult .dialogCard {
+    padding: 12px;
+    width: 100%;
+    max-height: 28vh;
+    overflow: auto;
+  }
+  #result.victoryResult #resultTitle {
+    font-size: 20px;
+    margin: 0 0 6px;
+  }
+  #victorySubtitle {
+    bottom: 190px;
+    font-size: 18px;
+  }
+  #touch .touchGroup button {
+    font-size: 11px;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
+  }
 }

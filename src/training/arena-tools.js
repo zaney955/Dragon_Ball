@@ -9,7 +9,7 @@ export function register({
   training: trainingModule,
   world: worldModule,
 }) {
-  let trainingToggle, ringLabel, specialButton, capture;
+  let trainingToggle, ringLabel, capture;
   trainingModule.clearDebugBoxes = function clearDebugBoxes() {
     const group = new THREE.Group();
     for (const g of trainingModule.debugBoxes) group.add(g);
@@ -106,16 +106,18 @@ export function register({
   trainingModule.refreshMoveTable = function refreshMoveTable() {
     const c = matchModule.player?.def ?? charactersModule.CHARACTERS[matchModule.game.selectedChar],
       special = combatModule.SPECIAL_MOVES[c.id],
-      m = [
-        ...c.combos.light,
-        ...c.combos.heavy,
-        combatModule.finalizeMove({
-          id: special.name,
-          level: 'mid',
-          ...special,
-          anim: animationModule.ANIM[special.motion],
-        }),
-      ];
+      m = c.youth
+        ? charactersModule.characterMoveData(c)
+        : [
+            ...c.combos.light,
+            ...c.combos.heavy,
+            combatModule.finalizeMove({
+              id: special.name,
+              level: 'mid',
+              ...special,
+              anim: animationModule.ANIM[special.motion],
+            }),
+          ];
     let html =
       '<h3>' +
       c.name +
@@ -156,7 +158,7 @@ export function register({
         '</td></tr>';
     }
     html +=
-      '</table></div><details><summary>帧数与招式规则</summary><p>表中帧数为整数近似，悬停查看精确换算。优势按首个有效帧计算；晚命中会改变优势，以训练读数为准。特殊技的有效时间含段间间隔。</p><p>命中后最早 3 帧取消；格挡时仅轻击可接重击，空挥需等收招。</p><p>特殊技消耗 30 气。重型霸体可承受一次普通非下段攻击，仍扣生命；天津饭气功炮额外消耗 8% 最大生命。</p></details>';
+      '</table></div><details><summary>帧数与招式规则</summary><p>表中帧数为整数近似，悬停查看精确换算。优势按首个有效帧计算；晚命中会改变优势，以训练读数为准。特殊技的有效时间含段间间隔。</p><p>命中后最早 3 帧取消；格挡时非末段轻击只能接轻击，空挥需等收招。</p><p>技能费用和冷却见下方角色指南，两项技能分别计冷却。霸体仍承伤；气功炮发动时额外扣除6%最大生命。</p></details>';
     trainingModule.table.innerHTML = html;
   };
   trainingModule.updateTrainingHUD = function updateTrainingHUD() {
@@ -326,23 +328,6 @@ export function register({
       trainingModule.refreshMoveTable();
       document.getElementById('moveGuide').classList.add('show');
     };
-    specialButton = document.createElement('button');
-    specialButton.dataset.key = 'KeyR';
-    specialButton.textContent = '特殊技';
-    specialButton.onpointerdown = (e) => {
-      e.preventDefault();
-      specialButton.setPointerCapture(e.pointerId);
-      if (
-        matchModule.game.screen === 'fight' &&
-        !matchModule.game.paused &&
-        !matchModule.game.over &&
-        matchModule.game.ready <= 0
-      )
-        combatModule.inputEdges.push({
-          type: 'special',
-        });
-    };
-    document.querySelector('#touch .touchGroup:not(.move)').appendChild(specialButton);
     trainingModule.table = document.createElement('section');
     trainingModule.table.id = 'characterMoves';
     trainingModule.table.hidden = true;

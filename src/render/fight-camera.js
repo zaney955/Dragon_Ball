@@ -122,8 +122,9 @@ export function register({
   };
   renderModule.renderGameViews = function renderGameViews() {
     const split =
-      !matchModule.game.online &&
+      !matchModule.victory &&
       matchModule.game.difficulty === 'local' &&
+      !matchModule.game.online &&
       matchModule.game.screen !== 'menu' &&
       !!matchModule.player &&
       !!matchModule.enemy;
@@ -156,14 +157,19 @@ export function register({
         renderModule.camera.aspect = W / H;
         renderModule.camera.updateProjectionMatrix();
       }
-      renderModule.renderer.render(renderModule.scene, renderModule.camera);
+      const v = matchModule.victory,
+        last = v && v.time < (v.finished ? 0.25 : 0.2);
+      renderModule.renderer.render(
+        last ? v.lastHitScene : (v?.scene ?? renderModule.scene),
+        last ? v.lastHitCamera : (v?.camera ?? renderModule.camera),
+      );
     }
     renderModule.updateViewHUD(split);
   };
   renderModule.updateViewHUD = function updateViewHUD(split) {
     document.getElementById('splitOverlay').hidden = !split;
     document.getElementById('singleTarget').hidden =
-      split || matchModule.game.screen === 'menu' || !matchModule.enemy;
+      split || !!matchModule.victory || matchModule.game.screen === 'menu' || !matchModule.enemy;
     if (!matchModule.player || !matchModule.enemy) return;
     if (split) {
       for (const [own, foe, prefix, cam] of [

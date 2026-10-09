@@ -42,8 +42,8 @@ export function register({
       once: true,
     });
     renderModule.clock.start();
-    combatModule.loop();
-    setTimeout(() => document.getElementById('loading').classList.add('hidden'), 400);
+    document.getElementById('loading').classList.add('hidden');
+    requestAnimationFrame(combatModule.loop);
   };
   return function initialize() {};
 }

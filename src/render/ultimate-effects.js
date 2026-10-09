@@ -76,10 +76,7 @@ export function register({
     });
     if (renderModule.ultAudioHistory.length > 30) renderModule.ultAudioHistory.shift();
     if (!fire) {
-      if (style === 'kienzan') {
-        renderModule.ultTone(f, 380, 1120, 0.95, 0.036, 'sine');
-        ultNoise(f, 0.45, 0.022, 1900);
-      } else if (style === 'dodonpa') renderModule.ultTone(f, 940, 1880, 0.7, 0.028, 'sine');
+      if (style === 'dodonpa') renderModule.ultTone(f, 940, 1880, 0.7, 0.028, 'sine');
       else if (style === 'mafuba') {
         renderModule.ultTone(f, 185, 390, 0.9, 0.035, 'triangle');
         renderModule.ultTone(f, 277, 520, 0.9, 0.024, 'sine');
@@ -93,10 +90,7 @@ export function register({
       }
       return;
     }
-    if (style === 'kienzan') {
-      ultNoise(f, 0.48, 0.08, 2400);
-      renderModule.ultTone(f, 1340, 430, 0.5, 0.038, 'triangle');
-    } else if (style === 'dodonpa') {
+    if (style === 'dodonpa') {
       renderModule.ultTone(f, 2150, 390, 0.23, 0.055, 'sine');
       ultNoise(f, 0.13, 0.028, 2400);
     } else if (style === 'mafuba') {
@@ -131,10 +125,6 @@ export function register({
     });
   };
   renderModule.castUltVisual = function castUltVisual(f, def) {
-    if (def.ultStyle === 'kienzan') {
-      combatModule.castKiDiscVisual(f);
-      return;
-    }
     const rig = new THREE.Group();
     renderModule.scene.add(rig);
     const color = def.ultStyle === 'kamehameha' ? 0x309cde : def.ultColor,
@@ -206,9 +196,40 @@ export function register({
       ring.rotation.x = Math.PI / 2;
       flow.push(ring);
     }
-    let spiral = null,
+    let sealJar = null,
+      spiral = null,
       wolf = null;
     if (def.ultStyle === 'mafuba') {
+      sealJar = new THREE.Group();
+      sealJar.name = 'mafuba-seal-container';
+      rig.add(sealJar);
+      charactersModule.meshTo(
+        sealJar,
+        new THREE.CylinderGeometry(0.24, 0.21, 0.62, 16),
+        charactersModule.M(0x5c9a82),
+        0,
+        0.31,
+        0,
+      );
+      charactersModule.meshTo(
+        sealJar,
+        new THREE.CylinderGeometry(0.26, 0.26, 0.06, 16),
+        charactersModule.M(0xd8dfcb),
+        0,
+        0.65,
+        0,
+      );
+      charactersModule.box(
+        sealJar,
+        charactersModule.M(0xf6e7b5),
+        0,
+        0.34,
+        0.235,
+        0.17,
+        0.32,
+        0.015,
+      );
+      charactersModule.badge(sealJar, '封', 0, 0.35, 0.247, 0.09, false, '#f6e7b5');
       const pts = [];
       for (let i = 0; i <= 170; i++) {
         const t = i / 170,
@@ -288,6 +309,7 @@ export function register({
       outer,
       flow,
       spiral,
+      sealJar,
       wolf,
       length,
       elapsed: 0,
@@ -323,8 +345,17 @@ export function register({
       if (v.attack.shape === 'beam') {
         origin.copy(f.pos);
         origin.y += v.attack.beamHeight ?? 1.45 * f.baseScale;
+        if (v.attack.isYouth) {
+          const r = combatModule.sampleCombatRig(f);
+          origin.copy(r.hit[0].a);
+          forward.copy(r.hit[0].b).sub(r.hit[0].a).normalize();
+        }
       }
       v.rig.position.copy(origin);
+      if (v.sealJar) {
+        v.sealJar.position.copy(f.pos).addScaledVector(f.forward(), 0.9).sub(origin);
+        v.sealJar.rotation.y = f.facingAngle;
+      }
       v.beamGroup.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), forward);
       const firing = t >= v.attack.hitT,
         fade = firing

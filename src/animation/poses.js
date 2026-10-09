@@ -25,6 +25,10 @@ export function register({ animation: animationModule }) {
       y: L(a.y, b.y),
       ry: L(a.ry, b.ry),
       w: u > 0.5 ? b.w : a.w,
+      eR: L(a.eR ?? -0.75, b.eR ?? -0.75),
+      eL: L(a.eL ?? -0.75, b.eL ?? -0.75),
+      kR: L(a.kR ?? 0.12, b.kR ?? 0.12),
+      kL: L(a.kL ?? 0.12, b.kL ?? 0.12),
     };
   };
   animationModule.samplePose = function samplePose(keys, t) {

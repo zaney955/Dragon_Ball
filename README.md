@@ -73,14 +73,14 @@ src/animation/              动作关键帧、姿态插值、接触动作
 src/ai/                     延迟观察、记忆与角色战术
 src/world/                  舞台、光照、破坏与仙豆规则
 src/render/                 场景、镜头、分屏与特效
-src/audio/                  音效合成与声音反馈
+src/audio/                  音效、原创 BGM、音量与切曲
 src/input/                  键盘、触屏、双人输入
 src/match/                  对局状态、回合与界面切换
 src/ui/                     HUD、选角、招式指南、美术图鉴
 src/training/               陪练、专项练习与训练工具
 src/online/                 联机大厅、连接和战斗同步
 src/styles/                 按原级联顺序组织的 CSS
-src/assets/                 图片资源
+src/assets/                 图片与八首本地 MP3
 src/testing/                原有游戏验收与测试接口
 scripts/                    构建辅助工具
 workers/                    免费联机 Worker 与房间协调对象
@@ -103,7 +103,7 @@ npm run test:full
 npm run test:offline
 ```
 
-`validate` 执行静态检查、格式检查、源码接口文档一致性检查、单元测试、生产构建、浏览器测试及离线导出测试。`test:full` 额外跑十四角色的 196 对有序组合，覆盖 1,764 项真实碰撞与能力检查。浏览器回归还包含原有 4,575 项断言、旧四角色 16 项、系统 57 项和七新增角色 90 项，未删减原验收断言。
+`validate` 执行静态检查、格式检查、源码接口文档一致性检查、单元测试、生产构建、浏览器测试及离线导出测试。`test:full` 额外跑十四角色的 196 对有序组合，覆盖 1,568 项真实碰撞与能力检查。浏览器回归包含核心 91 项、少年时期规则 41 项、旧四角色 16 项、系统 57 项和七新增角色 90 项；后续时期技能的旧断言已按新设计更新。
 
 已经安装 Chrome 时，可使用 `PLAYWRIGHT_CHANNEL=chrome npm test`。浏览器测试针对 `dist/` 的生产构建，修改源码后先执行 `npm run build`，或直接执行 `npm run validate`。GitHub Actions 自动运行完整矩阵。
 
@@ -111,7 +111,7 @@ npm run test:offline
 
 ## 维护说明
 
-Three.js 固定为原版 `0.160.0`，本次工程化不调整角色数值与战斗规则。依赖版本及锁文件已固定，安装使用 `npm ci`。
+Three.js 固定为原版 `0.160.0`。角色生命、速度、力量沿用现值；本轮更换独立动作、技能、形态及胜利演出。完整规则见 [14 人设计记录](docs/youth-design.md)。依赖版本及锁文件已固定，安装使用 `npm ci`。
 
 角色、招式与帧数据以 `src/characters/` 的运行时定义为准，可在游戏内查看招式指南。已删除过时报告、重复 JSON/CSV 导出和被覆盖的旧实现，历史资料可从 Git 基线 `f3a1a69` 找回；范围与验证见 [项目清理记录](docs/cleanup-validation.md)。
 

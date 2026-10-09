@@ -510,41 +510,7 @@ export function register({
       let a = {
         ...list[idx],
       };
-      if (this.def.id === 'oolong' && this.v2.form !== 'pig') {
-        const form = this.v2.form;
-        a = combatModule.finalizeMove({
-          ...a,
-          name:
-            {
-              bull: '巨牛冲角',
-              bat: '蝙蝠翼拍',
-              robot: '机器人虚张重拳',
-            }[form] +
-            ' ' +
-            (idx + 1),
-          motion: form === 'bull' ? 'pigBelly' : form === 'robot' ? 'mechPunch' : 'pigSlap',
-          anim: animationModule.ANIM[
-            form === 'bull' ? 'pigBelly' : form === 'robot' ? 'mechPunch' : 'pigSlap'
-          ],
-          shape: form === 'bull' ? 'ram' : undefined,
-          startup: form === 'bull' ? 0.32 : form === 'robot' ? 0.23 : 0.12,
-          active: 0.1,
-          recovery: form === 'bull' ? 0.54 : form === 'robot' ? 0.4 : 0.25,
-          dmg:
-            form === 'bull'
-              ? type === 'heavy'
-                ? 18 + idx * 3
-                : 10 + idx * 2
-              : form === 'robot'
-                ? type === 'heavy'
-                  ? 14 + idx * 3
-                  : 7 + idx * 2
-                : 2,
-          range: form === 'bull' ? 2.1 : form === 'robot' ? 2 : 1,
-          drive: form === 'bull' ? 8 : form === 'bat' ? 2 : 3,
-          armor: form === 'bull' && type === 'heavy' && idx === 0,
-        });
-      }
+
       if (type === 'heavy') a = combatModule.v2DirectionalMove(this, a, input);
       if (this.pos.y > 0.15) {
         a.level = 'overhead';
@@ -642,7 +608,7 @@ export function register({
           block: [],
           whiff: [],
         },
-        choice: context.up ? 'bat' : context.down ? 'robot' : 'bull',
+        choice: 'pig',
         deviceKind: context.down ? 'mine' : 'turret',
       });
       this.attackMask = 0;
@@ -658,31 +624,8 @@ export function register({
       return true;
     };
     v1Ult = combatModule.Fighter.prototype.startUlt;
-    combatModule.Fighter.prototype.startUlt = function (context = {}) {
+    combatModule.Fighter.prototype.startUlt = function () {
       if (!this.anatomy) {
-        if (this.def.id === 'krillin' && context.down) {
-          this.def.ultStyle = 'kamehameha';
-          v1Ult.call(this);
-          if (this.attack) {
-            Object.assign(
-              this.attack,
-              combatModule.finalizeMove({
-                ...this.attack,
-                motion: 'kamehameha',
-                anim: animationModule.ANIM.kamehameha,
-                shape: 'beam',
-                startup: 0.48,
-                active: 0.16,
-                recovery: 0.62,
-                dmg: 27,
-                range: 6,
-                width: 0.22,
-              }),
-            );
-            this.def.ultStyle = 'kienzan';
-          }
-          return;
-        }
         return v1Ult.call(this);
       }
       if (this.ki < 100) return false;

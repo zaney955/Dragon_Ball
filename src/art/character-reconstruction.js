@@ -1491,7 +1491,7 @@ export function register({ art: artModule, characters: charactersModule }) {
       cape.position.z = -0.18;
     }
     if (id === 'bulma') {
-      const gun = p.handR;
+      const gun = p.gun ?? p.handR;
       charactersModule.box(gun, ink, 0, -0.005, 0.105, 0.1, 0.13, 0.15);
       charactersModule.box(gun, artModule.artMat(0x6e8288), 0, 0.065, 0.22, 0.08, 0.075, 0.2);
       charactersModule.meshTo(
@@ -1899,7 +1899,7 @@ export function register({ art: artModule, characters: charactersModule }) {
       def.buildBody = () =>
         artModule.artCachedBody(def.id, () => rebuildArtCharacter(original(), def.id));
     }
-    // Transformation silhouettes retain their distinct quadruped/wing/robot bones.
+    // Transformation silhouettes retain their distinct quadruped/wing bones.
     artOriginalOolong = charactersModule.buildOolong;
     charactersModule.buildOolong = function (form = 'pig') {
       const b = artOriginalOolong(form);
@@ -1952,31 +1952,7 @@ export function register({ art: artModule, characters: charactersModule }) {
           );
         }
       }
-      if (form === 'robot') {
-        for (const s of [-1, 1]) {
-          for (let i = 0; i < 3; i++)
-            charactersModule.box(
-              p.torsoGroup,
-              artModule.artMat(0x344b55),
-              s * 0.21,
-              0.3 - i * 0.1,
-              0.263,
-              0.22,
-              0.038,
-              0.012,
-            );
-          for (const joint of [p['arm' + (s < 0 ? 'L' : 'R')], p['knee' + (s < 0 ? 'L' : 'R')]])
-            for (let j = 0; j < 3; j++)
-              charactersModule.meshTo(
-                joint,
-                new THREE.TorusGeometry(0.165, 0.012, 6, 20),
-                artModule.artMat(0xc4b99a),
-                0,
-                -0.1 - j * 0.09,
-                0,
-              ).rotation.x = Math.PI / 2;
-        }
-      }
+
       b.root.userData.artVersion = artModule.DB_ART_VERSION;
       return b;
     };

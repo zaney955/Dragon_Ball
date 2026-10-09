@@ -19,6 +19,7 @@ export function register({ input: inputModule, match: matchModule, training: tra
     inputModule.inputEdges2 = [];
     EDGE_KEYS2 = {
       NumpadAdd: 'special',
+      NumpadSubtract: 'blast',
       Numpad1: 'light',
       Numpad2: 'heavy',
       Numpad3: 'ult',

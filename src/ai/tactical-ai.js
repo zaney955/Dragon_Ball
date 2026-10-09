@@ -1,5 +1,6 @@
 export function register({
   ai: aiModule,
+  combat: combatModule,
   match: matchModule,
   training: trainingModule,
   world: worldModule,
@@ -50,7 +51,11 @@ export function register({
     ai.brainTime = (ai.brainTime ?? 0) + dt;
     ai.observeTimer = (ai.observeTimer ?? 0) - dt;
     ai.observations ??= [];
-    if (ai.observeTimer <= 0) {
+    if (
+      ai.observeTimer <= 0 &&
+      !combatModule.inYouthSmoke?.(ai) &&
+      !combatModule.inYouthSmoke?.(foe)
+    ) {
       ai.observeTimer = 0.04;
       ai.observations.push({
         time: ai.brainTime,

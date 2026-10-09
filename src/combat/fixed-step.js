@@ -1,6 +1,7 @@
 export function register({
   app: appModule,
   ai: aiModule,
+  audio: audioModule,
   combat: combatModule,
   input: inputModule,
   match: matchModule,
@@ -41,6 +42,7 @@ export function register({
       combatModule.collectCombatHits();
       for (const h of matchModule.pendingHits) h.foe.takeHit(h.attacker, h.attack);
       combatModule.updateKiBlasts(matchModule.STEP);
+      combatModule.updateYouthEntities(matchModule.STEP);
       combatModule.updateV2Abilities(matchModule.STEP);
       combatModule.updateKiDiscs(matchModule.STEP);
       worldModule.updateSenzu(matchModule.STEP);
@@ -73,6 +75,7 @@ export function register({
         ? inputModule.readPlayer2Input()
         : aiModule.aiThink(matchModule.enemy, matchModule.player, matchModule.STEP),
   ) {
+    if (matchModule.game.paused || matchModule.game.over) return;
     // Consume every fraction of frame time exactly. Hitstop and fractional ticks
     // share this budget, so 30/60/144 Hz renderers reach identical combat ticks.
     let budget = raw,
@@ -113,7 +116,7 @@ export function register({
       worldModule.currentMap?.update?.(raw);
       inputModule.clearPresses();
     } else if (!paused) {
-      combatModule.advanceCombat(raw);
+      if (!matchModule.game.over) combatModule.advanceCombat(raw);
       renderModule.updateEffects(raw);
       worldModule.currentMap?.update?.(raw);
       renderModule.updateFightCamera(raw);
@@ -136,6 +139,8 @@ export function register({
     trainingModule.updateV1HUD();
     trainingModule.drawCombatBoxes();
     worldModule.updateSenzuHUD();
+    matchModule.updateVictory?.(paused ? 0 : raw);
+    audioModule.updateBGM?.();
     renderModule.renderGameViews();
   };
   return function initialize() {};
