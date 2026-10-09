@@ -292,3 +292,70 @@ test('a stalled connection shows a retry button and a retry loads all three room
   );
   await page.locator('#onlineHome').click();
 });
+
+test('guest movement responds locally while authoritative frames are delayed', async ({
+  browser,
+}) => {
+  const contexts = await Promise.all([
+    browser.newContext({ viewport: { width: 960, height: 600 } }),
+    browser.newContext({ viewport: { width: 960, height: 600 } }),
+  ]);
+  const [host, guest] = await Promise.all(contexts.map((context) => context.newPage()));
+  try {
+    for (const page of [host, guest])
+      await page.addInitScript(() => {
+        window.RTCPeerConnection = undefined;
+      });
+    await Promise.all([lobby(host), lobby(guest)]);
+    await host.locator('[data-room="2"]').click();
+    await expect(guest.locator('[data-room="2"]')).toHaveText('加入房间');
+    await guest.locator('[data-room="2"]').click();
+    await host.locator('#startBtn').click();
+    await guest.locator('#startBtn').click();
+    await guest.waitForFunction(() => window.__db.online.active && window.__db.game.ready <= 0);
+    await guest.evaluate(() => {
+      const { online, enemy } = window.__db;
+      const receive = online.transport.onPacket;
+      online.transport.onPacket = (packet) => {
+        if (packet.kind === 'frames') setTimeout(() => receive(packet), 150);
+        else receive(packet);
+      };
+      window.__latencyStart = [enemy.root.position.x, enemy.root.position.z];
+      online.lastFlush = performance.now();
+      window.__inputBefore = online.transport.stats.relayMessages;
+    });
+    await guest.keyboard.down('KeyW');
+    const immediateInput = await guest.evaluate(() => {
+      window.__db.online.frame();
+      return window.__db.online.transport.stats.relayMessages > window.__inputBefore;
+    });
+    await guest.waitForTimeout(50);
+    const localDistance = await guest.evaluate(() => {
+      const { enemy } = window.__db;
+      return Math.hypot(
+        enemy.root.position.x - window.__latencyStart[0],
+        enemy.root.position.z - window.__latencyStart[1],
+      );
+    });
+    console.log(JSON.stringify({ immediateInput, localDistance, delayedFramesMs: 150 }));
+    expect(immediateInput).toBe(true);
+    expect(localDistance).toBeGreaterThan(0.02);
+    await guest.keyboard.up('KeyW');
+    await guest.waitForTimeout(700);
+    expect(await guest.evaluate(() => window.__db.online.active)).toBe(true);
+    await guest.waitForFunction(() => window.__db.enemy.state === 'idle');
+    await guest.keyboard.press('KeyJ');
+    await guest.waitForTimeout(40);
+    const attackPreview = await guest.evaluate(() => ({
+      displayed: window.__db.enemy.onlineVisualAction?.type === 'light',
+      authoritativeAttack: !!window.__db.enemy.attack,
+    }));
+    console.log(JSON.stringify({ attackPreview }));
+    expect(attackPreview.displayed).toBe(true);
+    expect(attackPreview.authoritativeAttack).toBe(false);
+    await guest.waitForTimeout(500);
+    expect(await guest.evaluate(() => window.__db.online.active)).toBe(true);
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
+  }
+});

@@ -1,7 +1,8 @@
 import { OnlineTransport } from './transport.js';
 import { decodeInput, encodeInput } from './input-codec.js';
+import { GuestPresentation } from './presentation.js';
 
-export function register({ app, ai, combat, input, match, render, ui, world }) {
+export function register({ app, ai, characters, combat, input, match, render, ui, world }) {
   const online = (app.online = {
     active: false,
     rooms: [],
@@ -29,7 +30,10 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
     ]),
   ];
   const canonical = (value) => decodeInput(encodeInput(value));
-  const remoteInput = () => ({ ...online.remote, actions: online.remoteActions.splice(0, 20) });
+  const remoteInput = () => {
+    online.appliedInput = online.receivedInput;
+    return { ...online.remote, actions: online.remoteActions.splice(0, 20) };
+  };
 
   online.connect = () => online.transport.connect();
   online.command = (message) => online.transport.send(message);
@@ -42,6 +46,14 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
       online.transport.packet({ kind: 'input', data: encodeInput(neutral()) });
   };
   online.stop = () => {
+    online.presentation?.clear();
+    online.presentation = null;
+    for (const fighter of [match.player, match.enemy]) {
+      if (fighter?.onlineBaseRender) {
+        fighter.render = fighter.onlineBaseRender;
+        delete fighter.onlineBaseRender;
+      }
+    }
     online.active = false;
     online.pendingFrames = [];
     online.remoteActions = [];
@@ -127,6 +139,57 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
     });
     ai.setCombatSeed(room.match.seed);
     match.startFight();
+    online.lastHeld = null;
+    online.lastInputSend = 0;
+    online.lastVisualAt = null;
+    online.receivedInput = online.appliedInput = null;
+    if (!online.host) {
+      const fighters = [match.player, match.enemy];
+      online.presentation = new GuestPresentation({
+        fighters,
+        mobility: combat.mobilitySpeed,
+        bounds: () => {
+          const bounds = world.currentMap?.bounds ?? { x: 13.5, z: 6 };
+          const extra = match.game.ringOut && match.game.selectedMap === 0 ? 2.5 : 0;
+          return { x: bounds.x + extra, z: bounds.z + extra };
+        },
+      });
+      for (const fighter of fighters) {
+        fighter.onlineBaseRender = fighter.render;
+        fighter.render = function (dt) {
+          this.onlineBaseRender(dt, 1);
+          if (!this.onlineVisualPosition) return;
+          const offset = this.onlineVisualPosition.clone().sub(this.pos);
+          this.root.position.add(offset);
+          this.shadow.position.x += offset.x;
+          this.shadow.position.z += offset.z;
+          if (this.nimbus) this.nimbus.position.add(offset);
+          if (this === match.enemy && this.onlineVisualAction) {
+            const action = this.onlineVisualAction,
+              chain = this.def.combos[action.type],
+              index =
+                this.comboType === action.type && this.comboTimer > 0
+                  ? Math.min(this.comboIdx + 1, chain.length - 1)
+                  : 0;
+            const attack =
+              action.type === 'heavy' && (action.up || action.down)
+                ? this.def.directionMoves[action.up ? 0 : 1]
+                : chain[index];
+            const view = Object.create(this);
+            view.state = 'attack';
+            view.attack = attack;
+            view.stateTimer = Math.min(attack.dur, (performance.now() - action.at) / 1000);
+            view.poseEntry = null;
+            characters.applyPose(this.parts, combat.combatPose(view), 0, true);
+          } else if (this === match.enemy && this.onlineVisualWalk && !this.attack) {
+            const view = Object.create(this);
+            view.state = 'walk';
+            view.walkPhase = this.walkPhase + performance.now() * 0.012;
+            characters.applyPose(this.parts, combat.neutralCombatPose(view), dt, false);
+          }
+        };
+      }
+    }
     document.body.classList.add('onlineFight');
     online.onBegin?.();
     document.getElementById('arenaName').lastElementChild.textContent =
@@ -159,6 +222,9 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
       try {
         const decoded = decodeInput(data.data);
         online.remote = { ...decoded, actions: [] };
+        online.receivedInput = Number.isFinite(data.at)
+          ? { at: data.at, receivedAt: performance.now() }
+          : null;
         online.remoteActions.push(...decoded.actions);
         if (online.remoteActions.length > 20) online.remoteActions.length = 20;
       } catch {
@@ -177,7 +243,6 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
         data.frames.length > 32
       )
         throw new Error('对战数据顺序不一致');
-      const previous = [match.player.pos.clone(), match.enemy.pos.clone()];
       for (const frame of data.frames) {
         if (
           !Number.isFinite(frame.dt) ||
@@ -203,11 +268,14 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
         actual.some((n, i) => Math.abs(n - data.check[i]) > 0.001)
       )
         throw new Error('对战状态不同步');
-      [match.player, match.enemy].forEach((f, i) => f.previousPos.copy(previous[i]));
       online.receivedAt = performance.now();
+      online.presentation?.snapshot(online.receivedAt, data.ack, data.age);
       online.remoteSequence = data.seq;
       online.lastPacket = online.receivedAt;
-      if (match.game.over) document.getElementById('againBtn').textContent = '返回房间';
+      if (match.game.over) {
+        online.presentation?.clear();
+        document.getElementById('againBtn').textContent = '返回房间';
+      }
     } catch (error) {
       status(`${error.message}，请双方返回房间重新准备`);
       online.returnToRoom();
@@ -252,15 +320,18 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
       status('对战连接中断，请重新准备');
       return;
     }
-    const interval = online.transport.forceRelay ? 100 : 50;
-    if (now - online.lastFlush < interval) return;
-    online.lastFlush = now;
-    if (online.host && online.pendingFrames.length) {
+    const interval = online.transport.forceRelay ? 100 : 0;
+    if (online.host && now - online.lastFlush >= interval && online.pendingFrames.length) {
+      online.lastFlush = now;
       online.transport.packet({
         kind: 'frames',
         seq: ++online.sequence,
         frames: online.pendingFrames.splice(0),
         check: checkpoint(),
+        age: Math.max(0, (now - (online.lastSimulatedAt ?? now)) / 1000),
+        ack: online.appliedInput
+          ? { at: online.appliedInput.at, processing: now - online.appliedInput.receivedAt }
+          : null,
       });
     }
     if (!online.host && !match.game.over) {
@@ -270,17 +341,24 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
       const encoded = encodeInput(held);
       if (!(encoded[0] & 15)) encoded[1] = 0; // Camera yaw is irrelevant while stationary.
       const signature = JSON.stringify(encoded.slice(0, 2));
-      if (signature !== online.lastInput || encoded[2].length) {
-        online.transport.packet({ kind: 'input', data: encoded });
+      const heldChanged = encoded[0] !== online.lastHeld;
+      const yawDue = now - online.lastInputSend >= (online.transport.forceRelay ? 50 : 16);
+      if (heldChanged || (signature !== online.lastInput && yawDue) || encoded[2].length) {
+        online.transport.packet({ kind: 'input', data: encoded, at: now });
         online.lastInput = signature;
+        online.lastHeld = encoded[0];
+        online.lastInputSend = now;
       }
+      online.presentation?.record(held, now);
+      online.presentation?.update(
+        now,
+        Math.min(0.05, Math.max(0, (now - (online.lastVisualAt ?? now - 16)) / 1000)),
+        match.game.ready <= 0,
+      );
+      online.lastVisualAt = now;
     }
   };
-  online.renderAlpha = () =>
-    Math.min(
-      1,
-      (performance.now() - (online.receivedAt ?? 0)) / (online.transport.forceRelay ? 100 : 50),
-    );
+  online.renderAlpha = () => 1; // Guest presentation predicts from the latest authoritative frame.
 
   function state(data) {
     const oldRoom = online.room;
@@ -359,6 +437,7 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
         },
       );
       online.pendingFrames.push(frame);
+      online.lastSimulatedAt = performance.now();
     };
     basePause = match.setPaused;
     match.setPaused = (value) => {

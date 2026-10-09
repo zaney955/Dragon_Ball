@@ -29,7 +29,9 @@ export function register({
     renderModule.updateFightCamera(1, true);
   };
   function updateShoulderView(cam, f, foe, s, dt, snap = false) {
-    const delta = foe.pos.clone().sub(f.pos),
+    const position = f.onlineVisualPosition ?? f.pos,
+      foePosition = foe.onlineVisualPosition ?? foe.pos,
+      delta = foePosition.clone().sub(position),
       dist = Math.hypot(delta.x, delta.z),
       wanted = dist > 0.2 ? Math.atan2(delta.x, delta.z) : f.facingAngle;
     s.yaw += snap
@@ -45,8 +47,8 @@ export function register({
       back = (split ? 4.9 : 4.8) + Math.min(1.8, dist * 0.07 + Math.abs(delta.y) * 0.2),
       shoulder =
         (split ? 1.3 : 1.45) + Math.max(0, 1 - dist / 5) * 2 + Math.max(0, f.baseScale - 1) * 0.3;
-    const origin = f.pos.clone().add(new THREE.Vector3(0, 1.65 * f.baseScale, 0));
-    const desired = f.pos.clone().addScaledVector(front, -back).addScaledVector(right, shoulder);
+    const origin = position.clone().add(new THREE.Vector3(0, 1.65 * f.baseScale, 0));
+    const desired = position.clone().addScaledVector(front, -back).addScaledVector(right, shoulder);
     desired.y += 2.65 + Math.max(0, f.baseScale - 1) * 1.6 + Math.min(2, Math.abs(delta.y) * 0.3);
     const dir = desired.clone().sub(origin),
       length = dir.length();
@@ -57,7 +59,7 @@ export function register({
       desired.copy(origin).addScaledVector(dir, Math.max(0.35, hit.distance - 0.3));
       desired.y = Math.max(desired.y, 0.45);
     }
-    const desiredTarget = f.pos
+    const desiredTarget = position
       .clone()
       .addScaledVector(front, Math.min(5.5, Math.max(1.1, dist * 0.43)))
       .addScaledVector(right, 0);

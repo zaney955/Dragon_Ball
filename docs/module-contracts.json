@@ -2312,8 +2312,12 @@
     "requires": [
       "ai.setCombatSeed",
       "ai.tacticalSeed",
+      "characters.applyPose",
       "combat.advanceCombat",
+      "combat.combatPose",
       "combat.inputEdges",
+      "combat.mobilitySpeed",
+      "combat.neutralCombatPose",
       "input.clearPresses",
       "input.justPressed",
       "input.keys",
@@ -2325,7 +2329,8 @@
       "match.game",
       "match.player",
       "match.setPaused",
-      "match.startFight"
+      "match.startFight",
+      "world.currentMap"
     ]
   },
   {
