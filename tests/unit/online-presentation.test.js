@@ -39,6 +39,14 @@ test('guest predicts movement before host feedback without changing authoritativ
   assert.equal(fighters[1].onlineVisualPosition, undefined);
 });
 
+test('fresh input still responds when host feedback is older than the prediction horizon', () => {
+  const { fighters, presentation } = setup();
+  presentation.record({ up: true, moveYaw: 0, actions: [] }, 1500);
+  presentation.update(1550, 1 / 60, true);
+  assert.ok(fighters[1].onlineVisualPosition.z > 0.02);
+  assert.deepEqual(fighters[1].pos.toArray(), [0, 0, 0]);
+});
+
 test('local attack anticipation stops when input is acknowledged and cannot predict through stun', () => {
   const { fighters, presentation } = setup();
   presentation.record({ actions: [{ type: 'light' }] }, 1000);

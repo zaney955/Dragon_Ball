@@ -310,6 +310,8 @@ test('guest movement responds locally while authoritative frames are delayed', a
     await host.locator('[data-room="2"]').click();
     await expect(guest.locator('[data-room="2"]')).toHaveText('加入房间');
     await guest.locator('[data-room="2"]').click();
+    for (const page of [host, guest])
+      await expect.poll(() => page.evaluate(() => window.__db.online.room?.players.length)).toBe(2);
     await host.locator('#startBtn').click();
     await guest.locator('#startBtn').click();
     await guest.waitForFunction(() => window.__db.online.active && window.__db.game.ready <= 0);

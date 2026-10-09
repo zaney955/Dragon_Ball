@@ -34,7 +34,7 @@ export class GuestPresentation {
         let historyIndex = 0;
         for (let time = 0; time < elapsed; time += 1 / 120) {
           const step = Math.min(1 / 120, elapsed - time),
-            at = this.anchorAt + time * 1000;
+            at = now - elapsed * 1000 + time * 1000;
           while (this.history[historyIndex + 1]?.at <= at) historyIndex++;
           const input = this.history[historyIndex].input;
           let side = +!!input.right - +!!input.left,
