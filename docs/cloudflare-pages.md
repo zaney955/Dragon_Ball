@@ -4,7 +4,9 @@
 
 项目通过 Cloudflare 原生 Git 集成构建。`main` 的推送触发生产部署，其他分支推送触发预览部署。Cloudflare 从 GitHub 拉取源码、安装依赖并执行 `npm run build`，发布 `dist/`；根目录为仓库根目录。生产与预览环境都设置 `NODE_VERSION=24.13.0`。
 
-仓库为 `zaney955/Dragon_Ball`，Cloudflare Pages 项目为 `dragon-ball-budokai`。`wrangler.jsonc` 保留纯静态输出配置，`npm run deploy:pages` 是本地手工发布入口。
+仓库为 `zaney955/Dragon_Ball`，Cloudflare Pages 项目为 `dragon-ball-budokai`。`wrangler.jsonc` 配置静态输出及已有 `dragon-ball-online` 的 Durable Object 绑定，`npm run deploy:pages` 是本地手工发布入口。
+
+`functions/api/online.js` 提供同域名联机 WebSocket 入口，直接绑定现有协调对象，避免浏览器访问另一个 `workers.dev` 域名。只有 `/api/online` 进入 Pages Function，其余资源保持静态。
 
 ## cf 管理命令
 

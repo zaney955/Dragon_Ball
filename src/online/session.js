@@ -319,13 +319,10 @@ export function register({ app, ai, combat, input, match, render, ui, world }) {
 
   return function initialize() {
     const configured = import.meta.env.VITE_ONLINE_URL;
-    const local = ['localhost', '127.0.0.1'].includes(location.hostname);
     online.transport = new OnlineTransport({
       url:
         configured ||
-        (local
-          ? 'ws://127.0.0.1:8787/connect'
-          : 'wss://dragon-ball-online.coin-divination-edge-reading.workers.dev/connect'),
+        `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/online`,
       onState: state,
       onPacket: packet,
       onStatus: status,

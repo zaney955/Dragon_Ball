@@ -3,6 +3,9 @@
 #onlineRooms[hidden] {
   display: none;
 }
+#onlineRetry[hidden] {
+  display: none;
+}
 #onlineLobby {
   position: fixed;
   inset: 0;

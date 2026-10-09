@@ -269,3 +269,26 @@ test('mobile multiplayer entry and all three room buttons remain visible', async
   await expect(page.locator('#homeOnline')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('a stalled connection shows a retry button and a retry loads all three rooms', async ({
+  page,
+}) => {
+  let attempts = 0;
+  await page.routeWebSocket('**/api/online', (socket) => {
+    if (++attempts > 1) socket.connectToServer();
+  });
+  await page.goto('/?test=1');
+  await expect(page.locator('#loading')).toHaveClass('hidden');
+  await page.locator('#homeOnline').click();
+  await expect(page.locator('#onlineStatus')).toHaveText('连接超时，请重试', { timeout: 15000 });
+  await expect(page.locator('#onlineRetry')).toBeVisible();
+  expect(attempts).toBe(1);
+  await page.locator('#onlineRetry').click();
+  await expect(page.locator('.onlineRoomCard')).toHaveCount(3);
+  await expect(page.locator('#onlineRetry')).toBeHidden();
+  expect(attempts).toBe(2);
+  expect(await page.evaluate(() => new URL(window.__db.online.transport.url).host)).toBe(
+    new URL(page.url()).host,
+  );
+  await page.locator('#onlineHome').click();
+});

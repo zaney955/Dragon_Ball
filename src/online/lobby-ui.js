@@ -6,7 +6,7 @@ export function register({ app, characters, match, ui, world }) {
     panel.id = 'onlineLobby';
     panel.hidden = true;
     panel.innerHTML =
-      '<div class="onlineShell"><header><div><div class="onlineEyebrow">少年武道会</div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">三个房间，每房两人。双方准备后自动开战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><div id="onlineRooms"></div></div>';
+      '<div class="onlineShell"><header><div><div class="onlineEyebrow">少年武道会</div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">三个房间，每房两人。双方准备后自动开战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><button id="onlineRetry" hidden>重新连接</button><div id="onlineRooms"></div></div>';
     document.body.append(panel);
     const info = document.createElement('section');
     info.id = 'onlineRoomInfo';
@@ -125,6 +125,7 @@ export function register({ app, characters, match, ui, world }) {
       showLobby();
       online.connect();
     };
+    el('onlineRetry').onclick = () => online.connect();
     if (location.protocol === 'file:') {
       el('homeOnline').disabled = true;
       el('homeOnline').textContent = '联机请打开网页版';
@@ -140,6 +141,7 @@ export function register({ app, characters, match, ui, world }) {
     };
     online.onStatus = (message) => {
       el('onlineStatus').textContent = message;
+      el('onlineRetry').hidden = !/重试|重新进入/.test(message);
       el('onlineRoomStatus').textContent = message;
       el('onlineRoomStatus').hidden = !/无效|停止|超时|中断|拥堵|失败|已满|更新|不能/.test(message);
     };

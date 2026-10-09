@@ -28,7 +28,7 @@ npm run build
 npm run test:online  # 真实 workerd + 两浏览器直连/中继/容量/手机入口
 ```
 
-离线单文件保留本地玩法，联机需打开网页版。生产网页使用 `VITE_ONLINE_URL` 构建环境变量覆盖后端地址，默认地址为 `wss://dragon-ball-online.coin-divination-edge-reading.workers.dev/connect`。本地默认连接 8787。
+离线单文件保留本地玩法，联机需打开网页版。生产网页默认连接同域名 `wss://dragon-ball-budokai.pages.dev/api/online`，由 Pages Function 通过 Durable Object binding 直接连接现有三个房间的协调对象，浏览器不再访问 `workers.dev`。`public/_routes.json` 只将这一个路径交给 Function，其余网页资源仍走静态服务。每次进入大厅仍只建立一条 WebSocket；连接 10 秒未收到房间状态会停止等待，提供手动重试，不增加自动轮询。`VITE_ONLINE_URL` 可覆盖地址；本地由 Vite 将同域入口转发到 8787。
 
 ## 部署
 

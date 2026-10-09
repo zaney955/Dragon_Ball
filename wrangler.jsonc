@@ -3,4 +3,9 @@
   "name": "dragon-ball-budokai",
   "pages_build_output_dir": "./dist",
   "compatibility_date": "2026-10-09",
+  "durable_objects": {
+    "bindings": [
+      { "name": "LOBBY", "class_name": "OnlineLobby", "script_name": "dragon-ball-online" },
+    ],
+  },
 }

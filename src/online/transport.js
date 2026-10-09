@@ -16,9 +16,22 @@ export class OnlineTransport {
   connect() {
     if (this.ws && this.ws.readyState < 2) return;
     this.stats.connections++;
-    this.ws = new WebSocket(this.url);
-    this.ws.onopen = () => {
-      this.onStatus('已连接');
+    this.onStatus('正在连接…');
+    let socket;
+    try {
+      socket = this.ws = new WebSocket(this.url);
+    } catch {
+      this.onError('无法建立联机连接，请重试');
+      return;
+    }
+    const fail = (message) => {
+      if (this.ws !== socket) return;
+      this.close();
+      this.onState({ you: null, rooms: [] });
+      this.onError(message);
+    };
+    this.connectTimeout = setTimeout(() => fail('连接超时，请重试'), 10000);
+    socket.onopen = () => {
       this.heartbeat = setInterval(() => {
         if (this.ws?.readyState === WebSocket.OPEN) {
           this.stats.heartbeats++;
@@ -26,11 +39,15 @@ export class OnlineTransport {
         }
       }, 45000);
     };
-    this.ws.onmessage = async ({ data }) => {
+    socket.onmessage = async ({ data }) => {
       if (data === 'pong') return;
       try {
         const message = JSON.parse(data);
-        if (message.type === 'state') this.onState(message);
+        if (message.type === 'state') {
+          clearTimeout(this.connectTimeout);
+          this.onStatus('已连接');
+          this.onState(message);
+        }
         if (message.type === 'error') this.onError(message.message);
         if (message.type === 'peer' && message.match === this.match) this.onPacket(message.packet);
         if (message.type === 'signal') await this.signal(message);
@@ -38,13 +55,14 @@ export class OnlineTransport {
         this.onError('连接协商失败：' + error.message);
       }
     };
-    this.ws.onclose = () => {
+    socket.onclose = () => {
+      clearTimeout(this.connectTimeout);
       clearInterval(this.heartbeat);
       this.resetPeer();
       this.onStatus('连接已断开，请重新进入大厅');
       this.onState({ you: null, rooms: [] });
     };
-    this.ws.onerror = () => this.onError('暂时无法连接联机服务，请稍后重新进入');
+    socket.onerror = () => fail('暂时无法连接联机服务，请重试');
   }
   send(data) {
     if (this.ws?.readyState !== WebSocket.OPEN) return false;
@@ -124,10 +142,11 @@ export class OnlineTransport {
     return this.send({ type: 'relay', match: this.match, packet });
   }
   close() {
+    clearTimeout(this.connectTimeout);
     clearInterval(this.heartbeat);
     this.resetPeer();
     if (this.ws) {
-      this.ws.onclose = null;
+      this.ws.onopen = this.ws.onmessage = this.ws.onerror = this.ws.onclose = null;
       this.ws.close(1000, '离开大厅');
       this.ws = null;
     }
