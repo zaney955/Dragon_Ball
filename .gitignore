@@ -1,15 +1,29 @@
-# Browser automation snapshots and debugging output
+# Browser automation snapshots, reports and debugging output
 /.playwright-cli/
 /output/playwright/
+/playwright-report/
+/test-results/
+/blob-report/
 
 # Dependencies and local caches
 node_modules/
-/.cache/
+.cache/
+
+# Python tooling caches and local virtual environments
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
 
 # Logs and editor temporary files
 *.log
 *.swp
 *.swo
+*.tmp
+*.temp
 *~
 
 # Operating system metadata
@@ -23,4 +37,9 @@ Desktop.ini
 !.env.example
 !.env.*.example
 !.env.sample
+!.env.*.sample
 !.env.template
+!.env.*.template
+
+# Versioned HTML backups, V2 reports, data and acceptance screenshots
+# are project deliverables and remain eligible for version control.
