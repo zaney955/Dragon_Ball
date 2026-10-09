@@ -1,0 +1,39 @@
+{
+  "name": "dragon-ball-budokai",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "龙珠少年武道会：模块化 Three.js 格斗游戏",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
+    "deploy:pages": "npm run build && wrangler pages deploy dist --project-name dragon-ball-budokai --branch main",
+    "preview": "vite preview --host 127.0.0.1",
+    "lint": "eslint src tests scripts *.js",
+    "format": "prettier --write src tests scripts *.js *.json index.html docs/*.md README.md",
+    "format:check": "prettier --check src tests scripts *.js *.json index.html docs/*.md README.md",
+    "test:unit": "node --test tests/unit/*.test.js",
+    "test": "playwright test",
+    "test:full": "FULL_REGRESSION=1 playwright test",
+    "validate": "npm run lint && npm run format:check && npm run architecture:check && npm run test:unit && npm run build && npm test && npm run test:offline",
+    "build:offline": "node scripts/export-offline.js",
+    "test:offline": "npm run build:offline && OFFLINE_TEST=1 playwright test --grep 'offline export'",
+    "architecture:update": "node scripts/module-contracts.js --write",
+    "architecture:check": "node scripts/module-contracts.js",
+    "clean": "node scripts/clean.js"
+  },
+  "dependencies": {
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.0",
+    "eslint": "10.12.0",
+    "globals": "16.5.0",
+    "prettier": "3.9.9",
+    "vite": "8.3.4",
+    "wrangler": "4.149.0"
+  }
+}

@@ -1,0 +1,75 @@
+#charList {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+.char-card .portrait {
+  aspect-ratio: 1.12;
+}
+.char-card .cname {
+  margin: 5px 0;
+  font-size: 11px;
+}
+#heroTactics {
+  font-size: 10px;
+  line-height: 1.65;
+  color: #a5b7ca;
+  white-space: pre-line;
+  margin: 12px 0;
+}
+.v2Ability {
+  font-size: 10px;
+  color: #d5e7e5;
+  text-shadow: 0 1px 3px #091d25;
+  line-height: 1.5;
+  margin-top: 6px;
+  max-width: 350px;
+}
+.v2MoveNotes {
+  font-size: 12px;
+  line-height: 1.8;
+  margin-top: 18px;
+}
+.v2MoveNotes p {
+  margin: 8px 0;
+}
+#v2TrainingState {
+  font-size: 10px;
+  line-height: 1.6;
+  white-space: pre-line;
+}
+#v2Goal {
+  font-size: 10px;
+  line-height: 1.6;
+}
+.homeSubtitle::after {
+  content: 'V2 · 十四角色';
+  display: block;
+  font-size: 12px;
+  margin-top: 10px;
+  letter-spacing: 3px;
+}
+@media (max-width: 900px) {
+  #charList {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .selectLayout {
+    align-items: start;
+  }
+  #menu {
+    overflow-y: auto !important;
+  }
+  .v2Ability {
+    max-width: 40vw;
+  }
+}
+@media (max-width: 500px) {
+  #charList {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .v2Ability {
+    font-size: 8px;
+  }
+  .char-card .cname {
+    font-size: 10px;
+  }
+}

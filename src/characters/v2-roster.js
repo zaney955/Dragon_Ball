@@ -1,0 +1,1007 @@
+export function register({
+  ai: aiModule,
+  animation: animationModule,
+  art: artModule,
+  characters: charactersModule,
+  combat: combatModule,
+  render: renderModule,
+}) {
+  let v2EnabledCount;
+  charactersModule.v2Move = function v2Move(name, motion, s, ac, r, dmg, range, extras = {}) {
+    return combatModule.finalizeMove({
+      id: name,
+      name,
+      motion,
+      anim: animationModule.ANIM[motion],
+      startup: s / 60,
+      active: ac / 60,
+      recovery: r / 60,
+      dmg,
+      range,
+      stun: 0.3,
+      blockstun: 0.12,
+      kb: 0.45,
+      ki: 5,
+      guardDamage: 12,
+      level: 'mid',
+      drive: 2.5,
+      ...extras,
+    });
+  };
+  function authoredAnim(key, anticipation, contact, recover = animationModule.IDLE_POSE) {
+    animationModule.ANIM[key] = [
+      [0, recover],
+      [0.26, animationModule.pz(anticipation)],
+      [0.48, animationModule.pz(contact)],
+      [0.64, animationModule.pz(contact)],
+      [1, recover],
+    ];
+    renderModule.CONTACT_PHASE[key] = 0.48;
+    return key;
+  }
+  function chainMoves(rows, type) {
+    return rows.map((row, i) => {
+      const a = charactersModule.v2Move(...row),
+        last = i === rows.length - 1;
+      return {
+        ...a,
+        id: (type === 'light' ? 'l' : 'h') + (i + 1),
+        chainType: type,
+        chainIndex: i,
+        terminal: last,
+        cancelRules: {
+          hit: last
+            ? ['special', 'ult', 'dash']
+            : ['light', 'heavy', 'special', 'ult', 'dash', 'pursuit'],
+          block: type === 'light' && !last ? ['heavy'] : [],
+          whiff: [],
+        },
+      };
+    });
+  }
+  return function initialize() {
+    authoredAnim(
+      'axeJab',
+      {
+        aR: [-0.3, 0, 0.3],
+        aL: [-0.5, 0, -0.4],
+        t: [0.2, -0.25, 0],
+      },
+      {
+        aR: [-1.45, 0, -0.42],
+        aL: [-1.3, 0, 0.4],
+        t: [0.1, 0.08, 0],
+        y: -0.12,
+      },
+    );
+    authoredAnim(
+      'axeSweep',
+      {
+        aR: [-0.6, 0, 1.3],
+        aL: [-1.4, 0, -0.1],
+        t: [0.12, -0.6, 0],
+      },
+      {
+        aR: [-1.4, 0, -0.9],
+        aL: [-1.5, 0, 0.35],
+        t: [0.16, 0.75, 0],
+        y: -0.16,
+      },
+    );
+    authoredAnim(
+      'axeChop',
+      {
+        aR: [-2.9, 0, 0.1],
+        aL: [-2.5, 0, -0.3],
+        t: [-0.2, 0, 0],
+      },
+      {
+        aR: [-0.38, 0, -0.4],
+        aL: [-0.5, 0, 0.35],
+        t: [0.5, 0, 0],
+        y: -0.15,
+      },
+    );
+    authoredAnim(
+      'girlPalm',
+      {
+        aR: [-0.55, 0, 0.3],
+        t: [0.02, -0.3, 0],
+      },
+      {
+        aR: [-1.48, 0, -0.63],
+        aL: [-0.55, 0, -0.25],
+        t: [0.08, 0.08, 0],
+      },
+    );
+    authoredAnim(
+      'girlKick',
+      {
+        lR: [-0.6, 0, 0.12],
+        t: [0.14, 0, 0],
+      },
+      {
+        lR: [-1.65, 0, -0.1],
+        aR: [-0.3, 0, 0.7],
+        aL: [-0.3, 0, -0.6],
+        t: [-0.12, 0, 0],
+        ry: 0.07,
+      },
+    );
+    authoredAnim(
+      'bladeCast',
+      {
+        aR: [-1.25, 0, 0.55],
+        t: [0.04, -0.3, 0],
+      },
+      {
+        aR: [-1.5, 0, -0.6],
+        aL: [-0.7, 0, -0.2],
+        t: [0.12, 0.08, 0],
+        h: [-0.15, 0, 0],
+      },
+    );
+    authoredAnim(
+      'capsuleCast',
+      {
+        aR: [-0.3, 0, 0.7],
+        aL: [-0.2, 0, -0.6],
+        t: [0.16, -0.18, 0],
+      },
+      {
+        aR: [-1.3, 0, -0.65],
+        aL: [-0.2, 0, -0.3],
+        t: [0.22, 0.04, 0],
+      },
+    );
+    authoredAnim(
+      'selfDefense',
+      {
+        aR: [-0.8, 0, 0.6],
+        t: [-0.1, -0.3, 0],
+      },
+      {
+        aR: [-1.4, 0, -0.64],
+        aL: [-1.1, 0, 0.55],
+        t: [-0.18, 0.08, 0],
+        y: -0.05,
+      },
+    );
+    authoredAnim(
+      'psychicPush',
+      {
+        aR: [-0.75, 0, 0.5],
+        aL: [-0.75, 0, -0.5],
+        t: [0, 0, 0],
+      },
+      {
+        aR: [-1.45, 0, -0.55],
+        aL: [-1.45, 0, 0.55],
+        t: [-0.05, 0, 0],
+        ry: 0.03,
+      },
+    );
+    authoredAnim(
+      'psychicPoke',
+      {
+        aR: [-0.4, 0, 0.1],
+        h: [0.15, 0, 0],
+      },
+      {
+        aR: [-1.5, 0, -0.6],
+        aL: [-0.3, 0, -0.2],
+        t: [0.12, 0, 0],
+      },
+    );
+    authoredAnim(
+      'pigSlap',
+      {
+        aR: [-0.2, 0, 1],
+        t: [0.14, -0.25, 0],
+      },
+      {
+        aR: [-1.3, 0, -0.65],
+        aL: [-0.45, 0, 0.2],
+        t: [0.25, 0.1, 0],
+      },
+    );
+    authoredAnim(
+      'pigBelly',
+      {
+        aR: [-0.3, 0, 0.5],
+        aL: [-0.3, 0, -0.5],
+        t: [-0.2, 0, 0],
+      },
+      {
+        aR: [-0.8, 0, -0.2],
+        aL: [-0.8, 0, 0.2],
+        t: [0.3, 0, 0],
+        y: -0.1,
+      },
+    );
+    authoredAnim(
+      'transform',
+      {
+        aR: [-2, 0, 0.7],
+        aL: [-2, 0, -0.7],
+        t: [0.2, 0, 0],
+        y: -0.1,
+      },
+      {
+        aR: [-2.5, 0, 0.9],
+        aL: [-2.5, 0, -0.9],
+        t: [-0.12, 0, 0],
+        y: 0.02,
+      },
+    );
+    authoredAnim(
+      'catClaw',
+      {
+        aR: [-0.7, 0, 0.8],
+        aL: [-0.5, 0, -0.5],
+        t: [0.1, -0.15, 0],
+      },
+      {
+        aR: [-1.55, 0, -0.55],
+        aL: [-0.8, 0, 0.3],
+        t: [0.1, 0.15, 0],
+      },
+    );
+    authoredAnim(
+      'caneTap',
+      {
+        aR: [-2.2, 0, 0.3],
+        t: [-0.05, -0.12, 0],
+      },
+      {
+        aR: [-1.38, 0, -0.55],
+        aL: [-0.5, 0, -0.3],
+        t: [0.16, 0.12, 0],
+      },
+    );
+    authoredAnim(
+      'catStep',
+      {
+        aR: [-0.3, 0, 0.6],
+        aL: [-0.3, 0, -0.6],
+        t: [0.28, 0, 0.1],
+        y: -0.08,
+      },
+      {
+        aR: [-0.7, 0, 0.2],
+        aL: [-0.5, 0, -0.2],
+        t: [0.12, 0, -0.12],
+        y: -0.12,
+      },
+    );
+    authoredAnim(
+      'beanEat',
+      {
+        aR: [-1.8, 0, -0.5],
+        aL: [-0.4, 0, -0.3],
+        t: [0.12, 0, 0],
+      },
+      {
+        aR: [-2, 0, -0.5],
+        aL: [-0.4, 0, -0.3],
+        t: [-0.05, 0, 0],
+      },
+    );
+    authoredAnim(
+      'mechPunch',
+      {
+        aR: [-0.1, 0, 0.7],
+        t: [0.06, -0.2, 0],
+      },
+      {
+        aR: [-1.5, 0, -0.65],
+        aL: [-0.4, 0, -0.5],
+        t: [0.1, 0.1, 0],
+      },
+    );
+    authoredAnim(
+      'mechRam',
+      {
+        aR: [-1.2, 0, -0.5],
+        aL: [-1.2, 0, 0.5],
+        t: [-0.06, 0, 0],
+      },
+      {
+        aR: [-1.3, 0, -0.5],
+        aL: [-1.3, 0, 0.5],
+        t: [0.36, 0, 0],
+        y: -0.13,
+      },
+    );
+    authoredAnim(
+      'mechArm',
+      {
+        aR: [-1.4, 0, -0.5],
+        aL: [-0.8, 0, -0.2],
+        t: [0.04, 0, 0],
+      },
+      {
+        aR: [-1.5, 0, -0.6],
+        aL: [-0.8, 0, -0.2],
+        t: [-0.05, 0, 0],
+      },
+    );
+    charactersModule.V2_NEW_DEFS = [
+      {
+        id: 'gyumao',
+        name: '牛魔王',
+        title: '火焰山 · 巨斧守护者',
+        hp: 336,
+        speed: 0.67,
+        power: 1.08,
+        color: 0x477194,
+        accent: 0xdab97c,
+        ultColor: 0xffb35e,
+        type: 'giant',
+        resource: '耐力',
+        buildBody: charactersModule.buildGyumao,
+        role: '巨斧控距 · 高生命慢速重击',
+        near: 1.35,
+        control: 2.2,
+        ultName: '巨斧连环破',
+        ultStyle: 'axe',
+        ultAnim: animationModule.ANIM.axeSweep,
+        light: [
+          ['斧柄直撞', 'axeJab', 12, 6, 18, 6, 2.2],
+          ['斧柄反撞', 'axeJab', 14, 6, 20, 7, 2.3],
+          [
+            '低斧横压',
+            'axeSweep',
+            18,
+            7,
+            24,
+            9,
+            2.6,
+            {
+              level: 'low',
+            },
+          ],
+          [
+            '巨力推斧',
+            'axeChop',
+            23,
+            8,
+            32,
+            13,
+            2.9,
+            {
+              kb: 4,
+            },
+          ],
+        ],
+        heavy: [
+          [
+            '巨斧横扫',
+            'axeSweep',
+            24,
+            9,
+            35,
+            15,
+            3.2,
+            {
+              armor: true,
+            },
+          ],
+          [
+            '双手纵劈',
+            'axeChop',
+            27,
+            7,
+            36,
+            18,
+            3.3,
+            {
+              armor: true,
+              knockdown: true,
+            },
+          ],
+          ['重斧逆扫', 'axeSweep', 29, 8, 38, 20, 3.2],
+          [
+            '破山纵斧',
+            'axeChop',
+            34,
+            9,
+            45,
+            26,
+            3.5,
+            {
+              armor: true,
+              kb: 7,
+            },
+          ],
+        ],
+        special: {
+          name: '巨斧震地',
+          motion: 'axeChop',
+          startup: 0.55,
+          active: 0.18,
+          recovery: 0.75,
+          dmg: 19,
+          range: 3.4,
+          shape: 'ground',
+          kb: 4,
+          stun: 0.48,
+          guardDamage: 34,
+          cooldown: 2.8,
+        },
+        ult: {
+          motion: 'axeSweep',
+          startup: 0.7,
+          active: 0.72,
+          recovery: 0.95,
+          dmg: 13,
+          range: 3.5,
+          hits: [0, 0.25, 0.5],
+          kb: 1,
+          stun: 0.36,
+          shape: 'axe',
+          drive: 2.5,
+        },
+      },
+      {
+        id: 'chichi',
+        name: '琪琪',
+        title: '少年篇 · 头盔武装',
+        hp: 208,
+        speed: 1.22,
+        power: 0.92,
+        color: 0xd378a1,
+        accent: 0x5069a3,
+        ultColor: 0xffc9d7,
+        type: 'human',
+        resource: '装备能量',
+        buildBody: charactersModule.buildChichi,
+        role: '踢击近身 · 往返飞刃',
+        near: 0.72,
+        control: 2.7,
+        ultName: '头盔光束连击',
+        ultStyle: 'helmet',
+        ultAnim: animationModule.ANIM.girlKick,
+        light: [
+          ['快掌', 'girlPalm', 4, 4, 9, 4, 1.15],
+          ['双掌', 'girlPalm', 5, 4, 10, 5, 1.16],
+          ['前踢', 'girlKick', 7, 5, 13, 6, 1.35],
+          [
+            '回旋踢',
+            'girlKick',
+            10,
+            6,
+            22,
+            9,
+            1.4,
+            {
+              kb: 3,
+            },
+          ],
+        ],
+        heavy: [
+          ['头盔撞击', 'girlPalm', 11, 5, 21, 9, 1.2],
+          ['凌空踢', 'girlKick', 12, 6, 24, 11, 1.5],
+          ['掌踢衔接', 'girlPalm', 14, 6, 25, 13, 1.3],
+          [
+            '翻身踢',
+            'girlKick',
+            19,
+            6,
+            30,
+            17,
+            1.55,
+            {
+              kb: 5,
+            },
+          ],
+        ],
+        special: {
+          name: '回旋刃投掷',
+          motion: 'bladeCast',
+          startup: 0.23,
+          active: 0.05,
+          recovery: 0.4,
+          dmg: 7,
+          range: 6,
+          shape: 'ability',
+          ability: 'blade',
+          kb: 0.5,
+          stun: 0.2,
+          cooldown: 2.4,
+        },
+        ult: {
+          motion: 'girlKick',
+          startup: 0.25,
+          active: 0.23,
+          recovery: 0.65,
+          dmg: 12,
+          range: 1.6,
+          ability: 'helmet',
+          kb: 0.7,
+          stun: 0.34,
+          shape: 'kick',
+        },
+      },
+      {
+        id: 'bulma',
+        name: '布尔玛',
+        title: '少年冒险 · 万能胶囊',
+        hp: 204,
+        speed: 1.03,
+        power: 0.86,
+        color: 0x49adad,
+        accent: 0xdc88a7,
+        ultColor: 0x7ae7e2,
+        type: 'technology',
+        resource: '装置储备',
+        buildBody: charactersModule.buildBulma,
+        role: '准备部署 · 装置与站位控制',
+        near: 0.75,
+        control: 4.3,
+        ultName: '胶囊连锁机关',
+        ultStyle: 'capsules',
+        ultAnim: animationModule.ANIM.capsuleCast,
+        light: [
+          ['推开', 'selfDefense', 7, 4, 14, 3, 1.2],
+          ['手包挥击', 'selfDefense', 8, 4, 16, 4, 1.25],
+          ['自卫踢', 'girlKick', 11, 5, 20, 5, 1.4],
+          [
+            '逃脱推击',
+            'selfDefense',
+            14,
+            5,
+            28,
+            7,
+            1.3,
+            {
+              kb: 4,
+            },
+          ],
+        ],
+        heavy: [
+          ['电击枪托', 'selfDefense', 15, 5, 26, 7, 1.3],
+          ['警戒踢', 'girlKick', 17, 5, 29, 8, 1.4],
+          [
+            '胶囊重掷',
+            'capsuleCast',
+            20,
+            5,
+            31,
+            10,
+            2.3,
+            {
+              ability: 'grenade',
+              shape: 'ability',
+            },
+          ],
+          [
+            '闪光撤退',
+            'capsuleCast',
+            26,
+            6,
+            35,
+            11,
+            2.3,
+            {
+              ability: 'grenade',
+              shape: 'ability',
+            },
+          ],
+        ],
+        special: {
+          name: '万能胶囊部署',
+          motion: 'capsuleCast',
+          startup: 0.55,
+          active: 0.025,
+          recovery: 0.45,
+          dmg: 0,
+          range: 5,
+          shape: 'ability',
+          ability: 'device',
+          kb: 0,
+          stun: 0.1,
+          cooldown: 4.5,
+        },
+        ult: {
+          motion: 'capsuleCast',
+          startup: 0.8,
+          active: 0.06,
+          recovery: 0.8,
+          dmg: 0,
+          range: 7,
+          shape: 'ability',
+          ability: 'deviceChain',
+          kb: 0,
+          stun: 0.2,
+        },
+      },
+      {
+        id: 'chiaotzu',
+        name: '饺子',
+        title: '鹤仙流 · 念力术',
+        hp: 211,
+        speed: 1.02,
+        power: 0.9,
+        color: 0x578463,
+        accent: 0xd34849,
+        ultColor: 0xddb2ff,
+        type: 'psychic',
+        resource: '念力',
+        buildBody: charactersModule.buildChiaotzu,
+        role: '短时束缚 · 悬浮与直线洞洞波',
+        near: 0.65,
+        control: 3.0,
+        ultName: '鹤仙流念力连击',
+        ultStyle: 'psychic',
+        ultAnim: animationModule.ANIM.psychicPush,
+        light: [
+          ['小幅指击', 'psychicPoke', 5, 4, 11, 3, 1.05],
+          ['反手触击', 'psychicPoke', 6, 4, 12, 4, 1.05],
+          ['悬浮踢', 'girlKick', 8, 5, 15, 5, 1.15],
+          [
+            '念力推掌',
+            'psychicPush',
+            12,
+            6,
+            24,
+            8,
+            1.6,
+            {
+              kb: 3,
+            },
+          ],
+        ],
+        heavy: [
+          ['双掌推力', 'psychicPush', 14, 6, 26, 8, 1.6],
+          ['低空腿击', 'girlKick', 15, 6, 27, 10, 1.3],
+          ['念力压掌', 'psychicPush', 18, 6, 30, 12, 1.7],
+          [
+            '悬空震掌',
+            'psychicPush',
+            24,
+            7,
+            35,
+            17,
+            1.8,
+            {
+              kb: 4,
+            },
+          ],
+        ],
+        special: {
+          name: '念力束缚',
+          motion: 'psychicPush',
+          startup: 0.42,
+          active: 0.09,
+          recovery: 0.48,
+          dmg: 2,
+          range: 3.6,
+          shape: 'beam',
+          width: 0.22,
+          kb: 0,
+          stun: 0.18,
+          control: 0.48,
+          cooldown: 6,
+        },
+        ult: {
+          motion: 'psychicPush',
+          startup: 0.62,
+          active: 0.12,
+          recovery: 0.8,
+          dmg: 5,
+          range: 4,
+          shape: 'beam',
+          width: 0.3,
+          control: 0.55,
+          ability: 'psychicVolley',
+          kb: 0.2,
+          stun: 0.25,
+        },
+      },
+      {
+        id: 'oolong',
+        name: '乌龙',
+        title: '变身幼稚园 · 变化术',
+        hp: 232,
+        speed: 1.02,
+        power: 0.91,
+        color: 0xc7ad7b,
+        accent: 0xefb18d,
+        ultColor: 0xdfc983,
+        type: 'shapeshifter',
+        resource: '变身耐力',
+        buildBody: () => charactersModule.buildOolong(),
+        role: '三形态变化 · 奇袭与逃脱',
+        near: 0.76,
+        control: 1.8,
+        ultName: '连续变身奇袭',
+        ultStyle: 'transform',
+        ultAnim: animationModule.ANIM.transform,
+        light: [
+          ['慌张拍击', 'pigSlap', 6, 4, 12, 4, 1.1],
+          ['猪掌连拍', 'pigSlap', 7, 4, 13, 5, 1.15],
+          ['短腿踢', 'girlKick', 9, 5, 18, 6, 1.2],
+          [
+            '肚皮顶击',
+            'pigBelly',
+            13,
+            6,
+            26,
+            9,
+            1.4,
+            {
+              kb: 3,
+            },
+          ],
+        ],
+        heavy: [
+          ['肚皮冲撞', 'pigBelly', 17, 6, 28, 10, 1.5],
+          ['全力挥掌', 'pigSlap', 18, 6, 29, 12, 1.4],
+          [
+            '低身横撞',
+            'pigBelly',
+            20,
+            6,
+            32,
+            14,
+            1.6,
+            {
+              level: 'low',
+            },
+          ],
+          [
+            '扑倒奇袭',
+            'pigBelly',
+            26,
+            7,
+            37,
+            19,
+            1.7,
+            {
+              knockdown: true,
+            },
+          ],
+        ],
+        special: {
+          name: '变化术',
+          motion: 'transform',
+          startup: 0.32,
+          active: 0.025,
+          recovery: 0.27,
+          dmg: 0,
+          range: 1,
+          shape: 'ability',
+          ability: 'transform',
+          kb: 0,
+          stun: 0,
+          cooldown: 0,
+        },
+        ult: {
+          motion: 'transform',
+          startup: 0.4,
+          active: 0.06,
+          recovery: 0.6,
+          dmg: 0,
+          range: 4,
+          shape: 'ability',
+          ability: 'transformRush',
+          kb: 0,
+          stun: 0.3,
+        },
+      },
+      {
+        id: 'korin',
+        name: '猫仙人',
+        title: '卡林塔 · 武道直觉',
+        hp: 202,
+        speed: 1.3,
+        power: 0.88,
+        color: 0xe9debf,
+        accent: 0x94704c,
+        ultColor: 0xc8f5e8,
+        type: 'cat',
+        resource: '耐力',
+        buildBody: charactersModule.buildKorin,
+        role: '残像防反 · 短杖与一次仙豆',
+        near: 0.65,
+        control: 1.1,
+        ultName: '超圣水试炼',
+        ultStyle: 'trial',
+        ultAnim: animationModule.ANIM.caneTap,
+        light: [
+          ['猫爪', 'catClaw', 3, 3, 9, 3, 1.05],
+          ['双爪', 'catClaw', 4, 4, 10, 4, 1.08],
+          ['短杖点打', 'caneTap', 6, 5, 13, 5, 1.45],
+          [
+            '猫步反杖',
+            'caneTap',
+            9,
+            5,
+            22,
+            8,
+            1.5,
+            {
+              kb: 2.5,
+            },
+          ],
+        ],
+        heavy: [
+          ['杖头轻敲', 'caneTap', 10, 5, 23, 8, 1.45],
+          [
+            '短杖扫腿',
+            'caneTap',
+            13,
+            6,
+            26,
+            10,
+            1.5,
+            {
+              level: 'low',
+            },
+          ],
+          ['猫爪反击', 'catClaw', 14, 6, 27, 12, 1.1],
+          [
+            '双手杖压',
+            'caneTap',
+            18,
+            6,
+            31,
+            16,
+            1.55,
+            {
+              kb: 4,
+            },
+          ],
+        ],
+        special: {
+          name: '卡林残像步',
+          motion: 'catStep',
+          startup: 0.12,
+          active: 0.025,
+          recovery: 0.28,
+          dmg: 0,
+          range: 1,
+          shape: 'ability',
+          ability: 'catStep',
+          kb: 0,
+          stun: 0,
+          cooldown: 2.6,
+        },
+        ult: {
+          motion: 'caneTap',
+          startup: 0.25,
+          active: 0.6,
+          recovery: 0.7,
+          dmg: 7,
+          range: 1.65,
+          shape: 'cane',
+          hits: [0, 0.18, 0.36, 0.54],
+          ability: 'trial',
+          drive: 10,
+          kb: 0.4,
+          stun: 0.23,
+        },
+      },
+      {
+        id: 'pilaf',
+        name: '皮尔夫大王',
+        title: '皮尔夫一党 · 驾驶机甲',
+        hp: 300,
+        speed: 0.78,
+        power: 1.01,
+        color: 0x597c9e,
+        accent: 0xd0ab59,
+        ultColor: 0xffa969,
+        type: 'mech',
+        resource: '机甲能源',
+        buildBody: charactersModule.buildPilaf,
+        role: '武装切换 · 火力与装甲区域',
+        near: 1.2,
+        control: 4.0,
+        ultName: '皮尔夫三机合体突击',
+        ultStyle: 'combine',
+        ultAnim: animationModule.ANIM.mechArm,
+        light: [
+          ['机械拳', 'mechPunch', 10, 5, 16, 5, 2.1],
+          ['反手机械拳', 'mechPunch', 11, 5, 18, 6, 2.15],
+          ['机甲肩撞', 'mechRam', 14, 6, 23, 8, 2.3],
+          [
+            '双臂压击',
+            'mechRam',
+            19,
+            7,
+            30,
+            12,
+            2.4,
+            {
+              kb: 4,
+            },
+          ],
+        ],
+        heavy: [
+          ['重型机械拳', 'mechPunch', 20, 6, 31, 13, 2.5],
+          [
+            '装甲冲撞',
+            'mechRam',
+            23,
+            7,
+            34,
+            15,
+            2.6,
+            {
+              drive: 6,
+            },
+          ],
+          ['双臂重压', 'mechRam', 26, 7, 36, 18, 2.6],
+          [
+            '机甲全力打击',
+            'mechPunch',
+            30,
+            8,
+            40,
+            24,
+            2.7,
+            {
+              kb: 6,
+            },
+          ],
+        ],
+        special: {
+          name: '机甲武装',
+          motion: 'mechArm',
+          startup: 0.4,
+          active: 0.025,
+          recovery: 0.45,
+          dmg: 0,
+          range: 1,
+          shape: 'ability',
+          ability: 'armMode',
+          kb: 0,
+          stun: 0,
+          cooldown: 5,
+        },
+        ult: {
+          motion: 'mechArm',
+          startup: 0.9,
+          active: 0.06,
+          recovery: 1.0,
+          dmg: 0,
+          range: 7,
+          shape: 'ability',
+          ability: 'combine',
+          kb: 0,
+          stun: 0.3,
+        },
+      },
+    ];
+    v2EnabledCount = Number(new URLSearchParams(location.search).get('v2count') ?? 7);
+    for (const raw of charactersModule.V2_NEW_DEFS.slice(0, v2EnabledCount)) {
+      const c = {
+        ...raw,
+        ultTiming: {
+          windup: raw.ult.startup,
+          fire: raw.ult.startup,
+        },
+        combos: {
+          light: chainMoves(raw.light, 'light'),
+          heavy: chainMoves(raw.heavy, 'heavy'),
+        },
+      };
+      charactersModule.CHARACTERS.push(c);
+      combatModule.SPECIAL_MOVES[c.id] = {
+        ...raw.special,
+      };
+      aiModule.TACTICS[c.id] = {
+        near: c.near,
+        control: c.control,
+        notes: '',
+      };
+      artModule.ART_PROFILES[c.id] = {
+        label: c.title,
+        note: c.role + '；独立程序化骨架与服饰，可拖动旋转观察。',
+      };
+    }
+    // Combat rig mirrors the same anatomical joints and weapon endpoints as rendering.
+  };
+}

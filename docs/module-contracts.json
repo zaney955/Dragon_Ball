@@ -1,0 +1,2030 @@
+[
+  {
+    "module": "render/scene",
+    "domain": "render",
+    "testing": false,
+    "provides": [
+      "render.camera",
+      "render.clock",
+      "render.hemi",
+      "render.renderer",
+      "render.rim",
+      "render.scene",
+      "render.sun"
+    ],
+    "requires": [
+      "render.camera",
+      "render.hemi",
+      "render.renderer",
+      "render.rim",
+      "render.scene",
+      "render.sun"
+    ]
+  },
+  {
+    "module": "audio/sound",
+    "domain": "audio",
+    "testing": false,
+    "provides": [
+      "audio.actx",
+      "audio.initAudio",
+      "audio.sfxSwing"
+    ],
+    "requires": [
+      "audio.actx",
+      "audio.eventSound",
+      "match.game"
+    ]
+  },
+  {
+    "module": "animation/poses",
+    "domain": "animation",
+    "testing": false,
+    "provides": [
+      "animation.IDLE_POSE",
+      "animation.lerpPose",
+      "animation.pz",
+      "animation.samplePose",
+      "animation.smoothstep"
+    ],
+    "requires": [
+      "animation.lerpPose",
+      "animation.pz",
+      "animation.smoothstep"
+    ]
+  },
+  {
+    "module": "animation/moves",
+    "domain": "animation",
+    "testing": false,
+    "provides": [
+      "animation.ANIM"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.IDLE_POSE",
+      "animation.pz"
+    ]
+  },
+  {
+    "module": "characters/attack-data",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.mkAtk"
+    ],
+    "requires": [
+      "animation.ANIM"
+    ]
+  },
+  {
+    "module": "characters/model-primitives",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.M",
+      "characters.badge",
+      "characters.ball",
+      "characters.box",
+      "characters.meshTo",
+      "characters.toonRamp",
+      "characters.tube"
+    ],
+    "requires": [
+      "characters.meshTo",
+      "characters.toonRamp"
+    ]
+  },
+  {
+    "module": "characters/skeleton",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.applyPose",
+      "characters.makeSkeleton"
+    ],
+    "requires": [
+      "characters.M",
+      "characters.ball",
+      "characters.box",
+      "characters.meshTo",
+      "characters.tube"
+    ]
+  },
+  {
+    "module": "characters/original-models",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.buildGoku",
+      "characters.buildKrillin",
+      "characters.buildPiccolo",
+      "characters.buildRoshi",
+      "characters.buildTaopaipai",
+      "characters.buildTien",
+      "characters.buildYamcha",
+      "characters.finishBody"
+    ],
+    "requires": [
+      "art.hairLock",
+      "characters.M",
+      "characters.badge",
+      "characters.ball",
+      "characters.box",
+      "characters.makeSkeleton",
+      "characters.meshTo",
+      "characters.tube"
+    ]
+  },
+  {
+    "module": "characters/roster",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.CHARACTERS",
+      "characters.ULT_ATK"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "characters.CHARACTERS",
+      "characters.buildGoku",
+      "characters.buildKrillin",
+      "characters.buildPiccolo",
+      "characters.buildRoshi",
+      "characters.buildTaopaipai",
+      "characters.buildTien",
+      "characters.buildYamcha",
+      "characters.finishBody",
+      "characters.mkAtk"
+    ]
+  },
+  {
+    "module": "combat/fighter",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.Fighter",
+      "combat.NEUTRAL_INPUT"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.cloneCombatPose",
+      "audio.combatFeedback",
+      "audio.eventSound",
+      "audio.sfxSwing",
+      "characters.LEGACY_ULT_PROFILES",
+      "characters.ULT_ATK",
+      "characters.applyPose",
+      "characters.legacyDirectionMove",
+      "combat.KI_RULES",
+      "combat.NEUTRAL_INPUT",
+      "combat.beginMoveEvent",
+      "combat.combatPose",
+      "combat.commitImpactFeedback",
+      "combat.contactShadowTexture",
+      "combat.emitCombatEvent",
+      "combat.finalizeMove",
+      "combat.fireKiBlast",
+      "combat.fireKiDisc",
+      "combat.flightPhysics",
+      "combat.impactKind",
+      "combat.initV2Fighter",
+      "combat.kiColor",
+      "combat.legalCancel",
+      "combat.makeFlyingNimbus",
+      "combat.mobilitySpeed",
+      "combat.moveFront",
+      "combat.moveRight",
+      "combat.neutralCombatPose",
+      "combat.spawnAfterimage",
+      "combat.stopChargeSound",
+      "combat.updateKiVisual",
+      "combat.warnKi",
+      "match.STEP",
+      "match.combatDiagnostics",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.player",
+      "render.angleDelta",
+      "render.camera",
+      "render.castUltVisual",
+      "render.clock",
+      "render.scene",
+      "render.sfxUlt",
+      "render.spawnDust",
+      "render.spawnShockRing",
+      "render.stopUltSound",
+      "training.movementYaw",
+      "ui.popDamage",
+      "ui.showCombo",
+      "world.currentMap",
+      "world.damageStage",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "render/effects",
+    "domain": "render",
+    "testing": false,
+    "provides": [
+      "render.CONTACT_PHASE",
+      "render.angleDelta",
+      "render.effects",
+      "render.ringGeo",
+      "render.sparkGeo",
+      "render.spawnDust",
+      "render.spawnShockRing",
+      "render.spawnSpark",
+      "render.updateEffects"
+    ],
+    "requires": [
+      "render.effects",
+      "render.ringGeo",
+      "render.scene",
+      "render.sparkGeo",
+      "render.spawnSpark"
+    ]
+  },
+  {
+    "module": "world/stages",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "world.MAPS",
+      "world.clearMap",
+      "world.currentMap",
+      "world.makeTextTexture",
+      "world.roof",
+      "world.worldClouds"
+    ],
+    "requires": [
+      "characters.M",
+      "characters.ball",
+      "characters.meshTo",
+      "render.scene",
+      "world.currentMap",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "input/keyboard",
+    "domain": "input",
+    "testing": false,
+    "provides": [
+      "input.justPressed",
+      "input.keys"
+    ],
+    "requires": [
+      "combat.EDGE_KEYS",
+      "combat.inputEdges",
+      "input.inputEdges2",
+      "input.justPressed",
+      "input.keys",
+      "match.enemy",
+      "match.game",
+      "match.player"
+    ]
+  },
+  {
+    "module": "render/menu-camera",
+    "domain": "render",
+    "testing": false,
+    "provides": [
+      "render.menuAngle",
+      "render.updateMenuCamera"
+    ],
+    "requires": [
+      "render.camera",
+      "render.menuAngle"
+    ]
+  },
+  {
+    "module": "match/state",
+    "domain": "match",
+    "testing": false,
+    "provides": [
+      "match.enemy",
+      "match.game",
+      "match.player"
+    ],
+    "requires": []
+  },
+  {
+    "module": "combat/simulation",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.resolveOverlap"
+    ],
+    "requires": [
+      "match.enemy",
+      "match.player",
+      "world.currentMap"
+    ]
+  },
+  {
+    "module": "ui/hud",
+    "domain": "ui",
+    "testing": false,
+    "provides": [
+      "ui.el",
+      "ui.hideCombo",
+      "ui.updateHUD"
+    ],
+    "requires": [
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "ui.el"
+    ]
+  },
+  {
+    "module": "match/lifecycle",
+    "domain": "match",
+    "testing": false,
+    "provides": [
+      "match.backToMenu",
+      "match.enemy",
+      "match.hex",
+      "match.player",
+      "match.previewMap",
+      "match.showResult",
+      "match.startFight",
+      "match.stepAccumulator",
+      "render.effects",
+      "render.menuAngle",
+      "world.currentMap"
+    ],
+    "requires": [
+      "ai.combatRandom",
+      "audio.initAudio",
+      "characters.CHARACTERS",
+      "combat.Fighter",
+      "combat.clearKiBlasts",
+      "combat.clearKiDiscs",
+      "combat.combatEvents",
+      "combat.emitCombatEvent",
+      "combat.inputEdges",
+      "input.inputEdges2",
+      "input.justPressed",
+      "input.keys",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.player",
+      "match.previewMap",
+      "render.camera",
+      "render.clearUltimateVisuals",
+      "render.effects",
+      "render.resetShoulderCameras",
+      "render.ringGeo",
+      "render.scene",
+      "render.sparkGeo",
+      "training.clearDebugBoxes",
+      "training.drillSystem",
+      "training.refreshMoveTable",
+      "ui.el",
+      "ui.hideCombo",
+      "ui.updateHUD",
+      "world.MAPS",
+      "world.clearMap",
+      "world.currentMap",
+      "world.resetSenzu"
+    ]
+  },
+  {
+    "module": "app/boot",
+    "domain": "app",
+    "testing": false,
+    "provides": [
+      "app.boot",
+      "render.menuAngle"
+    ],
+    "requires": [
+      "audio.initAudio",
+      "combat.loop",
+      "match.backToMenu",
+      "match.game",
+      "match.previewMap",
+      "match.startFight",
+      "render.clock",
+      "ui.buildMenu",
+      "ui.showSelection"
+    ]
+  },
+  {
+    "module": "match/session",
+    "domain": "match",
+    "testing": false,
+    "provides": [
+      "match.STEP",
+      "match.messageUntil",
+      "match.notify",
+      "match.pendingHits",
+      "match.setPaused",
+      "match.stepAccumulator"
+    ],
+    "requires": [
+      "audio.actx",
+      "combat.cancelKiHolds",
+      "input.clearPresses",
+      "input.keys",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "render.clock",
+      "ui.el"
+    ]
+  },
+  {
+    "module": "ui/selection-menu",
+    "domain": "ui",
+    "testing": false,
+    "provides": [
+      "ui.buildMenu",
+      "ui.portrait",
+      "ui.portraitRenderer"
+    ],
+    "requires": [
+      "animation.IDLE_POSE",
+      "audio.initAudio",
+      "characters.CHARACTERS",
+      "characters.applyPose",
+      "match.game",
+      "match.hex",
+      "match.previewMap",
+      "render.renderer",
+      "ui.portrait",
+      "ui.portraitRenderer",
+      "ui.updateSelection",
+      "world.MAPS",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "match/rounds",
+    "domain": "match",
+    "testing": false,
+    "provides": [
+      "match.combatDiagnostics",
+      "match.debugStats",
+      "match.endGame",
+      "match.roundWinner"
+    ],
+    "requires": [
+      "combat.cancelKiHolds",
+      "combat.clearKiBlasts",
+      "input.clearPresses",
+      "input.keys",
+      "match.combatDiagnostics",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.roundWinner",
+      "match.showResult",
+      "world.currentMap"
+    ]
+  },
+  {
+    "module": "input/controls",
+    "domain": "input",
+    "testing": false,
+    "provides": [
+      "match.pendingHits"
+    ],
+    "requires": [
+      "audio.actx",
+      "audio.initAudio",
+      "characters.CHARACTERS",
+      "combat.EDGE_KEYS",
+      "combat.Fighter",
+      "combat.collectCombatHits",
+      "combat.inputEdges",
+      "combat.resolveOverlap",
+      "input.clearPresses",
+      "input.justPressed",
+      "input.keys",
+      "input.readPlayerInput",
+      "match.backToMenu",
+      "match.enemy",
+      "match.game",
+      "match.pendingHits",
+      "match.player",
+      "match.setPaused",
+      "match.showResult",
+      "match.startFight",
+      "render.camera",
+      "render.renderer",
+      "render.scene",
+      "world.MAPS",
+      "world.currentMap"
+    ]
+  },
+  {
+    "module": "combat/move-rules",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.EDGE_KEYS",
+      "combat.contactShadowTexture",
+      "combat.finalizeMove",
+      "combat.inputEdges",
+      "combat.prepareCombatData",
+      "combat.skyBackdrop",
+      "combat.spawnAfterimage"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "characters.CHARACTERS",
+      "combat.finalizeMove",
+      "render.effects",
+      "render.scene"
+    ]
+  },
+  {
+    "module": "input/player-one",
+    "domain": "input",
+    "testing": false,
+    "provides": [
+      "input.clearPresses",
+      "input.readPlayerInput"
+    ],
+    "requires": [
+      "combat.inputEdges",
+      "input.inputEdges2",
+      "input.justPressed",
+      "input.keys",
+      "training.movementYaw"
+    ]
+  },
+  {
+    "module": "ai/tactical-ai",
+    "domain": "ai",
+    "testing": false,
+    "provides": [
+      "ai.aiThink",
+      "ai.combatRandom",
+      "ai.setCombatSeed",
+      "ai.tacticalSeed"
+    ],
+    "requires": [
+      "ai.aiMemory",
+      "ai.combatRandom",
+      "ai.cpuDistance",
+      "ai.tacticalSeed",
+      "match.game",
+      "training.drillInput",
+      "world.SENZU_RULES",
+      "world.currentMap"
+    ]
+  },
+  {
+    "module": "render/fight-camera",
+    "domain": "render",
+    "testing": false,
+    "provides": [
+      "render.camera2",
+      "render.cameraObstacles",
+      "render.cameraRay",
+      "render.renderGameViews",
+      "render.resetShoulderCameras",
+      "render.shoulderStates",
+      "render.updateFightCamera",
+      "render.updateViewHUD"
+    ],
+    "requires": [
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "render.angleDelta",
+      "render.camera",
+      "render.camera2",
+      "render.cameraObstacles",
+      "render.cameraRay",
+      "render.renderer",
+      "render.scene",
+      "render.shoulderStates",
+      "render.updateFightCamera",
+      "render.updateViewHUD",
+      "training.senzuHint",
+      "ui.fighterStatus",
+      "ui.specialAvailability",
+      "world.currentMap"
+    ]
+  },
+  {
+    "module": "combat/fixed-step",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.advanceCombat",
+      "combat.loop",
+      "match.pendingHits",
+      "match.stepAccumulator"
+    ],
+    "requires": [
+      "ai.aiThink",
+      "combat.NEUTRAL_INPUT",
+      "combat.advanceCombat",
+      "combat.collectCombatHits",
+      "combat.loop",
+      "combat.resolveOverlap",
+      "combat.updateKiBlasts",
+      "combat.updateKiDiscs",
+      "combat.updateV2Abilities",
+      "input.clearPresses",
+      "input.readPlayer2Input",
+      "input.readPlayerInput",
+      "match.STEP",
+      "match.combatDiagnostics",
+      "match.endGame",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.pendingHits",
+      "match.player",
+      "match.stepAccumulator",
+      "render.clock",
+      "render.renderGameViews",
+      "render.updateEffects",
+      "render.updateFightCamera",
+      "render.updateMenuCamera",
+      "render.updateUltimateVisuals",
+      "training.drawCombatBoxes",
+      "training.updateDrill",
+      "training.updateRoundRules",
+      "training.updateTrainingHUD",
+      "training.updateV1HUD",
+      "ui.hideCombo",
+      "ui.updateExtraHUD",
+      "ui.updateHUD",
+      "world.currentMap",
+      "world.updateSenzu",
+      "world.updateSenzuHUD"
+    ]
+  },
+  {
+    "module": "ui/combat-hud",
+    "domain": "ui",
+    "testing": false,
+    "provides": [
+      "match.pendingHits",
+      "ui.fighterStatus",
+      "ui.showCombo",
+      "ui.specialAvailability",
+      "ui.updateExtraHUD"
+    ],
+    "requires": [
+      "characters.CHARACTERS",
+      "combat.KI_RULES",
+      "combat.SPECIAL_MOVES",
+      "combat.collectCombatHits",
+      "combat.inputEdges",
+      "combat.kiBlastPower",
+      "combat.loop",
+      "combat.prepareCombatData",
+      "combat.resolveOverlap",
+      "match.enemy",
+      "match.game",
+      "match.messageUntil",
+      "match.notify",
+      "match.pendingHits",
+      "match.player",
+      "match.startFight",
+      "training.refreshMoveTable",
+      "ui.el",
+      "ui.fighterStatus",
+      "ui.specialAvailability"
+    ]
+  },
+  {
+    "module": "world/environment",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "world.daylight",
+      "world.surfaceTexture",
+      "world.warmSkyBackdrop"
+    ],
+    "requires": [
+      "combat.skyBackdrop",
+      "match.game",
+      "render.hemi",
+      "render.rim",
+      "render.scene",
+      "render.sun",
+      "world.daylight",
+      "world.warmSkyBackdrop"
+    ]
+  },
+  {
+    "module": "render/ultimate-effects",
+    "domain": "render",
+    "testing": false,
+    "provides": [
+      "render.castUltVisual",
+      "render.clearUltimateVisuals",
+      "render.energyMat",
+      "render.sfxUlt",
+      "render.stopUltSound",
+      "render.ultAudioHistory",
+      "render.ultTone",
+      "render.ultimateVisuals",
+      "render.updateUltimateVisuals"
+    ],
+    "requires": [
+      "audio.actx",
+      "audio.audioBus",
+      "characters.ball",
+      "characters.meshTo",
+      "characters.tube",
+      "combat.castKiDiscVisual",
+      "combat.updateDiscCharge",
+      "match.game",
+      "render.energyMat",
+      "render.scene",
+      "render.stopUltSound",
+      "render.ultAudioHistory",
+      "render.ultTone",
+      "render.ultimateVisuals",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "input/player-two",
+    "domain": "input",
+    "testing": false,
+    "provides": [
+      "input.inputEdges2",
+      "input.readPlayer2Input"
+    ],
+    "requires": [
+      "input.inputEdges2",
+      "input.keys",
+      "match.game",
+      "training.movementYaw"
+    ]
+  },
+  {
+    "module": "combat/flight",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.flightPhysics",
+      "combat.makeFlyingNimbus"
+    ],
+    "requires": [
+      "characters.M",
+      "characters.ball",
+      "characters.tube",
+      "combat.emitCombatEvent",
+      "render.scene",
+      "render.spawnDust"
+    ]
+  },
+  {
+    "module": "world/destruction",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "world.damageStage",
+      "world.enrichDestruction"
+    ],
+    "requires": [
+      "characters.M",
+      "characters.meshTo",
+      "characters.tube",
+      "combat.flightPhysics",
+      "input.inputEdges2",
+      "input.readPlayer2Input",
+      "render.effects",
+      "render.scene",
+      "render.spawnDust",
+      "render.ultAudioHistory",
+      "render.ultimateVisuals",
+      "world.currentMap",
+      "world.damageStage",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "combat/ki-disc",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.castKiDiscVisual",
+      "combat.clearKiDiscs",
+      "combat.fireKiDisc",
+      "combat.kiDiscs",
+      "combat.updateDiscCharge",
+      "combat.updateKiDiscs"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.IDLE_POSE",
+      "animation.pz",
+      "characters.CHARACTERS",
+      "characters.meshTo",
+      "combat.kiDiscs",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "render.energyMat",
+      "render.scene",
+      "render.spawnSpark",
+      "render.ultimateVisuals",
+      "training.discIntersects",
+      "world.damageStage",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "world/senzu",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "world.SENZU_RULES",
+      "world.placeSenzu",
+      "world.resetSenzu",
+      "world.updateSenzu",
+      "world.updateSenzuHUD",
+      "world.validSenzuPosition"
+    ],
+    "requires": [
+      "ai.combatRandom",
+      "characters.M",
+      "characters.ball",
+      "characters.meshTo",
+      "characters.tube",
+      "combat.emitCombatEvent",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.player",
+      "render.energyMat",
+      "render.shoulderStates",
+      "render.spawnShockRing",
+      "training.senzuHint",
+      "ui.popDamage",
+      "world.SENZU_RULES",
+      "world.currentMap",
+      "world.disposeGroup",
+      "world.placeSenzu",
+      "world.validSenzuPosition"
+    ]
+  },
+  {
+    "module": "ui/navigation",
+    "domain": "ui",
+    "testing": false,
+    "provides": [
+      "match.backToMenu",
+      "match.enemy",
+      "match.messageUntil",
+      "match.player",
+      "match.stepAccumulator",
+      "ui.popDamage",
+      "ui.showSelection",
+      "ui.updateSelection"
+    ],
+    "requires": [
+      "audio.actx",
+      "audio.initAudio",
+      "characters.CHARACTERS",
+      "combat.cancelKiHolds",
+      "combat.clearKiBlasts",
+      "combat.clearKiDiscs",
+      "combat.kiDiscs",
+      "combat.updateKiDiscs",
+      "input.clearPresses",
+      "input.keys",
+      "match.backToMenu",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.startFight",
+      "render.camera",
+      "render.camera2",
+      "render.clearUltimateVisuals",
+      "render.renderGameViews",
+      "render.renderer",
+      "render.resetShoulderCameras",
+      "render.shoulderStates",
+      "render.updateFightCamera",
+      "training.clearDebugBoxes",
+      "ui.hideCombo",
+      "ui.showSelection",
+      "ui.updateSelection",
+      "world.MAPS",
+      "world.clearMap",
+      "world.resetSenzu",
+      "world.updateSenzu"
+    ]
+  },
+  {
+    "module": "combat/collision",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.SPECIAL_MOVES",
+      "combat.capsuleDistanceSq",
+      "combat.collectCombatHits",
+      "combat.combatIntersects",
+      "combat.combatPose",
+      "combat.ensureCombatRig",
+      "combat.legalCancel",
+      "combat.moveFront",
+      "combat.moveRight",
+      "combat.neutralCombatPose",
+      "combat.sampleCombatRig",
+      "combat.setCapsule",
+      "combat.sweptCapsule"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.cloneCombatPose",
+      "animation.mixCombatPose",
+      "animation.polishCombatPose",
+      "animation.pz",
+      "animation.samplePose",
+      "animation.smoothstep",
+      "characters.applyPose",
+      "combat.Fighter",
+      "combat.KI_RULES",
+      "combat.SPECIAL_MOVES",
+      "combat.beginMoveEvent",
+      "combat.capsuleDistanceSq",
+      "combat.combatIntersects",
+      "combat.combatPose",
+      "combat.ensureCombatRig",
+      "combat.finalizeMove",
+      "combat.kiBlastPose",
+      "combat.moveFront",
+      "combat.neutralCombatPose",
+      "combat.sampleCombatRig",
+      "combat.sweptCapsule",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.pendingHits",
+      "match.player",
+      "render.CONTACT_PHASE"
+    ]
+  },
+  {
+    "module": "training/arena-tools",
+    "domain": "training",
+    "testing": false,
+    "provides": [
+      "training.clearDebugBoxes",
+      "training.debugBoxes",
+      "training.discIntersects",
+      "training.drawCombatBoxes",
+      "training.movementYaw",
+      "training.preciseFrames",
+      "training.refreshMoveTable",
+      "training.senzuHint",
+      "training.table",
+      "training.trainingPanel",
+      "training.updateRoundRules",
+      "training.updateTrainingHUD"
+    ],
+    "requires": [
+      "ai.aiThink",
+      "ai.setCombatSeed",
+      "animation.ANIM",
+      "characters.CHARACTERS",
+      "combat.Fighter",
+      "combat.SPECIAL_MOVES",
+      "combat.capsuleDistanceSq",
+      "combat.collectCombatHits",
+      "combat.combatIntersects",
+      "combat.finalizeMove",
+      "combat.inputEdges",
+      "combat.legalCancel",
+      "combat.moveFront",
+      "combat.moveRight",
+      "combat.sampleCombatRig",
+      "combat.sweptCapsule",
+      "match.endGame",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.roundWinner",
+      "match.startFight",
+      "render.scene",
+      "render.shoulderStates",
+      "training.debugBoxes",
+      "training.movementYaw",
+      "training.preciseFrames",
+      "training.refreshMoveTable",
+      "training.table",
+      "training.trainingPanel",
+      "training.updateRoundRules",
+      "training.updateTrainingHUD",
+      "world.SENZU_RULES",
+      "world.currentMap",
+      "world.disposeGroup",
+      "world.placeSenzu",
+      "world.validSenzuPosition"
+    ]
+  },
+  {
+    "module": "testing/base-regression",
+    "domain": "testing",
+    "testing": true,
+    "provides": [
+      "match.pendingHits",
+      "testing.runCollisionMatrix",
+      "testing.runCombatTests"
+    ],
+    "requires": [
+      "ai.aiThink",
+      "ai.setCombatSeed",
+      "ai.tacticalSeed",
+      "characters.CHARACTERS",
+      "combat.SPECIAL_MOVES",
+      "combat.advanceCombat",
+      "combat.collectCombatHits",
+      "combat.combatIntersects",
+      "combat.combatPose",
+      "combat.finalizeMove",
+      "combat.inputEdges",
+      "combat.legalCancel",
+      "combat.resolveOverlap",
+      "combat.sampleCombatRig",
+      "combat.updateKiBlasts",
+      "combat.updateKiDiscs",
+      "combat.updateV2Abilities",
+      "input.clearPresses",
+      "input.keys",
+      "match.STEP",
+      "match.backToMenu",
+      "match.combatDiagnostics",
+      "match.debugStats",
+      "match.endGame",
+      "match.enemy",
+      "match.game",
+      "match.pendingHits",
+      "match.player",
+      "match.roundWinner",
+      "match.setPaused",
+      "match.startFight",
+      "render.angleDelta",
+      "render.camera",
+      "render.camera2",
+      "render.cameraObstacles",
+      "render.cameraRay",
+      "render.resetShoulderCameras",
+      "render.scene",
+      "render.shoulderStates",
+      "render.updateFightCamera",
+      "testing.runCollisionMatrix",
+      "training.clearDebugBoxes",
+      "training.debugBoxes",
+      "training.drawCombatBoxes",
+      "training.drillSystem",
+      "training.movementYaw",
+      "training.refreshMoveTable",
+      "training.table",
+      "training.updateRoundRules",
+      "training.updateTrainingHUD",
+      "ui.fighterStatus",
+      "ui.specialAvailability",
+      "ui.updateExtraHUD",
+      "world.currentMap",
+      "world.resetSenzu",
+      "world.updateSenzu",
+      "world.updateSenzuHUD",
+      "world.validSenzuPosition"
+    ]
+  },
+  {
+    "module": "testing/debug-interface",
+    "domain": "testing",
+    "testing": true,
+    "provides": [
+      "match.pendingHits"
+    ],
+    "requires": [
+      "combat.advanceCombat",
+      "combat.capsuleDistanceSq",
+      "combat.collectCombatHits",
+      "combat.combatPose",
+      "combat.neutralCombatPose",
+      "combat.resolveOverlap",
+      "combat.updateKiBlasts",
+      "combat.updateKiDiscs",
+      "combat.updateV2Abilities",
+      "match.STEP",
+      "match.combatDiagnostics",
+      "match.debugStats",
+      "match.enemy",
+      "match.game",
+      "match.pendingHits",
+      "match.player",
+      "render.updateEffects",
+      "render.updateUltimateVisuals",
+      "testing.runCollisionMatrix",
+      "testing.runCombatTests",
+      "training.discIntersects",
+      "training.movementYaw",
+      "training.updateDrill",
+      "training.updateRoundRules",
+      "ui.fighterStatus",
+      "ui.specialAvailability",
+      "ui.updateExtraHUD",
+      "ui.updateHUD",
+      "world.updateSenzu"
+    ]
+  },
+  {
+    "module": "combat/ki",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.KI_RULES",
+      "combat.cancelKiHolds",
+      "combat.clearKiBlasts",
+      "combat.fireKiBlast",
+      "combat.kiBlastPose",
+      "combat.kiBlastPower",
+      "combat.kiColor",
+      "combat.stopChargeSound",
+      "combat.updateKiBlasts",
+      "combat.updateKiVisual",
+      "combat.warnKi"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.cloneCombatPose",
+      "animation.mixCombatPose",
+      "animation.pz",
+      "animation.smoothstep",
+      "audio.actx",
+      "audio.audioBus",
+      "audio.eventSound",
+      "combat.Fighter",
+      "combat.KI_RULES",
+      "combat.beginMoveEvent",
+      "combat.cancelKiHolds",
+      "combat.capsuleDistanceSq",
+      "combat.clearKiBlasts",
+      "combat.combatPose",
+      "combat.emitCombatEvent",
+      "combat.finalizeMove",
+      "combat.kiBlastPower",
+      "combat.kiColor",
+      "combat.neutralCombatPose",
+      "combat.sampleCombatRig",
+      "combat.stopChargeSound",
+      "combat.updateKiBlasts",
+      "combat.updateKiVisual",
+      "combat.warnKi",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.player",
+      "render.energyMat",
+      "render.scene",
+      "render.spawnSpark",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "combat/events",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.FEEDBACK_PROFILES",
+      "combat.beginMoveEvent",
+      "combat.combatEvents",
+      "combat.commitImpactFeedback",
+      "combat.emitCombatEvent",
+      "combat.impactKind"
+    ],
+    "requires": [
+      "audio.eventSound",
+      "characters.CHARACTERS",
+      "combat.FEEDBACK_PROFILES",
+      "combat.combatEvents",
+      "combat.emitCombatEvent",
+      "match.combatDiagnostics",
+      "match.enemy",
+      "match.game",
+      "render.effects",
+      "render.spawnShockRing",
+      "render.spawnSpark",
+      "training.processDrillEvent"
+    ]
+  },
+  {
+    "module": "audio/combat-audio",
+    "domain": "audio",
+    "testing": false,
+    "provides": [
+      "audio.audioBus",
+      "audio.combatAudioMaster",
+      "audio.combatFeedback",
+      "audio.eventSound"
+    ],
+    "requires": [
+      "audio.actx",
+      "audio.audioBus",
+      "audio.combatAudioMaster",
+      "audio.eventSound",
+      "combat.FEEDBACK_PROFILES",
+      "combat.combatEvents",
+      "match.game"
+    ]
+  },
+  {
+    "module": "animation/combat-polish",
+    "domain": "animation",
+    "testing": false,
+    "provides": [
+      "animation.cloneCombatPose",
+      "animation.mixCombatPose",
+      "animation.polishCombatPose"
+    ],
+    "requires": [
+      "animation.cloneCombatPose",
+      "animation.lerpPose",
+      "animation.mixCombatPose",
+      "animation.smoothstep",
+      "combat.neutralCombatPose",
+      "match.STEP"
+    ]
+  },
+  {
+    "module": "ai/memory",
+    "domain": "ai",
+    "testing": false,
+    "provides": [
+      "ai.TACTICS",
+      "ai.aiMemory",
+      "ai.armorWindow",
+      "ai.cpuDistance"
+    ],
+    "requires": [
+      "ai.TACTICS"
+    ]
+  },
+  {
+    "module": "training/drills",
+    "domain": "training",
+    "testing": false,
+    "provides": [
+      "training.drillInput",
+      "training.drillSystem",
+      "training.processDrillEvent",
+      "training.startDrill",
+      "training.updateDrill",
+      "training.updateV1HUD"
+    ],
+    "requires": [
+      "ai.TACTICS",
+      "ai.armorWindow",
+      "ai.combatRandom",
+      "ai.cpuDistance",
+      "animation.cloneCombatPose",
+      "animation.mixCombatPose",
+      "animation.polishCombatPose",
+      "audio.actx",
+      "audio.combatAudioMaster",
+      "combat.FEEDBACK_PROFILES",
+      "combat.beginMoveEvent",
+      "combat.combatEvents",
+      "combat.emitCombatEvent",
+      "combat.impactKind",
+      "match.STEP",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.player",
+      "match.startFight",
+      "render.resetShoulderCameras",
+      "training.drillInput",
+      "training.drillSystem",
+      "training.processDrillEvent",
+      "training.startDrill",
+      "training.trainingPanel",
+      "training.updateDrill"
+    ]
+  },
+  {
+    "module": "animation/contact-poses",
+    "domain": "animation",
+    "testing": false,
+    "provides": [
+      "animation.v0AttackPose"
+    ],
+    "requires": [
+      "animation.samplePose",
+      "combat.kiBlastPose",
+      "combat.neutralCombatPose",
+      "match.enemy",
+      "match.player",
+      "render.CONTACT_PHASE"
+    ]
+  },
+  {
+    "module": "testing/v1-regression",
+    "domain": "testing",
+    "testing": true,
+    "provides": [],
+    "requires": [
+      "ai.aiThink",
+      "ai.armorWindow",
+      "ai.cpuDistance",
+      "ai.setCombatSeed",
+      "ai.tacticalSeed",
+      "animation.cloneCombatPose",
+      "animation.v0AttackPose",
+      "characters.CHARACTERS",
+      "combat.FEEDBACK_PROFILES",
+      "combat.SPECIAL_MOVES",
+      "combat.advanceCombat",
+      "combat.combatEvents",
+      "combat.combatIntersects",
+      "combat.combatPose",
+      "combat.emitCombatEvent",
+      "combat.impactKind",
+      "combat.neutralCombatPose",
+      "combat.sampleCombatRig",
+      "match.STEP",
+      "match.backToMenu",
+      "match.combatDiagnostics",
+      "match.endGame",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.startFight",
+      "render.camera",
+      "render.camera2",
+      "render.renderGameViews",
+      "render.renderer",
+      "render.resetShoulderCameras",
+      "testing.runCombatTests",
+      "training.drillInput",
+      "training.drillSystem",
+      "training.preciseFrames",
+      "training.refreshMoveTable",
+      "training.startDrill",
+      "training.table",
+      "training.updateDrill",
+      "training.updateTrainingHUD",
+      "ui.updateSelection",
+      "world.SENZU_RULES",
+      "world.currentMap",
+      "world.updateSenzu"
+    ]
+  },
+  {
+    "module": "art/original-refinement",
+    "domain": "art",
+    "testing": false,
+    "provides": [
+      "art.ART_PROFILES",
+      "art.artTexture",
+      "art.batchDecoration",
+      "art.hairLock",
+      "art.refinedWindow",
+      "art.seaTurtle",
+      "art.stageThumbnail",
+      "art.stitch"
+    ],
+    "requires": [
+      "art.ART_PROFILES",
+      "art.artTexture",
+      "art.hairLock",
+      "art.stitch",
+      "characters.CHARACTERS",
+      "characters.M",
+      "characters.ball",
+      "characters.box",
+      "characters.meshTo",
+      "characters.tube",
+      "render.hemi",
+      "render.renderer",
+      "render.rim",
+      "render.scene",
+      "render.sun",
+      "ui.portraitRenderer",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "ui/art-gallery",
+    "domain": "ui",
+    "testing": false,
+    "provides": [
+      "ui.assetSelect",
+      "ui.buildMenu",
+      "ui.fitArtCamera",
+      "ui.loadArtAsset",
+      "ui.portraitRenderer"
+    ],
+    "requires": [
+      "animation.IDLE_POSE",
+      "art.ART_PROFILES",
+      "art.stageThumbnail",
+      "characters.CHARACTERS",
+      "characters.applyPose",
+      "match.game",
+      "render.renderer",
+      "ui.assetSelect",
+      "ui.buildMenu",
+      "ui.fitArtCamera",
+      "ui.loadArtAsset",
+      "ui.portraitRenderer",
+      "world.MAPS",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "ui/move-guide",
+    "domain": "ui",
+    "testing": false,
+    "provides": [],
+    "requires": [
+      "match.game",
+      "match.setPaused",
+      "training.refreshMoveTable",
+      "ui.el"
+    ]
+  },
+  {
+    "module": "combat/abilities-state",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.V2_VERSION",
+      "combat.initV2Fighter",
+      "combat.mobilitySpeed",
+      "combat.v2Devices",
+      "combat.v2Projectiles",
+      "combat.v2Supports"
+    ],
+    "requires": []
+  },
+  {
+    "module": "characters/v2-models",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.buildBulma",
+      "characters.buildChiaotzu",
+      "characters.buildChichi",
+      "characters.buildGyumao",
+      "characters.buildKorin",
+      "characters.buildOolong",
+      "characters.buildPilaf"
+    ],
+    "requires": [
+      "art.hairLock",
+      "characters.M",
+      "characters.badge",
+      "characters.ball",
+      "characters.box",
+      "characters.meshTo",
+      "characters.tube"
+    ]
+  },
+  {
+    "module": "characters/v2-roster",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.V2_NEW_DEFS",
+      "characters.v2Move"
+    ],
+    "requires": [
+      "ai.TACTICS",
+      "animation.ANIM",
+      "animation.IDLE_POSE",
+      "animation.pz",
+      "art.ART_PROFILES",
+      "characters.CHARACTERS",
+      "characters.V2_NEW_DEFS",
+      "characters.buildBulma",
+      "characters.buildChiaotzu",
+      "characters.buildChichi",
+      "characters.buildGyumao",
+      "characters.buildKorin",
+      "characters.buildOolong",
+      "characters.buildPilaf",
+      "characters.v2Move",
+      "combat.SPECIAL_MOVES",
+      "combat.finalizeMove",
+      "render.CONTACT_PHASE"
+    ]
+  },
+  {
+    "module": "combat/v2-fighter",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.combatPose",
+      "combat.neutralCombatPose",
+      "combat.resolveOverlap",
+      "combat.sampleCombatRig",
+      "combat.stature",
+      "combat.v2DirectionalMove",
+      "combat.v2ThrowMove"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.cloneCombatPose",
+      "animation.mixCombatPose",
+      "animation.pz",
+      "animation.samplePose",
+      "animation.smoothstep",
+      "characters.applyPose",
+      "combat.Fighter",
+      "combat.SPECIAL_MOVES",
+      "combat.beginMoveEvent",
+      "combat.combatPose",
+      "combat.ensureCombatRig",
+      "combat.finalizeMove",
+      "combat.mobilitySpeed",
+      "combat.neutralCombatPose",
+      "combat.resolveOverlap",
+      "combat.sampleCombatRig",
+      "combat.setCapsule",
+      "combat.stature",
+      "combat.v2Devices",
+      "combat.v2DirectionalMove",
+      "combat.v2Sound",
+      "combat.v2ThrowMove",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.player",
+      "render.CONTACT_PHASE"
+    ]
+  },
+  {
+    "module": "combat/abilities",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.applyControl",
+      "combat.cleanupAbilities",
+      "combat.deployDevice",
+      "combat.newProjectile",
+      "combat.releaseV2Ability",
+      "combat.removeAbility",
+      "combat.switchForm",
+      "combat.v2Sound"
+    ],
+    "requires": [
+      "art.buildV2SupportMech",
+      "characters.CHARACTERS",
+      "characters.M",
+      "characters.ball",
+      "characters.box",
+      "characters.buildOolong",
+      "characters.meshTo",
+      "combat.deployDevice",
+      "combat.emitCombatEvent",
+      "combat.finalizeMove",
+      "combat.newProjectile",
+      "combat.removeAbility",
+      "combat.spawnAfterimage",
+      "combat.switchForm",
+      "combat.v2Devices",
+      "combat.v2Projectiles",
+      "combat.v2Sound",
+      "combat.v2Supports",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "render.scene",
+      "render.spawnDust",
+      "render.ultTone",
+      "ui.popDamage",
+      "world.currentMap",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "combat/v2-integration",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.flightPhysics",
+      "combat.releaseV2Ability",
+      "combat.updateV2Abilities"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.cloneCombatPose",
+      "characters.CHARACTERS",
+      "characters.applyPose",
+      "characters.v2Move",
+      "combat.Fighter",
+      "combat.NEUTRAL_INPUT",
+      "combat.applyControl",
+      "combat.beginMoveEvent",
+      "combat.capsuleDistanceSq",
+      "combat.cleanupAbilities",
+      "combat.combatPose",
+      "combat.emitCombatEvent",
+      "combat.finalizeMove",
+      "combat.flightPhysics",
+      "combat.initV2Fighter",
+      "combat.newProjectile",
+      "combat.releaseV2Ability",
+      "combat.removeAbility",
+      "combat.sampleCombatRig",
+      "combat.stature",
+      "combat.switchForm",
+      "combat.v2Devices",
+      "combat.v2Projectiles",
+      "combat.v2Sound",
+      "combat.v2Supports",
+      "match.enemy",
+      "match.game",
+      "match.notify",
+      "match.player",
+      "render.spawnShockRing",
+      "world.currentMap"
+    ]
+  },
+  {
+    "module": "ai/v2-tactics",
+    "domain": "ai",
+    "testing": false,
+    "provides": [
+      "ai.V2_TACTICS",
+      "ai.aiThink"
+    ],
+    "requires": [
+      "ai.TACTICS",
+      "ai.V2_TACTICS",
+      "ai.aiThink",
+      "ai.combatRandom",
+      "characters.CHARACTERS",
+      "combat.v2Devices",
+      "match.game"
+    ]
+  },
+  {
+    "module": "characters/v2-original-routes",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.kDef",
+      "characters.yDef"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "characters.CHARACTERS",
+      "characters.kDef",
+      "characters.yDef",
+      "combat.finalizeMove"
+    ]
+  },
+  {
+    "module": "combat/v2-original-rules",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.combatIntersects",
+      "combat.updateKiVisual",
+      "match.endGame"
+    ],
+    "requires": [
+      "combat.Fighter",
+      "combat.cleanupAbilities",
+      "combat.combatIntersects",
+      "combat.finalizeMove",
+      "combat.stopChargeSound",
+      "combat.switchForm",
+      "combat.updateKiVisual",
+      "match.endGame",
+      "match.enemy",
+      "match.game",
+      "match.player"
+    ]
+  },
+  {
+    "module": "ui/v2-presentation",
+    "domain": "ui",
+    "testing": false,
+    "provides": [
+      "combat.removeAbility",
+      "render.updateViewHUD",
+      "training.processDrillEvent",
+      "training.refreshMoveTable",
+      "ui.portrait",
+      "ui.specialAvailability",
+      "ui.updateExtraHUD",
+      "ui.updateSelection",
+      "ui.v2Goal"
+    ],
+    "requires": [
+      "ai.V2_TACTICS",
+      "ai.aiThink",
+      "ai.armorWindow",
+      "animation.pz",
+      "characters.CHARACTERS",
+      "characters.V2_NEW_DEFS",
+      "characters.applyPose",
+      "combat.SPECIAL_MOVES",
+      "combat.combatIntersects",
+      "combat.combatPose",
+      "combat.emitCombatEvent",
+      "combat.finalizeMove",
+      "combat.flightPhysics",
+      "combat.neutralCombatPose",
+      "combat.removeAbility",
+      "combat.resolveOverlap",
+      "combat.sampleCombatRig",
+      "combat.v2Devices",
+      "match.endGame",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.startFight",
+      "render.updateViewHUD",
+      "training.processDrillEvent",
+      "training.refreshMoveTable",
+      "training.table",
+      "training.trainingPanel",
+      "ui.assetSelect",
+      "ui.portrait",
+      "ui.portraitRenderer",
+      "ui.specialAvailability",
+      "ui.updateExtraHUD",
+      "ui.updateSelection",
+      "ui.v2Goal",
+      "world.disposeGroup"
+    ]
+  },
+  {
+    "module": "animation/v2-original-polish",
+    "domain": "animation",
+    "testing": false,
+    "provides": [
+      "animation.polishCombatPose",
+      "combat.collectCombatHits",
+      "combat.combatPose",
+      "combat.neutralCombatPose",
+      "combat.spawnAfterimage",
+      "match.startFight",
+      "ui.v2Goal"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "animation.IDLE_POSE",
+      "animation.cloneCombatPose",
+      "animation.mixCombatPose",
+      "animation.polishCombatPose",
+      "animation.pz",
+      "animation.smoothstep",
+      "art.stitch",
+      "characters.CHARACTERS",
+      "characters.M",
+      "characters.ball",
+      "characters.kDef",
+      "characters.meshTo",
+      "characters.yDef",
+      "combat.Fighter",
+      "combat.collectCombatHits",
+      "combat.combatIntersects",
+      "combat.combatPose",
+      "combat.emitCombatEvent",
+      "combat.finalizeMove",
+      "combat.neutralCombatPose",
+      "combat.spawnAfterimage",
+      "combat.stature",
+      "combat.v2Supports",
+      "match.STEP",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.startFight",
+      "render.CONTACT_PHASE",
+      "render.scene"
+    ]
+  },
+  {
+    "module": "art/character-reconstruction",
+    "domain": "art",
+    "testing": false,
+    "provides": [
+      "art.ART_BODY_TEMPLATES",
+      "art.ART_FACE_TEXTURES",
+      "art.ART_SOURCE_BUILDERS",
+      "art.DB_ART_VERSION",
+      "art.artDecal",
+      "art.artHead",
+      "art.artLine",
+      "art.artLoft",
+      "art.artMat",
+      "art.artPatch",
+      "characters.buildOolong"
+    ],
+    "requires": [
+      "art.ART_FACE_TEXTURES",
+      "art.ART_PROFILES",
+      "art.ART_SOURCE_BUILDERS",
+      "art.DB_ART_VERSION",
+      "art.artBatchCharacter",
+      "art.artCachedBody",
+      "art.artDecal",
+      "art.artDisposeResources",
+      "art.artHead",
+      "art.artLine",
+      "art.artLoft",
+      "art.artMat",
+      "art.artPatch",
+      "art.artResources",
+      "art.hairLock",
+      "characters.CHARACTERS",
+      "characters.M",
+      "characters.badge",
+      "characters.ball",
+      "characters.box",
+      "characters.buildOolong",
+      "characters.meshTo",
+      "characters.tube"
+    ]
+  },
+  {
+    "module": "art/stage-reconstruction",
+    "domain": "art",
+    "testing": false,
+    "provides": [
+      "art.artStageBuilders"
+    ],
+    "requires": [
+      "art.DB_ART_VERSION",
+      "art.artDecal",
+      "art.artLine",
+      "art.artLoft",
+      "art.artMat",
+      "art.artPatch",
+      "art.artShareMaterials",
+      "art.artStageBuilders",
+      "art.artTexture",
+      "art.batchDecoration",
+      "art.refinedWindow",
+      "art.seaTurtle",
+      "characters.ball",
+      "characters.box",
+      "characters.meshTo",
+      "world.MAPS",
+      "world.daylight",
+      "world.enrichDestruction",
+      "world.makeTextTexture",
+      "world.roof",
+      "world.surfaceTexture",
+      "world.worldClouds"
+    ]
+  },
+  {
+    "module": "art/resources",
+    "domain": "art",
+    "testing": false,
+    "provides": [
+      "art.artBatchCharacter",
+      "art.artCachedBody",
+      "art.artDisposeResources",
+      "art.artResources",
+      "art.artShareMaterials",
+      "art.buildV2SupportMech",
+      "characters.buildOolong",
+      "world.disposeGroup"
+    ],
+    "requires": [
+      "animation.pz",
+      "art.ART_BODY_TEMPLATES",
+      "art.ART_FACE_TEXTURES",
+      "art.ART_PROFILES",
+      "art.ART_SOURCE_BUILDERS",
+      "art.DB_ART_VERSION",
+      "art.artBatchCharacter",
+      "art.artCachedBody",
+      "art.artDecal",
+      "art.artDisposeResources",
+      "art.artHead",
+      "art.artLine",
+      "art.artLoft",
+      "art.artMat",
+      "art.artPatch",
+      "art.artResources",
+      "art.artShareMaterials",
+      "art.artStageBuilders",
+      "art.batchDecoration",
+      "art.buildV2SupportMech",
+      "art.hairLock",
+      "characters.CHARACTERS",
+      "characters.applyPose",
+      "characters.badge",
+      "characters.ball",
+      "characters.box",
+      "characters.buildOolong",
+      "characters.meshTo",
+      "characters.toonRamp",
+      "combat.contactShadowTexture",
+      "combat.skyBackdrop",
+      "ui.assetSelect",
+      "ui.fitArtCamera",
+      "ui.loadArtAsset",
+      "world.disposeGroup",
+      "world.warmSkyBackdrop"
+    ]
+  },
+  {
+    "module": "characters/frame-data",
+    "domain": "characters",
+    "testing": false,
+    "provides": [
+      "characters.LEGACY_ULT_PROFILES",
+      "characters.characterMoveData",
+      "characters.legacyDirectionMove"
+    ],
+    "requires": [
+      "animation.ANIM",
+      "characters.LEGACY_ULT_PROFILES",
+      "characters.legacyDirectionMove",
+      "combat.SPECIAL_MOVES",
+      "combat.finalizeMove",
+      "combat.v2DirectionalMove",
+      "combat.v2ThrowMove"
+    ]
+  },
+  {
+    "module": "training/character-practice",
+    "domain": "training",
+    "testing": false,
+    "provides": [
+      "training.drillInput",
+      "training.refreshMoveTable"
+    ],
+    "requires": [
+      "characters.CHARACTERS",
+      "characters.characterMoveData",
+      "combat.finalizeMove",
+      "match.STEP",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "training.drillInput",
+      "training.preciseFrames",
+      "training.refreshMoveTable",
+      "training.table",
+      "ui.v2Goal"
+    ]
+  },
+  {
+    "module": "testing/v2-regression",
+    "domain": "testing",
+    "testing": true,
+    "provides": [],
+    "requires": [
+      "ai.aiThink",
+      "ai.setCombatSeed",
+      "animation.ANIM",
+      "animation.cloneCombatPose",
+      "characters.CHARACTERS",
+      "combat.V2_VERSION",
+      "combat.advanceCombat",
+      "combat.applyControl",
+      "combat.cleanupAbilities",
+      "combat.combatEvents",
+      "combat.combatIntersects",
+      "combat.combatPose",
+      "combat.deployDevice",
+      "combat.mobilitySpeed",
+      "combat.neutralCombatPose",
+      "combat.sampleCombatRig",
+      "combat.stature",
+      "combat.switchForm",
+      "combat.updateV2Abilities",
+      "combat.v2Devices",
+      "combat.v2Projectiles",
+      "combat.v2Supports",
+      "input.keys",
+      "input.readPlayer2Input",
+      "input.readPlayerInput",
+      "match.STEP",
+      "match.backToMenu",
+      "match.combatDiagnostics",
+      "match.endGame",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "match.startFight",
+      "render.scene",
+      "render.updateEffects",
+      "render.updateUltimateVisuals",
+      "ui.updateSelection",
+      "world.currentMap"
+    ]
+  }
+]

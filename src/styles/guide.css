@@ -1,0 +1,110 @@
+.artOpen {
+  font: 700 12px inherit;
+  border: 1px solid #b39666;
+  padding: 9px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+#artGallery {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  background: rgba(7, 18, 27, 0.83);
+  padding: 24px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+}
+#artGallery.show {
+  display: flex;
+}
+.artPanel {
+  width: min(1100px, 100%);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.artHeader {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #c9b58e;
+  flex-wrap: wrap;
+}
+.artHeader strong {
+  margin-right: auto;
+}
+.artHeader button {
+  border-radius: 4px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.artHeader select {
+  max-width: 55vw;
+}
+.artBody {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.artViewport {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  touch-action: none;
+  cursor: grab;
+}
+.artViewport canvas {
+  width: 100%;
+  height: 100%;
+}
+.artCaption {
+  position: absolute;
+  text-align: center;
+  font-size: 11px;
+  pointer-events: none;
+}
+.artNotes {
+  line-height: 1.9;
+  border-left: 1px solid #c9b58e;
+}
+.artNotes small {
+  display: block;
+  color: #82745b;
+  font-size: 11px;
+  margin-top: 24px;
+}
+@media (max-width: 700px) {
+  #artGallery {
+    padding: 10px;
+  }
+  .artNotes h3 {
+    font-size: 16px;
+  }
+  .artHeader {
+    padding: 10px;
+  }
+  .artHeader strong {
+    font-size: 13px;
+  }
+  .artBody {
+    flex-direction: column;
+  }
+  .artNotes {
+    width: auto;
+    max-height: 170px;
+    border-left: 0;
+    border-top: 1px solid #c9b58e;
+    padding: 12px 16px;
+    overflow: auto;
+  }
+  .artNotes small {
+    margin-top: 10px;
+  }
+  .artNotes h3 {
+    margin: 0 0 5px;
+  }
+  .artViewport {
+    min-height: 220px;
+  }
+}

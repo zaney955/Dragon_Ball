@@ -1,0 +1,76 @@
+#roundScore {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9;
+  pointer-events: none;
+  text-shadow: 0 2px 3px #122533;
+}
+#specialState {
+  position: absolute;
+  left: 28px;
+  top: 222px;
+}
+#trainingPanel {
+  position: fixed;
+  z-index: 10;
+  border-radius: 5px;
+  pointer-events: auto;
+}
+#frameReadout,
+#inputHistory {
+  font-family: Consolas, monospace;
+  margin-top: 7px;
+}
+.frameTable {
+  width: 100%;
+  font-size: 10px;
+  border-collapse: collapse;
+}
+.frameTable td,
+.frameTable th {
+  padding: 5px;
+  text-align: left;
+}
+.frameTable th {
+  color: #aad1db;
+}
+.lockTarget,
+#singleTarget {
+  text-align: center;
+  line-height: 33px;
+  color: #ffe78c;
+  font-size: 20px;
+}
+#specialState {
+  pointer-events: none;
+}
+.splitMode #specialState {
+  display: none;
+}
+#resetPractice {
+  display: none;
+}
+body.training #resetPractice {
+  display: block;
+}
+@media (max-width: 700px) {
+  #roundScore {
+    top: 136px;
+    font-size: 9px;
+  }
+  #trainingPanel {
+    top: 215px;
+    right: 10px;
+    width: 220px;
+    font-size: 9px;
+    padding: 8px;
+  }
+  #specialState {
+    top: 202px;
+    font-size: 10px;
+  }
+  .guidePanel {
+    width: 94vw;
+  }
+}

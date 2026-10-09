@@ -1,0 +1,177 @@
+import * as THREE from 'three';
+export function register({ render: renderModule }) {
+  renderModule.angleDelta = function angleDelta(a, b) {
+    return Math.atan2(Math.sin(a - b), Math.cos(a - b));
+  };
+  renderModule.spawnDust = function spawnDust(pos, count = 5) {
+    renderModule.spawnSpark(new THREE.Vector3(pos.x, 0.08, pos.z), 0xcab697, count, 0.23);
+  };
+  renderModule.spawnSpark = function spawnSpark(pos, color, count, power = 1) {
+    count = Math.min(count, Math.max(0, 180 - renderModule.effects.length));
+    for (let i = 0; i < count; i++) {
+      const mat = new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 1,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const m = new THREE.Mesh(renderModule.sparkGeo, mat);
+      m.position.copy(pos);
+      const dir = new THREE.Vector3(
+        Math.random() - 0.5,
+        Math.random() * 0.75 - 0.12,
+        Math.random() - 0.5,
+      ).normalize();
+      renderModule.effects.push({
+        mesh: m,
+        vel: dir.multiplyScalar((3.5 + Math.random() * 9) * power),
+        life: 0.28 + Math.random() * 0.4,
+        maxLife: 0.68,
+        gravity: -14,
+        type: 'spark',
+        delay: 0,
+      });
+      renderModule.scene.add(m);
+    }
+  };
+  renderModule.spawnShockRing = function spawnShockRing(pos, color, scale) {
+    const ring = new THREE.Mesh(
+      renderModule.ringGeo,
+      new THREE.MeshBasicMaterial({
+        color,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    ring.position.copy(pos);
+    ring.scale.setScalar(scale);
+    renderModule.scene.add(ring);
+    renderModule.effects.push({
+      mesh: ring,
+      vel: new THREE.Vector3(),
+      life: 0.19,
+      maxLife: 0.19,
+      type: 'ring',
+      startScale: scale * 0.5,
+      grow: scale * 0.75,
+      delay: 0,
+    });
+  };
+  renderModule.updateEffects = function updateEffects(dt) {
+    for (let i = renderModule.effects.length - 1; i >= 0; i--) {
+      const e = renderModule.effects[i];
+      if (e.delay > 0) {
+        e.delay -= dt;
+        if (e.delay > 0) {
+          if (e.mesh) e.mesh.visible = false;
+          continue;
+        } else {
+          if (e.mesh) e.mesh.visible = true;
+        }
+      }
+      e.life -= dt;
+      if (e.life <= 0) {
+        renderModule.scene.remove(e.mesh);
+        if (
+          e.mesh.geometry &&
+          e.mesh.geometry !== renderModule.sparkGeo &&
+          e.mesh.geometry !== renderModule.ringGeo
+        )
+          e.mesh.geometry.dispose();
+        if (e.mesh.material) e.mesh.material.dispose();
+        renderModule.effects.splice(i, 1);
+        continue;
+      }
+      const t = 1 - e.life / e.maxLife;
+      if (e.type === 'debris') {
+        e.vel.y -= 12 * dt;
+        e.mesh.position.addScaledVector(e.vel, dt);
+        e.mesh.rotation.x += dt * 5;
+        e.mesh.rotation.z += dt * 3;
+        if (e.mesh.position.y < 0.04) {
+          e.mesh.position.y = 0.04;
+          e.vel.multiplyScalar(0.4);
+          e.vel.y = Math.abs(e.vel.y) * 0.3;
+        }
+        e.mesh.scale.setScalar(Math.max(0.1, 1 - t));
+      } else if (e.type === 'spark') {
+        e.vel.y += e.gravity * dt;
+        e.mesh.position.addScaledVector(e.vel, dt);
+        e.mesh.material.opacity = Math.min(1, e.life / 0.3);
+        e.mesh.scale.setScalar(Math.max(0.06, 1 - t * 0.88));
+      } else if (e.type === 'ring') {
+        e.mesh.scale.setScalar((e.startScale ?? 0.5) + t * e.grow);
+        e.mesh.material.opacity = (1 - t) * 0.95;
+      } else if (e.type === 'beam') {
+        if (e.spin) e.mesh.rotation.x += e.spin * dt;
+        e.mesh.material.opacity = (1 - t) * 0.8;
+        const s = 1 + t * 0.35;
+        e.mesh.scale.set(s, 1, s);
+      } else if (e.type === 'spinRing') {
+        e.mesh.rotation.z += e.spin * dt;
+        e.mesh.scale.setScalar(1 + t * 1.4);
+        e.mesh.material.opacity = (1 - t) * 0.9;
+      } else if (e.type === 'orb') {
+        e.mesh.position.addScaledVector(e.vel, dt);
+        e.mesh.scale.setScalar(1 + t * (e.grow || 1));
+        e.mesh.material.opacity = (1 - t) * 0.85;
+      } else if (e.type === 'chargeOrb') {
+        let s;
+        if (t < 0.75) s = 0.15 + (t / 0.75) * 1.15;
+        else s = 1.3 - ((t - 0.75) / 0.25) * 0.9;
+        e.mesh.scale.setScalar(Math.max(0.1, s));
+        e.mesh.material.opacity = t < 0.82 ? Math.min(1, t * 3.5) : Math.max(0, (1 - t) * 5);
+        e.mesh.rotation.y += dt * 3;
+        e.mesh.rotation.x += dt * 1.8;
+      } else if (e.type === 'chargeCore') {
+        let s;
+        if (t < 0.75) s = 0.1 + (t / 0.75) * 0.95;
+        else s = 1.05 - ((t - 0.75) / 0.25) * 0.8;
+        e.mesh.scale.setScalar(Math.max(0.08, s));
+        e.mesh.material.opacity = t < 0.8 ? Math.min(1, t * 4) : Math.max(0, (1 - t) * 5);
+      } else if (e.type === 'chargePillar') {
+        e.mesh.material.opacity = (1 - t) * 0.4 * Math.min(1, t * 3);
+        const s = 0.8 + t * 0.5;
+        e.mesh.scale.set(s, 1, s);
+      } else if (e.type === 'converge') {
+        e.mesh.position.addScaledVector(e.vel, dt);
+        e.mesh.material.opacity = Math.min(1, e.life / 0.3) * 0.9;
+        e.mesh.scale.setScalar(Math.max(0.05, 1 - t * 0.9));
+      } else if (e.type === 'muzzle') {
+        const s = 1 + t * 0.8;
+        e.mesh.scale.setScalar(s);
+        e.mesh.material.opacity = t < 0.15 ? t / 0.15 : (1 - t) * 0.9;
+      }
+    }
+  };
+  return function initialize() {
+    renderModule.CONTACT_PHASE = {
+      jab: 0.28,
+      cross: 0.3,
+      hook: 0.48,
+      uppercut: 0.44,
+      spinKick: 0.46,
+      heavyPunch: 0.5,
+      heavyKick: 0.48,
+      sweep: 0.5,
+      palmStrike: 0.38,
+      elbow: 0.4,
+      knee: 0.4,
+      staffSweep: 0.48,
+      staffSmash: 0.48,
+      doublePalm: 0.45,
+      claw: 0.4,
+      backClaw: 0.4,
+      solarFlare: 0.45,
+      magicFlash: 0.5,
+      rushPalm: 0.4,
+    };
+    renderModule.sparkGeo = new THREE.SphereGeometry(0.075, 6, 6);
+    renderModule.ringGeo = new THREE.RingGeometry(0.3, 0.55, 32);
+    renderModule.effects = [];
+  };
+}

@@ -1,0 +1,99 @@
+/* Keep combat HUD transparent: user-requested appearance. Preserve this block when integrating gameplay changes. */
+#hud .side,
+#splitOverlay .viewStats,
+#splitOverlay .viewEnemy,
+#fightbar,
+#senzuStatus,
+#splitClock {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+#hud .bar,
+#hud .guardBar,
+#splitOverlay .viewHP,
+#splitOverlay .viewKi {
+  background: #ffffff24 !important;
+  box-shadow: none !important;
+}
+#hud .bar {
+  border-color: #f3e4c2d9;
+}
+#hud .pname,
+#hud .ultname,
+#hud .value,
+#hud .escapeRow,
+#fightbar,
+#splitOverlay .viewEnemy {
+  color: var(--paper);
+  text-shadow:
+    0 1px 2px #071725,
+    0 0 4px #07172599;
+}
+#hud .ultname {
+  color: var(--gold);
+}
+#splitClock {
+  text-shadow: 0 2px 2px #071725;
+}
+#senzuStatus {
+  color: #e4ffc4;
+  text-shadow:
+    0 1px 2px #173325,
+    0 0 4px #17332599;
+}
+#hud kbd {
+  background: transparent;
+  border-color: #f3e4c299;
+  color: var(--paper);
+}
+#fightbar button {
+  background: #f3e4c2a6 !important;
+  border: 1px solid #f3e4c2cc;
+  color: var(--ink);
+  text-shadow: none;
+}
+#fightbar .dashTrack {
+  background: #ffffff40;
+}
+#touch .touchGroup button {
+  background: #f3e4c238 !important;
+  border-color: #f3e4c2cc;
+  color: var(--paper);
+  text-shadow:
+    0 1px 2px #071725,
+    0 0 3px #07172599;
+}
+#touch .touchGroup button.held {
+  background: var(--gold) !important;
+  color: var(--ink) !important;
+  text-shadow: none;
+}
+#trainingPanel {
+  background: #f3e4c2b3 !important;
+  border-color: #f3e4c2b3;
+  color: var(--ink);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+#trainingPanel h3,
+#trainingPanel summary,
+#trainingPanel #inputHistory {
+  color: #714213;
+}
+#trainingPanel #frameReadout,
+#trainingPanel .boxLegend {
+  color: #315365;
+}
+#trainingPanel select,
+#trainingPanel button {
+  background: #f3e4c2a6 !important;
+  border-color: #8b805d;
+  color: var(--ink);
+  color-scheme: light;
+}
+#trainingPanel #drillReadout,
+#trainingPanel #tacticReadout {
+  color: var(--ink);
+}
