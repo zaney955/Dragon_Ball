@@ -80,13 +80,15 @@ export function register({
     const range = a.isUlt ? a.range : 0;
     const center = impact ? impact.clone() : origin.clone().addScaledVector(dir, range * 0.6);
     center.y = 0.025;
-    const radius = a.isUlt
-      ? f.def.ultStyle === 'dodonpa'
-        ? 0.65
-        : 1.45
-      : a.dmg >= 10
-        ? 0.65
-        : 0.28;
+    const radius = a.landingImpact
+      ? 1.35
+      : a.isUlt
+        ? f.def.ultStyle === 'dodonpa'
+          ? 0.65
+          : 1.45
+        : a.dmg >= 10
+          ? 0.65
+          : 0.28;
     for (const item of map.destructibles) {
       if (item.broken) continue;
       const delta = item.mesh.position.clone().sub(origin);
@@ -97,7 +99,7 @@ export function register({
         ? along >= 0.1 && along <= range + 0.6 && side < radius
         : item.mesh.position.clone().setY(0).distanceTo(center.clone().setY(0)) < radius;
       if (!near) continue;
-      item.hp -= a.isUlt ? 2 : 1;
+      item.hp -= a.isUlt || a.landingImpact ? 2 : 1;
       if (item.hp <= 0) {
         item.broken = true;
         if (item.tile) {
@@ -113,7 +115,7 @@ export function register({
         stageDebris(
           item.mesh.position.clone().setY(0.1),
           item.mesh.material.color,
-          a.isUlt ? 7 : 3,
+          a.isUlt || a.landingImpact ? 9 : 3,
         );
       }
     }
@@ -157,7 +159,13 @@ export function register({
       map.group.remove(old);
       worldModule.disposeGroup(old);
     }
-    renderModule.spawnDust(center, a.isUlt ? 14 : 4);
+    renderModule.spawnDust(center, a.isUlt || a.landingImpact ? 18 : 4);
+    if (a.landingImpact) {
+      stageDebris(center, new THREE.Color(0x9e927b), 10);
+      const shock = center.clone().setY(0.08);
+      renderModule.spawnShockRing(shock, 0xc6b397, 2);
+      renderModule.effects.at(-1).mesh.rotation.x = -Math.PI / 2;
+    }
   };
   return function initialize() {
     if (location.search.includes('test=1'))

@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 // Final, authoritative roster for the childhood era. Values are base damage before scaling.
 export const YOUTH_PROFILES = {
   goku: {
@@ -38,7 +39,7 @@ export const YOUTH_PROFILES = {
       skill('残像反掌', 'doublePalm', 30, 5, {
         ability: 'counter',
         startup: 0.1,
-        active: 0.16,
+        active: 0.36,
         recovery: 0.45,
       }),
       skill('肌肉强化', 'transform', 40, 12, { ability: 'muscle', startup: 0.6 }),
@@ -53,14 +54,14 @@ export const YOUTH_PROFILES = {
   taopaipai: {
     stance: 'straight',
     light: [
-      ['指刺', 'jab'],
+      ['食指点喉', 'fingerJab'],
       ['短肘', 'elbow'],
       ['反手穿掌', 'backClaw'],
       ['踏步侧踢', 'heavyKick'],
     ],
     heavy: [
       ['进身膝撞', 'knee'],
-      ['贯穿重掌', 'rushPalm'],
+      ['杀手一指贯穿', 'fingerThrust'],
     ],
     directions: ['上挑膝', '截腿', '扣肩转身摔'],
     directionalMotions: ['knee', 'sweep', 'doublePalm'],
@@ -262,10 +263,13 @@ export const YOUTH_PROFILES = {
     skills: [
       skill('念力束缚', 'psychicPush', 30, 6, {
         dmg: 2,
-        range: 3.6,
+        range: 4.2,
         shape: 'beam',
-        width: 0.22,
-        control: 0.45,
+        width: 0.3,
+        control: 1.15,
+        startup: 0.24,
+        active: 0.16,
+        kb: 0,
       }),
       skill('悬浮退避', 'catStep', 30, 5, { ability: 'floatRetreat', startup: 0.15, active: 0.5 }),
     ],
@@ -397,6 +401,22 @@ export function register({ characters, animation, combat, ai }) {
     for (const c of characters.CHARACTERS) {
       const p = YOUTH_PROFILES[c.id];
       c.youth = p;
+      if (c.id === 'taopaipai') {
+        const build = c.buildBody;
+        c.buildBody = () => {
+          const body = build();
+          body.parts.finger = characters.meshTo(
+            body.parts.handR,
+            new THREE.CapsuleGeometry(0.037, 0.23, 4, 8),
+            characters.M(0xf2bc8e),
+            0,
+            -0.2,
+            0,
+          );
+          body.parts.finger.visible = false;
+          return body;
+        };
+      }
       c.name = c.id === 'krillin' ? '克林' : c.name;
       c.resource ??= '气';
       c.role ??= c.title;
@@ -426,10 +446,10 @@ export function register({ characters, animation, combat, ai }) {
             level: /sweep|Sweep/.test(motion) || name.includes('脚踝') ? 'low' : 'mid',
             cancelRules: {
               hit: last
-                ? ['special', 'ult']
+                ? ['special', 'ult', 'pursuit']
                 : type === 'light'
                   ? ['light', 'heavy', 'special', 'ult', 'dash', 'pursuit']
-                  : ['heavy'],
+                  : ['heavy', 'pursuit'],
               block: type === 'light' && !last ? ['light'] : [],
               whiff: [],
             },
@@ -447,6 +467,7 @@ export function register({ characters, animation, combat, ai }) {
             a.launch = last ? undefined : 4;
             a.knockdown = last;
           }
+          if (c.id === 'gyumao' && type === 'heavy' && last) a.groundImpact = true;
           a.effector = animation.youthEffector(motion, i, c.id);
           a.authored = true;
           a.anim = animation.authorYouthMove(c, a, i);
@@ -497,7 +518,7 @@ export function register({ characters, animation, combat, ai }) {
       c.tactics.mechanic = {
         goku: '满月夜、生命≤25%、50气、在地面且尾巴完整，才能变大猩猩；每回合成功一次，持续10秒。白天不可用。',
         roshi:
-          '残像反掌仅克制近身普通打击；肌肉强化持续8秒，每秒耗5气，重击及远程增强15%，移动减慢。',
+          '残像反掌防反窗口0.36秒，远程攻击反弹、近战直接击飞，投技可破解；肌肉强化持续8秒，每秒耗5气，重击及远程增强15%，移动减慢。',
         taopaipai: '洞洞波释放后方向锁定；后撤掌无无敌，可追击其收招。',
         piccolo: '吐卵召唤一名丹巴林，生命24、持续6秒；魔王震掌有效期可承受一次轻击但仍受伤。',
         tien: '太阳拳须正面目视且无掩体；四妖拳持续8秒，每秒耗4气，连招增强10%；气功炮另扣最大生命6%。',
@@ -508,7 +529,7 @@ export function register({ characters, animation, combat, ai }) {
         bulma:
           '掩体生命30、持续8秒，双方均不可穿射；烟幕半径1.8、持续3秒，双方瞄准与AI观察均受遮挡。',
         chiaotzu:
-          '念力束缚实际命中后控制0.45秒，受击会解除；4秒内控制按100%、50%、25%衰减，随后暂时免疫。',
+          '念力束缚实际命中后控制1.15秒，受击会解除；4秒内控制按100%、50%、25%衰减，随后暂时免疫。',
         oolong:
           '巨鬼变化5秒，体型变大但伤害不增加；蝙蝠3秒、移速×1.3且无法攻击；再按对应按钮恢复，受伤会解除。',
         korin:

@@ -10,6 +10,40 @@ export function register({
   ui: uiModule,
   world: worldModule,
 }) {
+  // Six connected hits allow a full light chain plus a short follow-up before separation.
+  combatModule.COMBO_PROTECTION_HITS = 6;
+  combatModule.launchKnockback = function (f, attacker, reason = 'combo') {
+    const direction = f.pos.clone().sub(attacker.pos).setY(0);
+    if (direction.lengthSq() < 0.001) direction.copy(attacker.forward());
+    direction.normalize();
+    f.attack = null;
+    f.throwPending = null;
+    f.clearQueue();
+    f.comboType = null;
+    f.comboTimer = 0;
+    f.receivedCombo = 0;
+    f.juggle = 0;
+    f.comboGrace = 0;
+    f.flightMode = false;
+    f.airLocked = true;
+    f.airRecovery = true;
+    f.launchFlight = true;
+    f.launchElapsed = 0;
+    f.launchReason = reason;
+    f.pos.y = Math.max(0.04, f.pos.y);
+    f.jumpVel = 7;
+    f.vel.copy(direction).multiplyScalar(11.5);
+    f.state = 'hit';
+    f.stateTimer = 0;
+    f.stunTime = 0.85;
+    // Brief separation immunity ends in time for an E pursuit to connect in the air.
+    f.invulnerable = Math.max(f.invulnerable, 0.2);
+    f.v2.controlTime = 0;
+    f.lastHitText = reason === 'combo' ? '连击保护 · 击飞' : '防反 · 击飞';
+    renderModule.spawnShockRing(f.pos.clone().add(new THREE.Vector3(0, 1, 0)), 0xffe5ab, 1.2);
+    combatModule.emitCombatEvent('launch', attacker, f, null, { reason });
+    if (!matchModule.game.manualTest) matchModule.notify(f.lastHitText, 0.65);
+  };
   return function initialize() {
     combatModule.NEUTRAL_INPUT = {};
     combatModule.Fighter = class Fighter {
@@ -45,6 +79,7 @@ export function register({
           comboTimer: 0,
           dashTime: 0,
           dashCooldown: 0,
+          pursuitWindow: 0,
           invulnerable: 0,
           jumpVel: 0,
           guardHeld: 0,
@@ -68,6 +103,8 @@ export function register({
           damageTotal: 0,
           flightMode: false,
           airRecovery: false,
+          launchFlight: false,
+          launchElapsed: 0,
           dashKind: 'step',
           trailTimer: 0,
         });
@@ -173,9 +210,11 @@ export function register({
       update(dt, foe, input = combatModule.NEUTRAL_INPUT) {
         this.previousPos.copy(this.pos);
         this.stateTimer += dt;
+        if (this.launchFlight) this.launchElapsed += dt;
         this.flash = Math.max(0, this.flash - dt * 5.5);
         for (const name of [
           'comboTimer',
+          'pursuitWindow',
           'dashCooldown',
           'invulnerable',
           'escapeCooldown',
@@ -239,7 +278,17 @@ export function register({
               this.stunTime = 0.38;
               this.airRecovery = false;
             }
-            renderModule.spawnDust(this.pos, 4);
+            if (this.launchFlight) {
+              this.launchFlight = false;
+              this.launchElapsed = 0;
+              this.state = this.hp <= 0 ? 'dead' : 'knockdown';
+              this.stateTimer = 0;
+              this.stunTime = 0.42;
+              this.invulnerable = Math.max(this.invulnerable, 0.42);
+              this.vel.multiplyScalar(0.18);
+              worldModule.damageStage(this, { dmg: 20, landingImpact: true }, this.pos);
+              combatModule.emitCombatEvent('landingImpact', this, foe, null);
+            } else renderModule.spawnDust(this.pos, 4);
           }
         }
         if (this.state === 'dead') {
@@ -302,7 +351,7 @@ export function register({
             this.evade(foe);
             return;
           }
-          this.integrate(dt, 7);
+          this.integrate(dt, this.launchFlight ? 0.85 : 7);
           if (this.stateTimer + 1e-9 >= this.stunTime && this.pos.y < 0.15) {
             this.state = input.block ? 'block' : 'idle';
             this.stateTimer = 0;
@@ -345,13 +394,31 @@ export function register({
             combatModule.spawnAfterimage(this);
           }
           if (this.dashKind === 'pursuit' && foe) {
-            const delta = foe.pos.clone().sub(this.pos);
+            const target = foe.launchFlight ? combatModule.sampleCombatRig(foe).hurt[1] : null;
+            const delta = target
+              ? target.a.clone().add(target.b).multiplyScalar(0.5).sub(this.pos)
+              : foe.pos.clone().sub(this.pos);
             delta.y = 0;
-            if (delta.length() > 1.35)
+            const distance = delta.length();
+            if (distance > 1.15) {
               this.vel
                 .copy(delta.normalize())
-                .multiplyScalar(18 * combatModule.mobilitySpeed(this));
-            else this.vel.multiplyScalar(0.55);
+                .multiplyScalar(
+                  Math.min(24 * combatModule.mobilitySpeed(this), (distance - 1.05) / dt),
+                );
+            } else {
+              this.vel.multiplyScalar(0.2);
+              this.dashTime = 0;
+            }
+            if (foe.pos.y > 0.2 || this.pos.y > 0.2) {
+              this.jumpVel = THREE.MathUtils.clamp(
+                foe.jumpVel +
+                  (Math.max(0.04, foe.pos.y - (foe.launchFlight ? 0.45 : 0)) - this.pos.y) * 12,
+                -9,
+                12,
+              );
+              this.airLocked = true;
+            }
           }
           this.pos.addScaledVector(this.vel, dt);
           this.clampPos();
@@ -371,7 +438,7 @@ export function register({
             this.ki >= 12 &&
             this.pursuitCooldown <= 0 &&
             foe.pos.distanceTo(this.pos) > 1.2 &&
-            foe.pos.distanceTo(this.pos) <= 7
+            foe.pos.distanceTo(this.pos) <= 10
           ) {
             this.pursue(foe);
             return;
@@ -656,6 +723,30 @@ export function register({
       updateAttack(dt, foe, input) {
         const a = this.attack;
         if (!a) return;
+        if (a.pursuitFollow && foe.launchFlight && this.stateTimer <= a.hitT + a.active) {
+          const body = combatModule.sampleCombatRig(foe).hurt[1];
+          const delta = body.a.clone().add(body.b).multiplyScalar(0.5).sub(this.pos).setY(0);
+          const distance = delta.length();
+          this.facingAngle = Math.atan2(delta.x, delta.z);
+          this.vel
+            .copy(delta.normalize())
+            .multiplyScalar(
+              Math.min(
+                24 * combatModule.mobilitySpeed(this),
+                Math.max(0, (distance - 0.6) * 18) + Math.hypot(foe.vel.x, foe.vel.z),
+              ),
+            );
+          this.jumpVel = THREE.MathUtils.clamp(
+            foe.jumpVel +
+              (Math.max(0.04, foe.pos.y - (foe.launchFlight ? 0.45 : 0)) - this.pos.y) * 12,
+            -9,
+            12,
+          );
+          this.airLocked = true;
+          if (this.stateTimer < a.hitT) {
+            a.targetY = (body.a.y + body.b.y) * 0.5;
+          }
+        }
         if (matchModule.game.over && (a.isKiBlast || a.isUlt)) {
           this.attack = null;
           this.state = 'idle';
@@ -727,7 +818,7 @@ export function register({
               q.type === 'pursuit' &&
               this.ki >= 12 &&
               this.pursuitCooldown <= 0 &&
-              foe.pos.distanceTo(this.pos) <= 7
+              foe.pos.distanceTo(this.pos) <= 10
             ) {
               this.pull(q.type);
               this.attack = null;
@@ -767,14 +858,17 @@ export function register({
         }
       }
       pursue(foe) {
+        if (!foe || this.ki < 12 || this.pursuitCooldown > 0 || foe.pos.distanceTo(this.pos) > 10)
+          return false;
         this.ki -= 12;
         this.pursuitCooldown = 0.7;
+        this.pursuitWindow = 0.7;
         this.attack = null;
         const delta = foe.pos.clone().sub(this.pos);
         delta.y = 0;
         this.facingAngle = Math.atan2(delta.x, delta.z);
         this.vel.copy(delta.normalize()).multiplyScalar(18 * combatModule.mobilitySpeed(this));
-        this.dashTime = 0.18;
+        this.dashTime = foe.pos.y > 0.2 || foe.launchFlight ? 0.42 : 0.28;
         this.dashKind = 'pursuit';
         this.dashCooldown = 0.3;
         this.invulnerable = 0.025;
@@ -790,9 +884,11 @@ export function register({
         combatModule.emitCombatEvent('pursuit', this, foe, null, {
           cost: 12,
         });
-        if (!this.isAI) matchModule.notify('追击', 0.4);
+        if (!this.isAI) matchModule.notify('爆冲追击 · 12 元气', 0.4);
+        return true;
       }
       evade(foe) {
+        this.launchFlight = false;
         this.escapeCharges--;
         this.ki -= 15;
         this.escapeCooldown = 1.0;
@@ -825,6 +921,7 @@ export function register({
         matchModule.notify('残像脱身', 0.6);
       }
       breaker(foe) {
+        this.launchFlight = false;
         this.ki -= 35;
         this.breakerCooldown = 5.5;
         this.attack = null;
@@ -855,6 +952,7 @@ export function register({
       }
       takeHit(attacker, a) {
         if (this.hp <= 0 || this.invulnerable > 0) return;
+        const launchVelocity = this.launchFlight ? this.vel.clone() : null;
         const interruptedCharge = this.state === 'charge' || this.state === 'blastCharge';
         if (interruptedCharge) {
           this.chargeHeld = 0;
@@ -997,27 +1095,26 @@ export function register({
           this.receivedCombo++;
           this.comboGrace = this.stunTime + 0.2;
           if (this.pos.y > 0.15) this.juggle++;
-          if (a.launch) {
+          if (a.launch && !this.launchFlight) {
             this.jumpVel = a.launch;
             this.pos.y = Math.max(0.04, this.pos.y);
             this.airRecovery = true;
           }
-          if (a.knockdown) {
+          if (a.knockdown && !this.launchFlight) {
             this.airRecovery = true;
             this.jumpVel = 3.2;
             this.pos.y = 0.03;
           }
-          if (this.receivedCombo >= 8 || this.juggle >= 3) {
-            this.invulnerable = 0.8;
-            this.stunTime = 0.55;
-            this.state = 'knockdown';
-            this.stateTimer = 0;
-            this.comboGrace = 0;
-            this.jumpVel = -3;
-            this.airRecovery = false;
+          if (
+            !this.launchFlight &&
+            !armored &&
+            (this.receivedCombo >= combatModule.COMBO_PROTECTION_HITS || this.juggle >= 3)
+          ) {
+            combatModule.launchKnockback(this, attacker);
           }
         }
-        if (armored) {
+        if (launchVelocity) this.vel.copy(launchVelocity);
+        if (armored && !this.launchFlight) {
           this.attack = oldAttack;
           this.state = 'attack';
           this.stateTimer = this.armorTimer;
@@ -1067,7 +1164,18 @@ export function register({
         let pose = this.attack
           ? combatModule.combatPose(this)
           : combatModule.neutralCombatPose(this);
-        if (['dead', 'knockdown'].includes(this.state)) {
+        if (this.launchFlight) {
+          const lean = THREE.MathUtils.clamp(this.launchElapsed / 0.16, 0, 1);
+          this.root.rotation.set(-lean * 1.15, this.facingAngle, 0, 'YXZ');
+          this.root.position.y += 0.35 * lean;
+          pose.t = [-0.22, 0, 0];
+          pose.aL = [-0.45, 0, -0.8];
+          pose.aR = [-0.45, 0, 0.8];
+          pose.lL = [0.45, 0, 0.12];
+          pose.lR = [0.6, 0, -0.12];
+          pose.kL = 0.35;
+          pose.kR = 0.5;
+        } else if (['dead', 'knockdown'].includes(this.state)) {
           const k = THREE.MathUtils.clamp(this.stateTimer / 0.28, 0, 1);
           this.root.rotation.z = -k * 1.3;
           this.root.position.y = Math.max(0, this.pos.y) - 0.28 * k;

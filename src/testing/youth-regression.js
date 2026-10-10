@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { selectVictoryLine, RELATION_LINES, VICTORY_LINES } from '../match/victory.js';
-export function register({ characters, combat, match, testing, ai, audio }) {
+export function register({ characters, combat, match, testing, ai, audio, render, world }) {
   const index = (id) => characters.CHARACTERS.findIndex((c) => c.id === id);
   function fixture(id = 'goku', foe = 'krillin', distance = 1) {
     Object.assign(match.game, {
@@ -74,6 +74,27 @@ export function register({ characters, combat, match, testing, ai, audio }) {
           p.startUlt();
           assert(p.ki === old - 100);
           assert(p.invulnerable === 0, '大招不得常驻无敌');
+        });
+      for (const c of characters.CHARACTERS)
+        test(c.name + ' · 全部轻重连招段接触三种体型', (assert) => {
+          for (const type of ['light', 'heavy'])
+            for (let i = 0; i < c.combos[type].length; i++) {
+              for (const target of ['goku', 'chiaotzu', 'gyumao']) {
+                const [p, e] = fixture(
+                  c.id,
+                  target,
+                  c.id === 'gyumao' ? (type === 'heavy' ? 2 : 0.85) : 1,
+                );
+                p.comboType = type;
+                p.comboIdx = i - 1;
+                p.comboTimer = i ? 1 : 0;
+                p.hitResult = 'hit';
+                assert(p.startAttack(type), c.id + '连招段无法发动');
+                const name = p.attack.name;
+                ticks(Math.ceil(p.attack.dur / match.STEP) + 2);
+                assert(e.hp < e.maxHp, name + '没有实际击中' + target);
+              }
+            }
         });
       test('全方向大招只有当前时期招式', (assert) => {
         const [p] = fixture('krillin');
@@ -232,6 +253,197 @@ export function register({ characters, combat, match, testing, ai, audio }) {
         p.stateTimer = 0.15;
         p.takeHit(e, { ...e.def.throwMove, serial: 31 });
         assert(p.state === 'grabbed');
+      });
+      test('六次连续受击才击飞；落地破坏只结算一次', (assert) => {
+        const [p, e] = fixture('goku', 'krillin', 1);
+        for (let i = 0; i < 6; i++) {
+          e.takeHit(p, combat.finalizeMove({ dmg: 1, kb: 0, stun: 0.4, ki: 0 }));
+          assert(e.launchFlight === (i === 5), '保护必须恰好在第六次触发');
+        }
+        const start = e.pos.clone(),
+          damageEvents = world.currentMap.damageEvents;
+        p.attack = null;
+        ticks(85);
+        assert(!e.launchFlight && e.state === 'knockdown');
+        const distance = e.pos.clone().setY(0).distanceTo(start.setY(0));
+        assert(distance >= 4 && distance <= 6, '击飞水平距离不在4到6米之间：' + distance);
+        assert(world.currentMap.damageEvents === damageEvents + 1);
+        assert(world.currentMap.brokenTiles > 0);
+        assert(render.effects.some((e) => e.type === 'dust'));
+        ticks(60);
+        assert(world.currentMap.damageEvents === damageEvents + 1 && e.state === 'idle');
+      });
+      test('十四人击飞姿态的可见头部与真实受击骨架一致', (assert) => {
+        for (const c of characters.CHARACTERS) {
+          const [p, e] = fixture('goku', c.id);
+          combat.launchKnockback(e, p);
+          ticks(20);
+          e.render(1, 1);
+          e.root.updateMatrixWorld(true);
+          const head = e.parts.head.getWorldPosition(new THREE.Vector3());
+          const rig = combat.sampleCombatRig(e);
+          assert(
+            head.distanceTo(rig.parts.head.getWorldPosition(new THREE.Vector3())) < 1e-6,
+            c.id + '击飞姿态不一致',
+          );
+        }
+      });
+      test('E爆冲跟踪击飞敌人的水平和高度；不足资源不扣费', (assert) => {
+        const [p, e] = fixture();
+        combat.launchKnockback(e, p);
+        ticks(25);
+        p.ki = 11;
+        const before = p.ki;
+        assert(!p.pursue(e) && p.ki === before && p.state === 'idle');
+        p.ki = 100;
+        window.__db.tick({ actions: ['pursuit'] });
+        assert(p.ki === 88 && p.dashKind === 'pursuit');
+        for (let i = 0; i < 45 && p.dashTime > 0; i++) ticks(1);
+        assert(p.pos.clone().setY(0).distanceTo(e.pos.clone().setY(0)) < 1.6);
+        assert(Math.abs(p.pos.y - e.pos.y) < 0.65 && p.pos.y > 0);
+        p.startAttack('light');
+        const hp = e.hp;
+        ticks(36);
+        assert(e.hp < hp, '爆冲后轻击应实际接触空中目标');
+      });
+      test('末段命中可以E取消；打空和被防不能追击取消', (assert) => {
+        const [p, e] = fixture('goku', 'krillin', 3);
+        p.comboType = 'heavy';
+        p.comboTimer = 1;
+        p.comboIdx = 1;
+        p.startAttack('heavy');
+        p.hitResult = 'hit';
+        p.stateTimer = p.attack.hitT + 0.05;
+        combat.launchKnockback(e, p);
+        window.__db.tick({ actions: ['pursuit'] });
+        assert(p.dashKind === 'pursuit' && !p.attack && p.ki === 88);
+        for (const c of characters.CHARACTERS)
+          for (const type of ['light', 'heavy']) {
+            const a = c.combos[type].at(-1);
+            assert(a.cancelRules.hit.includes('pursuit'));
+            assert(
+              !a.cancelRules.whiff.includes('pursuit') && !a.cancelRules.block.includes('pursuit'),
+            );
+          }
+      });
+      test('饺子R实际接触控制1.15秒；受击解除且不可控制击飞保护', (assert) => {
+        const [p, e] = fixture('chiaotzu', 'goku', 3.5);
+        p.startSpecial();
+        ticks(31);
+        assert(e.v2.controlTime > 1 && e.v2.controlTime <= 1.15);
+        assert(p.v2.controlTarget === e && render.effects.some((e) => e.control));
+        p.invulnerable = 0;
+        p.takeHit(e, { ...e.def.combos.light[0], serial: 901 });
+        assert(e.v2.controlTime === 0 && !p.v2.controlTarget);
+        combat.launchKnockback(e, p);
+        e.invulnerable = 0;
+        assert(!combat.applyControl(p, e, p.def.skills[0]));
+      });
+      test('龟仙人0.36秒防反窗口：边界、近战直接击飞、过期受伤', (assert) => {
+        for (const time of [0.1, 0.45, 0.46]) {
+          const [p, e] = fixture('roshi');
+          p.startSpecial();
+          p.stateTimer = time;
+          const hp = p.hp;
+          p.takeHit(e, { ...e.def.combos.heavy[0], serial: 902 });
+          assert(p.hp === hp && e.launchFlight && e.hp < e.maxHp);
+        }
+        for (const time of [0.099, 0.461]) {
+          const [p, e] = fixture('roshi');
+          p.startSpecial();
+          p.stateTimer = time;
+          const hp = p.hp;
+          p.takeHit(e, { ...e.def.combos.light[0], serial: 903 });
+          assert(p.hp < hp && !e.launchFlight);
+        }
+      });
+      test('龟仙人防反召唤物扑击，不误伤施术者或崩溃', (assert) => {
+        const [p, e] = fixture('roshi', 'piccolo', 3);
+        combat.releaseYouthAbility(e, e.def.skills[0]);
+        const minion = combat.youthEntities.find((e) => e.kind === 'demon');
+        minion.pos.set(0.8, 0, 0);
+        minion.attackTime = 0;
+        minion.warning = 0.295;
+        const hp = p.hp,
+          ownerHp = e.hp;
+        p.startSpecial();
+        p.stateTimer = 0.2;
+        combat.updateYouthEntities(0.01);
+        assert(p.hp === hp && e.hp === ownerHp && minion.launchVelocity && minion.hp < 24);
+      });
+      test('龟仙人反弹真实投射物且回击原发射者', (assert) => {
+        const [p, e] = fixture('roshi', 'goku', 3);
+        p.startSpecial();
+        p.stateTimer = 0.3;
+        const hp = p.hp;
+        const b = combat.newProjectile(
+          e,
+          { ...e.def.skills[0], projectile: true, range: 8, dmg: 8 },
+          'ki',
+          {
+            pos: new THREE.Vector3(0.2, 1.25, 0),
+            direction: new THREE.Vector3(-1, 0, 0),
+            speed: 18,
+            life: 1,
+          },
+        );
+        combat.updateV2Abilities(match.STEP);
+        assert(b.owner === p && p.hp === hp && b.direction.x > 0 && !b.hits.has(p));
+        ticks(35);
+        assert(e.hp < e.maxHp && p.hp === hp);
+      });
+      test('龟仙人反弹远程光束；防反不额外扣元气', (assert) => {
+        const [p, e] = fixture('roshi', 'taopaipai', 3);
+        p.startSpecial();
+        p.stateTimer = 0.4;
+        const hp = p.hp,
+          ki = p.ki;
+        p.takeHit(e, { ...e.def.skills[0], serial: 904 });
+        assert(p.hp === hp && p.ki === ki && combat.v2Projectiles.length === 1);
+        ticks(40);
+        assert(e.hp < e.maxHp);
+      });
+      test('天津饭双技能可见特效及气功炮方形发射口', (assert) => {
+        const [p] = fixture('tien');
+        p.startSpecial();
+        assert(render.effects.filter((e) => e.type === 'solarRay').length === 12);
+        p.attack = null;
+        p.state = 'idle';
+        p.ki = 100;
+        p.startSpecial({ down: true });
+        assert(render.effects.some((e) => e.type === 'boundAura' && e.owner === p));
+        p.attack = null;
+        p.state = 'idle';
+        p.ki = 100;
+        p.startUlt();
+        const visual = render.ultimateVisuals.find((v) => v.f === p);
+        assert(visual && visual.inner.geometry.parameters.radialSegments === 4);
+        assert(visual.rig.getObjectByName('kikoho-square-aperture'));
+      });
+      test('独立轻重模板、桃白白可见手指和牛魔王斧落地', (assert) => {
+        for (const type of ['light', 'heavy']) {
+          const signatures = characters.CHARACTERS.map((c) =>
+            JSON.stringify(c.combos[type][0].anim),
+          );
+          assert(new Set(signatures).size === 14);
+        }
+        const [p] = fixture('taopaipai');
+        p.startAttack('light');
+        p.stateTimer = p.attack.hitT;
+        p.render(1, 1);
+        assert(p.parts.finger.visible && p.attack.effector === 'finger');
+        p.root.updateMatrixWorld(true);
+        const tip = p.parts.finger.localToWorld(new THREE.Vector3(0, -0.152, 0));
+        const hit = combat.sampleCombatRig(p).hit[0];
+        assert(tip.distanceTo(hit.b) < 0.01);
+        const [ox] = fixture('gyumao');
+        ox.comboType = 'heavy';
+        ox.comboTimer = 1;
+        ox.comboIdx = 0;
+        ox.startAttack('heavy');
+        const damage = world.currentMap.damageEvents;
+        ticks(Math.ceil(ox.attack.hitT / match.STEP) + 1);
+        assert(world.currentMap.damageEvents > damage && world.currentMap.scars.length > 0);
       });
       test('装甲承伤一次而投技绕过', (assert) => {
         const [p, e] = fixture('pilaf');

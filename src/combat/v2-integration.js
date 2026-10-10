@@ -73,6 +73,7 @@ export function register({
             (h) => h.enabled && combatModule.capsuleDistanceSq(sweep, h) <= (b.r + h.r) ** 2,
           )
         ) {
+          if (combatModule.reflectProjectile?.(foe, b)) continue;
           b.hits.add(foe);
           if (
             body.hurt.some(

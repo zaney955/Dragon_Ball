@@ -205,6 +205,15 @@ export function register({
       pose.t[2] += (f.hitSide ?? 0) * 0.14 * Math.exp(-f.stateTimer * 9);
       pose.h[2] = (f.hitSide ?? 0) * 0.1 * Math.exp(-f.stateTimer * 9);
     }
+    if (f.launchFlight) {
+      pose.t = [-0.22, 0, 0];
+      pose.aL = [-0.45, 0, -0.8];
+      pose.aR = [-0.45, 0, 0.8];
+      pose.lL = [0.45, 0, 0.12];
+      pose.lR = [0.6, 0, -0.12];
+      pose.kL = 0.35;
+      pose.kR = 0.5;
+    }
     return pose;
   };
   combatModule.combatPose = function combatPose(f) {
@@ -336,6 +345,11 @@ export function register({
     r.root.position.copy(f.pos);
     r.root.position.y += f.attack ? (pose.ry ?? 0) : 0;
     r.root.rotation.set(0, f.facingAngle, 0);
+    if (f.launchFlight) {
+      const lean = THREE.MathUtils.clamp(f.launchElapsed / 0.16, 0, 1);
+      r.root.rotation.set(-lean * 1.15, f.facingAngle, 0, 'YXZ');
+      r.root.position.y += 0.35 * lean;
+    }
     r.root.scale.setScalar(f.baseScale);
     charactersModule.applyPose(p, pose, 0, true);
     // The logical rig snaps to one simulation pose.
@@ -362,6 +376,10 @@ export function register({
     r.hurt[1].a.set(f.pos.x, f.pos.y + 0.86 * s, f.pos.z);
     world(p.torsoGroup, r.hurt[1].b);
     r.hurt[1].b.y += 0.42 * s;
+    if (f.launchFlight) {
+      r.root.localToWorld(r.hurt[1].a.set(0, 0.86, 0));
+      p.torsoGroup.localToWorld(r.hurt[1].b.set(0, 0.42, 0));
+    }
     r.hurt[1].r = 0.28 * s;
     for (let i = 0; i < 2; i++) {
       world(p['leg' + (i ? 'R' : 'L')], r.hurt[2 + i].a);
@@ -494,8 +512,11 @@ export function register({
     )
       return false;
     if (a.level === 'high' && foe.crouching) return false;
-    const dx = foe.pos.x - f.pos.x,
-      dz = foe.pos.z - f.pos.z,
+    const target = foe.launchFlight
+      ? foe.combatRig.hurt[1].a.clone().add(foe.combatRig.hurt[1].b).multiplyScalar(0.5)
+      : foe.pos;
+    const dx = target.x - f.pos.x,
+      dz = target.z - f.pos.z,
       along = dx * Math.sin(f.facingAngle) + dz * Math.cos(f.facingAngle);
     if (a.shape !== 'burst' && (along < -0.05 || Math.hypot(dx, dz) > a.range + 0.35)) return false;
     const r = f.combatRig,

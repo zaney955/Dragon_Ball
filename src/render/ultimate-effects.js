@@ -130,12 +130,12 @@ export function register({
     const color = def.ultStyle === 'kamehameha' ? 0x309cde : def.ultColor,
       core = charactersModule.meshTo(
         rig,
-        new THREE.SphereGeometry(0.1, 24, 18),
+        new THREE.SphereGeometry(def.ultStyle === 'kikoho' ? 0.06 : 0.1, 24, 18),
         renderModule.energyMat(0xffffff, 0.95),
       ),
       aura = charactersModule.meshTo(
         rig,
-        new THREE.SphereGeometry(0.25, 24, 18),
+        new THREE.SphereGeometry(def.ultStyle === 'kikoho' ? 0.18 : 0.25, 24, 18),
         renderModule.energyMat(color, 0.55),
       );
     const rings = [];
@@ -156,7 +156,14 @@ export function register({
       length = f.attack.range;
     const inner = charactersModule.meshTo(
       beamGroup,
-      new THREE.CylinderGeometry(r * 0.44, r * 0.4, length, 24, 1, true),
+      new THREE.CylinderGeometry(
+        r * 0.44,
+        r * 0.4,
+        length,
+        def.ultStyle === 'kikoho' ? 4 : 24,
+        1,
+        true,
+      ),
       renderModule.energyMat(0xfaffff, 0.9),
       0,
       length / 2,
@@ -164,7 +171,14 @@ export function register({
     );
     const outer = charactersModule.meshTo(
       beamGroup,
-      new THREE.CylinderGeometry(r, r * 0.86, length, 24, 1, true),
+      new THREE.CylinderGeometry(
+        r * (def.ultStyle === 'kikoho' ? 2 : 1),
+        r * 0.86,
+        length,
+        def.ultStyle === 'kikoho' ? 4 : 24,
+        1,
+        true,
+      ),
       renderModule.energyMat(color, 0.43),
       0,
       length / 2,
@@ -245,10 +259,19 @@ export function register({
     }
     if (def.ultStyle === 'kikoho') {
       const tri = new THREE.Mesh(
-        new THREE.ConeGeometry(0.85, 0.035, 3),
+        new THREE.CylinderGeometry(0.85, 0.85, 0.035, 4, 1, true),
         renderModule.energyMat(0xffe6a2, 0.55),
       );
-      tri.position.y = 0.5;
+      tri.name = 'kikoho-square-aperture';
+      tri.position.y = 0.12;
+      tri.rotation.y = Math.PI / 4;
+      inner.rotation.y = outer.rotation.y = Math.PI / 4;
+      tip.visible = false;
+      for (const ring of flow) {
+        ring.geometry.dispose();
+        ring.geometry = new THREE.CylinderGeometry(r * 1.3, r * 1.3, 0.018, 4, 1, true);
+        ring.rotation.set(0, Math.PI / 4, 0);
+      }
       beamGroup.add(tri);
       rings.push(tri);
     }
