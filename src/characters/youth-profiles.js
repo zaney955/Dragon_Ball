@@ -1,3 +1,4 @@
+import { CHARACTER_HELP } from '../ui/character-help.js';
 import * as THREE from 'three';
 import { NEUTRAL_BALANCE, neutralMove } from './neutral-balance.js';
 // Final, authoritative roster for the childhood era. Values are base damage before scaling.
@@ -31,7 +32,7 @@ export const YOUTH_PROFILES = {
         recovery: 0.46,
         extendingStaff: true,
       }),
-      skill('大猩猩', 'transform', 50, 0, { ability: 'ape', startup: 1 }),
+      skill('猜拳', 'jab', 40, 3, { ability: 'rps', dmg: 30, range: 1.8, startup: 0.3, drive: 6 }),
     ],
     ult: ultimate('龟派气功波', 'kamehameha', 145, 12, { shape: 'beam', width: 0.6 }),
   },
@@ -147,7 +148,7 @@ export const YOUTH_PROFILES = {
       }),
       skill('四妖拳', 'transform', 40, 12, { ability: 'fourArms', startup: 0.6 }),
     ],
-    ult: ultimate('气功炮', 'kikoho', 155, 9, { shape: 'beam', width: 0.65, lifeCost: 0.06 }),
+    ult: ultimate('气功炮', 'kikoho', 186, 9, { shape: 'beam', width: 0.65, lifeCost: 0.2 }),
   },
   krillin: {
     stance: 'low',
@@ -318,8 +319,8 @@ export const YOUTH_PROFILES = {
     directions: ['枪托上挑', '低位蹬踢', '扣腕推倒'],
     directionalMotions: ['selfDefense', 'sweep', 'selfDefense'],
     skills: [
-      skill('胶囊掩体', 'capsuleCast', 30, 6, { ability: 'cover', startup: 0.6 }),
-      skill('烟幕胶囊', 'capsuleCast', 30, 8, { ability: 'smoke' }),
+      skill('随机胶囊', 'capsuleCast', 30, 6, { ability: 'capsule', startup: 0.6 }),
+      skill('备用随机胶囊', 'capsuleCast', 30, 8, { ability: 'capsule' }),
     ],
     ult: ultimate('胶囊武装齐射', 'capsuleCast', 58, 8, {
       ability: 'barrage',
@@ -390,13 +391,13 @@ export const YOUTH_PROFILES = {
       skill('巨鬼变化', 'transform', 30, 0, { ability: 'ogre', startup: 0.32 }),
       skill('蝙蝠变化', 'transform', 30, 0, { ability: 'bat', startup: 0.32 }),
     ],
-    ult: ultimate('变化奇袭', 'pigBelly', 78, 1.7, {
-      kb: 0.25,
-      stun: 0.45,
-      hits: [0, 0.35, 0.7],
-      active: 0.8,
-      ability: 'shapeRush',
-      drive: 5,
+    ult: ultimate('变化必杀', 'transform', 0, 0, {
+      startup: 0.45,
+      active: 0.01,
+      recovery: 0.25,
+      ability: 'mimicUlt',
+      shape: 'ability',
+      drive: 0,
     }),
   },
   korin: {
@@ -580,7 +581,10 @@ export function register({ characters, animation, combat, ai }) {
           id: 'special',
           variant: i,
           superArmor: c.id === 'gyumao',
-          shape: s.ability && s.ability !== 'retreat' && s.ability !== 'wolf' ? 'ability' : s.shape,
+          shape:
+            s.ability && s.ability !== 'retreat' && s.ability !== 'wolf' && s.ability !== 'rps'
+              ? 'ability'
+              : s.shape,
           isYouth: true,
           authored: true,
           cancelRules: { hit: ['ult'], block: [], whiff: [] },
@@ -606,6 +610,7 @@ export function register({ characters, animation, combat, ai }) {
         : hitCount > 1
           ? `${c.ult.dmg}×${hitCount}`
           : String(c.ult.dmg);
+      if (c.id === 'oolong') c.ult.damageLabel = '随模仿角色';
       c.ult.effector = c.id === 'yamcha' ? 'both' : animation.youthEffector(c.ult.motion, 0, c.id);
       c.ult.anim = animation.authorYouthMove(c, c.ult, 0);
       c.ultName = c.ult.name;
@@ -624,30 +629,8 @@ export function register({ characters, animation, combat, ai }) {
               `${i ? 'S+R' : 'R'} ${s.name}：${s.kiCost} ${c.resource}，冷却${s.cooldown}秒${s.ability === 'ogre' || s.ability === 'bat' ? '（恢复本体后3秒）' : ''}`,
           )
           .join('；') + `；U ${c.ultName}：100 ${c.resource}`;
-      c.tactics.mechanic = {
-        goku: '满月夜、生命≤25%、50气、在地面且尾巴完整，才能变大猩猩；每回合成功一次，持续10秒。白天不可用。',
-        roshi:
-          '残像反掌防反窗口0.36秒，远程攻击反弹、近战直接击飞，投技可破解；肌肉强化持续8秒，每秒耗5气，重击及远程增强15%，移动减慢。',
-        taopaipai: '洞洞波释放后方向锁定；后撤掌无无敌，可追击其收招。',
-        piccolo: '吐卵召唤一名丹巴林，生命24、持续6秒；魔王震掌有效期可承受一次轻击但仍受伤。',
-        tien: '太阳拳须正面目视且无掩体，命中后方向键反向3秒；四妖拳持续8秒，每秒耗4气，连招增强10%；气功炮另扣最大生命6%。',
-        krillin: '低身疾踢避开实际高位攻击；第二技能固定蓄力0.6秒；大招为龟派气功。',
-        yamcha:
-          '狼牙突爪命中后0.25秒内再按R追加终掌；S+R侧步有0.32秒闪避窗口，成功避开攻击或技能后闪到对手背后，狼牙反击将其击飞；投技可破解。',
-        gyumao:
-          '重击、两种技能与必杀在起手和有效期霸体、承伤60%，收招可打断；横扫用侧移，震地用看准时机的跳跃规避。',
-        chichi: '头盔飞刃往返各命中一次，回收前不可重发；疾步踢打空也退步，可追击。',
-        bulma:
-          '掩体生命30、持续8秒，双方均不可穿射；烟幕半径1.8、持续3秒，双方瞄准与AI观察均受遮挡。',
-        chiaotzu:
-          '念力束缚实际命中后控制1.15秒，受击会解除；4秒内控制按100%、50%、25%衰减，随后暂时免疫。',
-        oolong:
-          '巨鬼起势推开正前方未防御、未攻击的地面目标，对手可立即行动；格挡、抢招和跳跃可应对。蝙蝠3秒、移速×1.3且无法攻击；受伤会解除。',
-        korin:
-          '残像步闪避仅0.075秒，0.35秒内轻击可反敲；仙豆前摇0.95秒，成功恢复12%生命，每回合一次。',
-        pilaf:
-          '导弹与喷火武装持续到下次切换；装甲架势持续3秒，仅一次承伤保护；大招修、舞两机实际接合。',
-      }[c.id];
+      c.tactics.mechanic =
+        CHARACTER_HELP[c.id].summary + ' ' + CHARACTER_HELP[c.id].skills.join(' ');
       c.tactics.weak =
         c.id === 'gyumao'
           ? '轻击可打断；挥斧起手和有效期霸体，收招失去霸体，可躲避后在收招期间反击。'

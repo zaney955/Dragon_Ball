@@ -41,7 +41,7 @@ export function register({ characters, combat, match, training, ui }) {
           ? `点按发射；${r.cost}能量，射程约${r.range}米。`
           : '无远程攻击。';
     el('characterGuide').innerHTML =
-      `<h3>${c.name}</h3><p class="helpLead">${h.summary}</p><p>${c.neutralPlan}</p><div class="helpMoves">${helpCard(k.remote, r.name === '无远程' ? '远程攻击' : c.id === 'pilaf' ? '导弹 / 喷火' : r.name, '', remote)}${helpCard(k.jump, flight, '', flight === '跳跃' ? '点按跳跃，可躲避地面攻击；空中可轻击、重击。' : flight === '筋斗云' ? '点按起跳，按住升高，最多2秒；松开下降。大猩猩形态不可用。' : '点按起跳，按住升高，最多2秒；松开下降。')}${c.skills.map((s, i) => helpCard(i ? k.secondary : k.primary, s.name, skillCost(s), inputCopy(h.skills[i], k))).join('')}${helpCard(k.ultimate, c.ultName, '100 能量', h.ultimate)}</div><div id="guideConditions"></div><details class="helpDetails"><summary>连招与组合</summary><p>连续点按 ${k.light}：最多${c.combos.light.length}段轻击；${k.heavy}：最多${c.combos.heavy.length}段重击。命中再衔接，被防或打空要重新判断；按住格挡可停止缓存的普通攻击。</p><p>${k.forward} + ${k.heavy} 挑空；后退 + ${k.heavy} 下段；${k.throw} 投技与拆投。命中后可按 ${k.pursuit} 追击。</p></details><button id="guidePractice" class="smallBtn">角色练习</button>`;
+      `<h3>${c.name}</h3><p class="helpLead">${inputCopy(h.summary, k)}</p><p>${c.neutralPlan}</p><div class="helpMoves">${helpCard(k.remote, r.name === '无远程' ? '远程攻击' : c.id === 'pilaf' ? '导弹 / 喷火' : r.name, '', remote)}${helpCard(k.jump, flight, '', flight === '跳跃' ? '点按跳跃，可躲避地面攻击；空中可轻击、重击。' : flight === '筋斗云' ? '点按起跳，按住升高，最多2秒；松开下降。大猩猩形态不可用。' : '点按起跳，按住升高，最多2秒；松开下降。')}${c.skills.map((s, i) => helpCard(i ? k.secondary : k.primary, s.name, skillCost(s), inputCopy(h.skills[i], k))).join('')}${helpCard(k.ultimate, c.ultName, '100 能量', h.ultimate)}</div><div id="guideConditions"></div><details class="helpDetails"><summary>连招与组合</summary><p>连续点按 ${k.light}：最多${c.combos.light.length}段轻击；${k.heavy}：最多${c.combos.heavy.length}段重击。命中再衔接，被防或打空要重新判断；按住格挡可停止缓存的普通攻击。</p><p>${k.forward} + ${k.heavy} 挑空；后退 + ${k.heavy} 下段；${k.throw} 投技与拆投。命中后可按 ${k.pursuit} 追击。</p></details><button id="guidePractice" class="smallBtn">角色练习</button>`;
     el('guidePractice').hidden = match.game.online || match.game.spectating;
     el('guidePractice').onclick = () => {
       ui.closeGuide(false);
@@ -66,7 +66,11 @@ export function register({ characters, combat, match, training, ui }) {
         ['下段攻击', `后退 + ${k.heavy}`, '对手需下蹲格挡'],
         ['投技 / 拆投', k.throw, '靠近投技；被投时及时点按拆投'],
         ['闪身', k.dash, '快速调整站位，命中取消消耗8能量'],
-        ['残像脱身', k.evasion, '受击时点按；15能量，消耗一次机会'],
+        [
+          '残像脱身',
+          k.evasion,
+          '受击时点按；15能量，闪到对手背后；每回合2次，悟空3次；雅木茶1次且10秒恢复',
+        ],
         ['爆气解围', k.burst, '受击时同时按；35能量'],
         ['爆冲追击', k.pursuit, '命中后点按；12能量，最远10米'],
         ['连续后空翻', k.backflip, '同时按；12能量，后翻三次'],
@@ -97,9 +101,7 @@ export function register({ characters, combat, match, training, ui }) {
         : null;
     const checks = [
       [match.game.lightPreset === 'moon', '场景为满月夜'],
-      [f ? f.hp / f.maxHp <= 0.25 : null, '总生命不高于25%'],
-      [f ? f.ki >= c.skills[1].kiCost : null, `至少${c.skills[1].kiCost}能量`],
-      [f ? f.pos.y <= 0.1 : null, '站在地面'],
+      [f ? f.hp / f.maxHp < 0.5 : null, '总生命低于50%时自动触发'],
       [f ? f.youth.tailIntact : null, '尾巴完整'],
       [f ? !f.youth.apeUsed : null, '本回合尚未成功变身'],
     ];

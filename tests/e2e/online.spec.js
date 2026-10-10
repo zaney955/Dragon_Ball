@@ -15,7 +15,10 @@ async function pauseClock(page) {
 async function lobby(page) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.addInitScript(noDraw => window.__dbNetworkNoDraw = noDraw, !!process.env.DB_NETWORK_NO_DRAW);
+  await page.addInitScript(
+    (noDraw) => (window.__dbNetworkNoDraw = noDraw),
+    !!process.env.DB_NETWORK_NO_DRAW,
+  );
   await page.addInitScript(
     (softwareGPU) => {
       const raf = window.requestAnimationFrame;

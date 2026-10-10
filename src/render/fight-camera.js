@@ -26,11 +26,36 @@ export function register({
   ui: uiModule,
   world: worldModule,
 }) {
+  const obstacleBounds = new WeakMap(),
+    hitPoint = new THREE.Vector3();
+  function nearestCameraHit(raycaster) {
+    const hits = [];
+    for (const mesh of renderModule.cameraObstacles) {
+      const bounds = obstacleBounds.get(mesh);
+      // THREE's mesh sphere test uses an infinite ray. Reject scenery beyond the
+      // actual shoulder segment before visiting any triangles in a merged bucket.
+      if (bounds && !bounds.containsPoint(raycaster.ray.origin)) {
+        if (!raycaster.ray.intersectBox(bounds, hitPoint)) continue;
+        if (hitPoint.distanceToSquared(raycaster.ray.origin) > raycaster.far ** 2) continue;
+      }
+      mesh.raycast(raycaster, hits);
+    }
+    return hits.reduce(
+      (nearest, hit) => (!nearest || hit.distance < nearest.distance ? hit : nearest),
+      null,
+    );
+  }
   renderModule.resetShoulderCameras = function resetShoulderCameras() {
     renderModule.cameraObstacles.length = 0;
     renderModule.scene.updateMatrixWorld(true);
     worldModule.currentMap?.group.traverse((o) => {
-      if (cameraObstacle(o)) renderModule.cameraObstacles.push(o);
+      if (cameraObstacle(o)) {
+        renderModule.cameraObstacles.push(o);
+        if (o.isInstancedMesh) o.computeBoundingBox();
+        else o.geometry.computeBoundingBox();
+        const bounds = o.isInstancedMesh ? o.boundingBox : o.geometry.boundingBox;
+        obstacleBounds.set(o, bounds.clone().applyMatrix4(o.matrixWorld));
+      }
     });
     renderModule.scene.updateMatrixWorld(true);
     for (let i = 0; i < 2; i++) {
@@ -75,7 +100,7 @@ export function register({
       length = dir.length();
     renderModule.cameraRay.set(origin, dir.normalize());
     renderModule.cameraRay.far = length;
-    const hit = renderModule.cameraRay.intersectObjects(renderModule.cameraObstacles, false)[0];
+    const hit = nearestCameraHit(renderModule.cameraRay);
     if (hit && hit.distance < length) {
       desired.copy(origin).addScaledVector(dir, Math.max(0.35, hit.distance - 0.3));
       desired.y = Math.max(desired.y, 0.45);
@@ -98,10 +123,7 @@ export function register({
       finalLength = finalDir.length();
     renderModule.cameraRay.set(origin, finalDir.normalize());
     renderModule.cameraRay.far = finalLength;
-    const finalHit = renderModule.cameraRay.intersectObjects(
-      renderModule.cameraObstacles,
-      false,
-    )[0];
+    const finalHit = nearestCameraHit(renderModule.cameraRay);
     if (finalHit && finalHit.distance < finalLength) {
       s.position.copy(origin).addScaledVector(finalDir, Math.max(0.35, finalHit.distance - 0.25));
       s.position.y = Math.max(0.4, s.position.y);

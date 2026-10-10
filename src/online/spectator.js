@@ -60,6 +60,10 @@ export function createSpectator({ online, animation, combat, match, render, worl
       reversedTime: f.youth.reversedTime,
       cooldowns: f.youth.cooldowns,
       heals: f.youth.heals,
+      regenerated: f.youth.regenerated,
+      weakTime: f.youth.weakTime,
+      capsule: f.youth.capsule,
+      capsuleTime: f.youth.capsuleTime,
       tailIntact: f.youth.tailIntact,
       weapon: f.youth.weapon,
       parts: parts(f),
@@ -200,6 +204,10 @@ export function createSpectator({ online, animation, combat, match, render, worl
       f.youth.reversedTime = data.reversedTime ?? 0;
       f.youth.cooldowns = [...data.cooldowns];
       f.youth.heals = data.heals;
+      f.youth.regenerated = !!data.regenerated;
+      f.youth.weakTime = data.weakTime ?? 0;
+      f.youth.capsule = data.capsule ?? null;
+      f.youth.capsuleTime = data.capsuleTime ?? 0;
       f.youth.tailIntact = data.tailIntact;
       f.youth.weapon = data.weapon;
       f.v2.mode = data.weapon;

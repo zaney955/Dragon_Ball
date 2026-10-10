@@ -80,6 +80,38 @@ export function register({
         k.fillStyle = gradient;
         k.fillRect(0, 0, 256, 256);
       }
+    } else if (kind === 'cliff') {
+      // One 256px limestone texture shared by all peaks; vertical fissures and
+      // short strata remain legible without modeling every crack as a tube.
+      for (let i = 0; i < 52; i++) {
+        const x = rnd() * 256,
+          y = rnd() * 110,
+          length = 45 + rnd() * 180;
+        k.strokeStyle = 'rgba(72,93,76,.16)';
+        k.lineWidth = 0.5 + rnd() * 2;
+        k.beginPath();
+        k.moveTo(x, y);
+        k.lineTo(x + 3, y + length * 0.35);
+        k.lineTo(x - 2, y + length * 0.65);
+        k.lineTo(x + 1, y + length);
+        k.stroke();
+        k.strokeStyle = 'rgba(255,255,255,.2)';
+        k.lineWidth = 1;
+        k.beginPath();
+        k.moveTo(x + 2, y);
+        k.lineTo(x + 3, y + length);
+        k.stroke();
+      }
+      for (let i = 0; i < 18; i++) {
+        const x = rnd() * 256,
+          y = rnd() * 256;
+        k.strokeStyle = 'rgba(100,100,76,.14)';
+        k.lineWidth = 0.7;
+        k.beginPath();
+        k.moveTo(x, y);
+        k.lineTo(x + 12 + rnd() * 30, y + 2);
+        k.stroke();
+      }
     } else if (kind === 'water') {
       k.fillStyle = '#c2e9e4';
       k.fillRect(0, 0, 256, 256);

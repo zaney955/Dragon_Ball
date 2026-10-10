@@ -10,6 +10,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
       difficulty: 'local',
       matchRule: 'competitive',
       selectedMap: 0,
+      lightPreset: 'day',
       selectedChar: index(id),
       opponent: index(foe),
       ringOut: false,
@@ -17,6 +18,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
     });
     match.startFight();
     match.game.ready = 0;
+    ai.setCombatSeed(0x31c9a27);
     const p = match.player,
       e = match.enemy;
     p.pos.set(0, 0, 0);
@@ -107,46 +109,42 @@ export function register({ characters, combat, match, testing, ai, audio, render
         }
         assert(!combat.fireKiDisc);
       });
-      test('大猩猩条件、资源和成功次数', (assert) => {
+      test('满月夜低于50%自动巨猿变身，不消耗气', (assert) => {
         const [p, e] = fixture();
         e.pos.x = 9;
-        p.hp = p.maxHp * 0.25;
-        match.game.lightPreset = 'day';
-        assert(!combat.skillAvailability(p, 1).available);
-        const ki = p.ki;
-        assert(!p.startSpecial({ down: true }));
-        assert(p.ki === ki && !p.attack);
+        p.hp = p.maxHp * 0.49;
+        ticks(140);
+        assert(!p.youth.form);
         match.game.lightPreset = 'moon';
-        p.hp = p.maxHp * 0.25001;
-        assert(!combat.skillAvailability(p, 1).available);
-        p.hp = p.maxHp * 0.25;
-        p.ki = 49;
-        assert(!p.startSpecial({ down: true }));
-        p.ki = 100;
-        const normal = p.root;
-        assert(p.startSpecial({ down: true }));
-        assert(p.ki === 50 && !p.youth.apeUsed);
-        ticks(122);
-        assert(p.youth.form === 'ape' && p.youth.apeUsed && p.root !== normal);
+        p.hp = p.maxHp * 0.5;
+        ticks(140);
+        assert(!p.youth.form);
+        p.hp = p.maxHp * 0.49;
+        p.ki = 0;
+        ticks(140);
+        assert(p.youth.form === 'ape' && p.youth.apeUsed);
         assert(p.root.getObjectByName('ape-tail'));
-        assert(!p.startKiBlast() && !p.startUlt());
-        combat.endYouthForm(p);
-        assert(p.root === normal && p.state === 'landing');
-        p.state = 'idle';
         p.attack = null;
+        p.state = 'idle';
         p.ki = 100;
-        assert(!p.startSpecial({ down: true }));
+        assert(!p.startKiBlast() && p.startUlt() && p.attack.superArmor);
+        combat.endYouthForm(p);
+        ticks(70);
+        assert(!p.youth.form);
       });
-      test('变身前摇被打断仍扣费且不消耗次数', (assert) => {
-        const [p, e] = fixture();
-        match.game.lightPreset = 'moon';
-        p.hp = p.maxHp * 0.25;
-        p.startSpecial({ down: true });
-        p.takeHit(
-          e,
-          combat.finalizeMove({ id: 'l1', chainType: 'light', dmg: 4, stun: 0.2, kb: 0, ki: 0 }),
-        );
-        assert(p.ki < 60 && !p.youth.apeUsed && p.youth.form === null);
+      test('猜拳40气并随机使用三种拳法', (assert) => {
+        const seen = new Set();
+        const [p] = fixture();
+        for (let i = 0; i < 60; i++) {
+          p.attack = null;
+          p.state = 'idle';
+          p.ki = 100;
+          p.youth.cooldowns[1] = 0;
+          assert(p.startSpecial({ down: true }));
+          assert(p.ki === 60 && p.attack.dmg === 30);
+          seen.add(p.attack.name);
+        }
+        assert(seen.size === 3);
       });
       test('三次不同尾击解除；一次攻击不重复消耗尾部', (assert) => {
         const [p, e] = fixture();
@@ -220,7 +218,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         p.attack = null;
         p.state = 'idle';
         p.startAttack('heavy');
-        assert(Math.abs(p.attack.dmg - p.def.combos.heavy[0].dmg * 1.15) < 1e-8);
+        assert(Math.abs(p.attack.dmg - p.def.combos.heavy[0].dmg * 1.3) < 1e-8);
         p.ki = 0;
         combat.tickYouthFighter(p, 0.01);
         assert(!p.youth.form);
@@ -229,7 +227,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         const [p] = fixture('tien');
         const hp = p.hp;
         p.startUlt();
-        assert(Math.abs(p.hp - hp + p.maxHp * 0.06) < 1e-8);
+        assert(Math.abs(p.hp - hp + p.maxHp * 0.2) < 1e-8);
         assert(p.ki === 0);
         p.attack = null;
         p.state = 'idle';
@@ -468,7 +466,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         const hp = p.hp;
         p.startSpecial({ down: true });
         ticks(116);
-        assert(p.youth.heals === 0 && Math.abs(p.hp - hp - p.maxHp * 0.12) < 1e-7);
+        assert(p.youth.heals === 0 && Math.abs(p.hp - hp - p.maxHp * 0.195) < 1e-7);
       });
       test('控制100/50/25及四秒保护', (assert) => {
         const [p, e] = fixture('chiaotzu');
@@ -483,18 +481,15 @@ export function register({ characters, combat, match, testing, ai, audio, render
         combat.tickYouthFighter(e, 4.1);
         assert(combat.applyControl(p, e, { control: 0.45 }));
       });
-      test('掩体数量、寿命、对双方阻挡', (assert) => {
+      test('随机胶囊五种效果均可抽取', (assert) => {
         const [p] = fixture('bulma');
-        const a = p.def.skills[0];
-        combat.releaseYouthAbility(p, a);
-        assert(combat.youthEntities.filter((e) => e.kind === 'cover').length === 1);
-        const info = combat.skillAvailability(p);
-        assert(!info.available);
-        const from = new THREE.Vector3(0, 1, 0),
-          to = new THREE.Vector3(4, 1, 0);
-        assert(combat.coverBlocks(from, to) && combat.coverBlocks(to, from));
-        combat.updateYouthEntities(8.1);
-        assert(combat.youthEntities.length === 0);
+        const seen = new Set();
+        for (let i = 0; i < 80; i++) {
+          combat.releaseYouthAbility(p, p.def.skills[0]);
+          seen.add(p.youth.capsule);
+          combat.cleanupYouthEntities(p);
+        }
+        assert(seen.size === 5);
       });
       test('吐卵可击败且最多一名手下', (assert) => {
         const [p] = fixture('piccolo');
@@ -513,7 +508,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         e.brainTime = 1;
         e.observations = [{ time: 0, x: 1, z: 0, y: 0, scale: 1, state: 'idle', attack: null }];
         e.observeTimer = 0;
-        combat.releaseYouthAbility(p, p.def.skills[1]);
+        combat.releaseYouthAbility(p, { ...p.def.skills[1], ability: 'smoke' });
         const n = e.observations.length;
         ai.aiThink(e, p, 0.1);
         assert(e.observations.length === n);

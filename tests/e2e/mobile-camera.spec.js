@@ -36,7 +36,7 @@ for (const viewport of [
           p.previousPos.copy(p.pos);
           e.previousPos.copy(e.pos);
           p.startSpecial({ variant: 1 });
-          d.releaseYouthAbility(p, p.attack);
+          d.releaseYouthAbility(p, { ...p.attack, ability: 'cover' });
         }
         d.resetShoulderCameras();
         if (scene === 'ox-small') e.startAttack('heavy');

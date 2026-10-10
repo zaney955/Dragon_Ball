@@ -487,7 +487,6 @@ test('goku ape form also completes five-hit light and heavy chains', async ({ pa
       const [p, e] = d.fixtureYouth('goku', 'goku', 1);
       d.game.lightPreset = 'moon';
       p.hp = p.maxHp * 0.25;
-      p.startSpecial({ down: true });
       for (let i = 0; i < 180; i++) {
         d.tick();
         d.game.hitStop = 0;
@@ -593,6 +592,7 @@ test('all 196 fighter pairs damage standing targets through every light and heav
               : [1]) {
               reset(p, baseline[0]);
               reset(e, baseline[1]);
+              d.setCombatSeed(0x31c9a27);
               e.pos.x = distance;
               e.previousPos.copy(e.pos);
               d.game.over = false;

@@ -14,6 +14,8 @@ export const FIGHTER_FIELDS = [
   'crouching',
   'flash',
   'escapeCharges',
+  'escapeMax',
+  'escapeRegen',
   'stunTime',
   'comboIdx',
   'comboType',
@@ -59,6 +61,8 @@ export const ATTACK_FIELDS = [
   'youthDodgeCounter',
   'launch',
   'costCommitted',
+  'mimic',
+  'autoApe',
   'serial',
 ];
 export const GEOMETRY_ARGS = {
@@ -148,12 +152,43 @@ export function validSpectatorFrame(frame) {
         validTransform(f.root) &&
         fields(f.props, FIGHTER_FIELDS) &&
         (f.attack === null || fields(f.attack, ATTACK_FIELDS)) &&
-        [null, 'ape', 'muscle', 'fourArms', 'ogre', 'bat', 'armor', 'combined'].includes(f.form) &&
+        [
+          null,
+          'ape',
+          'muscle',
+          'fourArms',
+          'ogre',
+          'bat',
+          'armor',
+          'combined',
+          'capsuleMech',
+          ...[
+            'goku',
+            'roshi',
+            'taopaipai',
+            'piccolo',
+            'tien',
+            'krillin',
+            'yamcha',
+            'gyumao',
+            'chichi',
+            'bulma',
+            'chiaotzu',
+            'korin',
+            'pilaf',
+          ].map((id) => 'mimic:' + id),
+        ].includes(f.form) &&
         vector(f.cooldowns, 2) &&
         finite(f.formTime) &&
         (f.reversedTime === undefined ||
           (finite(f.reversedTime) && f.reversedTime >= 0 && f.reversedTime <= 3)) &&
         finite(f.heals) &&
+        (f.regenerated === undefined || typeof f.regenerated === 'boolean') &&
+        (f.weakTime === undefined || (finite(f.weakTime) && f.weakTime >= 0 && f.weakTime <= 2)) &&
+        (f.capsuleTime === undefined ||
+          (finite(f.capsuleTime) && f.capsuleTime >= 0 && f.capsuleTime <= 8)) &&
+        (f.capsule === undefined ||
+          [null, 'mech', 'tranquilizer', 'bomb', 'hoverboard', 'rpg'].includes(f.capsule)) &&
         typeof f.tailIntact === 'boolean' &&
         ['missile', 'flame'].includes(f.weapon) &&
         Array.isArray(f.parts) &&

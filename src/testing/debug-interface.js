@@ -1,4 +1,5 @@
 export function register({
+  ai: aiModule,
   combat: combatModule,
   match: matchModule,
   render: renderModule,
@@ -34,6 +35,10 @@ export function register({
           capsuleDistanceSq: combatModule.capsuleDistanceSq,
           discIntersects: trainingModule.discIntersects,
           updateEffects: renderModule.updateEffects,
+          getEffects: () => renderModule.effects,
+          setCombatSeed: aiModule.setCombatSeed,
+          updateYouthEntities: combatModule.updateYouthEntities,
+          updateSenzu: worldModule.updateSenzu,
           updateUltimateVisuals: renderModule.updateUltimateVisuals,
           runTests: testingModule.runCombatTests,
           runCollisionMatrix: testingModule.runCollisionMatrix,

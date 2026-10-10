@@ -201,6 +201,8 @@ export function register({ render: renderModule }) {
         e.mesh.rotation.z += e.spin * dt;
         e.mesh.scale.setScalar(1 + t * 1.4);
         e.mesh.material.opacity = (1 - t) * 0.9;
+      } else if (e.type === 'afterimage') {
+        e.mesh.material.opacity = (1 - t) * 0.3;
       } else if (e.type === 'orb') {
         e.mesh.position.addScaledVector(e.vel, dt);
         e.mesh.scale.setScalar(1 + t * (e.grow || 1));

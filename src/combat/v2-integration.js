@@ -318,9 +318,9 @@ export function register({
         combatModule.emitCombatEvent('healInterrupted', this, attacker, old);
     };
     v1Evade = combatModule.Fighter.prototype.evade;
-    combatModule.Fighter.prototype.evade = function (foe) {
+    combatModule.Fighter.prototype.evade = function (foe, options) {
       this.v2.controlTime = 0;
-      v1Evade.call(this, foe);
+      v1Evade.call(this, foe, options);
     };
     v1Dispose = combatModule.Fighter.prototype.dispose;
     combatModule.Fighter.prototype.dispose = function () {

@@ -17,6 +17,7 @@ export function register({
     matchModule.game.difficulty = 'local';
     matchModule.game.matchRule = 'competitive';
     matchModule.game.selectedMap = 0;
+    matchModule.game.lightPreset = 'day';
     matchModule.game.selectedChar = c;
     matchModule.game.opponent = foe;
     matchModule.game.ringOut = false;
@@ -217,6 +218,8 @@ export function register({
         const a = p.attack;
         assert(a && p.ki === 0 && a.costCommitted);
         v2TestTicks(Math.ceil(a.dur / matchModule.STEP) + 10);
+        if (a.ability === 'mimicUlt' && p.attack)
+          v2TestTicks(Math.ceil(p.attack.dur / matchModule.STEP) + 10);
         assert(a.costCommitted);
         assert(
           combatModule.combatEvents.history.filter(
@@ -286,20 +289,14 @@ export function register({
           assert(!p.v2.bladeOut && !combatModule.v2Projectiles.some((x) => x.kind === 'blade'));
         });
       if (def.id === 'bulma') {
-        test('掩体耐久、数量上限、过期清理', () => {
+        test('随机胶囊付款、五种效果与期限清理', () => {
           const [p] = v2Fixture(index, 0, 5);
           p.startSpecial();
+          assert(p.ki === 70);
           v2TestTicks(100);
-          const d = combatModule.youthEntities.find((e) => e.kind === 'cover');
-          assert(d && d.hp === 30);
-          p.attack = null;
-          p.state = 'idle';
-          p.ki = 100;
-          p.youth.cooldowns[0] = 0;
-          const ki = p.ki;
-          assert(!p.startSpecial() && p.ki === ki);
+          assert(['mech', 'tranquilizer', 'bomb', 'hoverboard', 'rpg'].includes(p.youth.capsule));
           v2TestTicks(1100);
-          assert(!combatModule.youthEntities.length);
+          assert(!combatModule.youthEntities.length && !p.youth.form);
         });
         test('受击打断部署不产生装置', () => {
           const [p, e] = v2Fixture(index);
@@ -332,7 +329,7 @@ export function register({
           assert(combatModule.applyControl(p, e, { control: 0.48 }));
           e.ki = 50;
           e.evade(p);
-          assert(e.v2.controlTime === 0 && e.escapeCharges === 1 && grace > 0);
+          assert(e.v2.controlTime === 0 && e.escapeCharges === e.escapeMax - 1 && grace > 0);
         });
         test('悬浮上限、消耗与落地', () => {
           const [p] = v2Fixture(index, 0, 6);
@@ -370,14 +367,14 @@ export function register({
         });
       }
       if (def.id === 'korin') {
-        test('仙豆每回合一次、12%上限、启动受击中断', () => {
+        test('仙豆开局储备一次、19.5%恢复、启动受击中断', () => {
           let [p, e] = v2Fixture(index, 0, 4);
           p.hp = p.maxHp * 0.4;
           p.startSpecial({
             down: true,
           });
           v2TestTicks(170);
-          assert(p.v2.heals === 0 && Math.abs(p.v2.healTotal - p.maxHp * 0.12) < 1e-8);
+          assert(p.v2.heals === 0 && Math.abs(p.v2.healTotal - p.maxHp * 0.195) < 1e-8);
           const hp = p.hp;
           p.v2.cooldown = 0;
           p.ki = 100;
@@ -626,6 +623,8 @@ export function register({
         const a = p.attack;
         assert(a && a.isUlt);
         v2TestTicks(300);
+        if (a.ability === 'mimicUlt' && p.attack)
+          v2TestTicks(Math.ceil(p.attack.dur / matchModule.STEP) + 10);
         assert(a.costCommitted, '未扣必杀成本');
         assert(
           combatModule.combatEvents.history.filter(
@@ -916,33 +915,23 @@ export function register({
         assert(!p.youth.form && p.youth.cooldowns[0] > 0);
       }
     });
-    test('胶囊掩体真实耐久与移动阻挡', () => {
-      const [p, e] = v2Fixture(9, 0, 5);
-      p.startSpecial();
-      v2TestTicks(100);
-      const d = combatModule.youthEntities.find((x) => x.kind === 'cover');
-      assert(d && d.hp === 30);
-      e.pos.copy(d.pos).add(new THREE.Vector3(0.7, 0, 0));
-      e.previousPos.copy(e.pos);
-      e.facingAngle = -Math.PI / 2;
-      e.startAttack('heavy', { down: true });
-      v2TestTicks(150);
-      assert(d.hp < 30, '攻击必须破坏掩体');
-      combatModule.cleanupYouthEntities();
+    test('随机胶囊不同效果与清理', () => {
+      const [p] = v2Fixture(9, 0, 5);
+      const seen = new Set();
+      for (let i = 0; i < 80; i++) {
+        combatModule.releaseYouthAbility(p, p.def.skills[0]);
+        seen.add(p.youth.capsule);
+        combatModule.cleanupYouthEntities(p);
+      }
+      assert(seen.size === 5);
+      combatModule.endYouthForm(p, false);
       assert(!combatModule.youthEntities.length);
     });
-    test('布尔玛烟幕冻结AI观察而不关闭碰撞', () => {
-      const [p, e] = v2Fixture(9, 0, 2);
-      matchModule.game.difficulty = 'hard';
-      for (let n = 0; n < 90; n++) aiModule.aiThink(e, p, matchModule.STEP);
-      p.startSpecial({ down: true });
-      v2TestTicks(100);
-      e.pos.copy(p.pos);
-      const count = e.observations.length;
-      e.pos.x += 0.4;
-      for (let n = 0; n < 90; n++) aiModule.aiThink(e, p, matchModule.STEP);
-      assert(e.observations.length === count);
-      assert(combatModule.inYouthSmoke(e));
+    test('麻醉枪和RPG胶囊产生实际投射物', () => {
+      const [p] = v2Fixture(9, 0, 5);
+      for (let i = 0; i < 80; i++) combatModule.releaseYouthAbility(p, p.def.skills[1]);
+      assert(combatModule.v2Projectiles.some((b) => b.attack.equipment === 'tranquilizer'));
+      assert(combatModule.v2Projectiles.some((b) => b.attack.equipment === 'rpg'));
     });
     test('饺子CPU只在实际念力射程内施放', () => {
       for (const dist of [2, 8]) {
@@ -993,10 +982,7 @@ export function register({
       p.startSpecial({ down: true });
       p.lastInput = {};
       v2TestTicks(100);
-      assert(
-        combatModule.youthEntities.some((e) => e.kind === 'smoke') &&
-          !combatModule.youthEntities.some((e) => e.kind === 'cover'),
-      );
+      assert(p.youth.cooldowns[1] > 0 && p.youth.cooldowns[0] === 0 && p.youth.capsule);
     });
     test('念力三次控制衰减、免疫与脱身', () => {
       const [p, e] = v2Fixture(10, 0, 2);
@@ -1008,7 +994,7 @@ export function register({
       assert(!combatModule.applyControl(p, e, { control: 0.48 }));
       e.ki = 50;
       e.evade(p);
-      assert(e.v2.controlTime === 0 && e.escapeCharges === 1);
+      assert(e.v2.controlTime === 0 && e.escapeCharges === e.escapeMax - 1);
       v2TestTicks(500);
       assert(e.youth.controlCount === 0);
     });
@@ -1035,7 +1021,7 @@ export function register({
         down: true,
       });
       v2TestTicks(170);
-      assert(Math.abs(p.v2.healTotal - p.maxHp * 0.12) < 1e-8 && p.youth.heals === 0);
+      assert(Math.abs(p.v2.healTotal - p.maxHp * 0.195) < 1e-8 && p.youth.heals === 0);
       const bean = worldModule.currentMap.senzus[0];
       bean.active = true;
       bean.x = p.pos.x;
@@ -1043,7 +1029,13 @@ export function register({
       bean.expiresAt = Infinity;
       bean.group.visible = true;
       v2TestTicks(1);
-      assert(p.hp === p.maxHp && !bean.active);
+      assert(p.youth.heals === 1 && !bean.active);
+      p.attack = null;
+      p.state = 'idle';
+      p.ki = 100;
+      p.startSpecial({ down: true });
+      v2TestTicks(170);
+      assert(p.hp === p.maxHp);
       p.ki = 100;
       p.youth.cooldowns[1] = 0;
       const previousAttack = p.attack;

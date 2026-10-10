@@ -6,26 +6,24 @@ export function register({
   render: renderModule,
 }) {
   combatModule.spawnAfterimage = function spawnAfterimage(f) {
-    const mesh = new THREE.Mesh(
-      new THREE.CapsuleGeometry(0.25, 0.92, 4, 8),
-      new THREE.MeshBasicMaterial({
-        color: f.def.color,
-        transparent: true,
-        opacity: 0.18,
-        depthWrite: false,
-      }),
-    );
-    mesh.position.copy(f.pos).add(new THREE.Vector3(0, 1.15 * f.baseScale, 0));
-    mesh.scale.set(f.baseScale, f.baseScale, 0.65 * f.baseScale);
-    renderModule.scene.add(mesh);
-    renderModule.effects.push({
-      mesh,
-      life: 0.16,
-      maxLife: 0.16,
-      type: 'orb',
-      vel: new THREE.Vector3(),
-      grow: 0,
-      delay: 0,
+    f.root.position.copy(f.pos);
+    f.root.rotation.y = f.facingAngle;
+    f.root.updateMatrixWorld(true);
+    f.root.traverse((node) => {
+      if (!node.isMesh || !node.visible) return;
+      for (let parent = node.parent; parent; parent = parent.parent) if (!parent.visible) return;
+      const mesh = new THREE.Mesh(
+        node.geometry.clone(),
+        new THREE.MeshBasicMaterial({
+          color: f.def.color,
+          transparent: true,
+          opacity: 0.3,
+          depthWrite: false,
+        }),
+      );
+      node.matrixWorld.decompose(mesh.position, mesh.quaternion, mesh.scale);
+      renderModule.scene.add(mesh);
+      renderModule.effects.push({ mesh, life: 0.2, maxLife: 0.2, type: 'afterimage' });
     });
   };
   combatModule.prepareCombatData = function prepareCombatData() {

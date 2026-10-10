@@ -40,7 +40,7 @@ export function register({
     f.launchReason = reason;
     f.pos.y = Math.max(0.04, f.pos.y);
     f.jumpVel = 7;
-    f.vel.copy(direction).multiplyScalar(11.5);
+    f.vel.copy(direction).multiplyScalar(f.def.id === 'yamcha' ? 15 : 11.5);
     f.state = 'hit';
     f.stateTimer = 0;
     f.stunTime = 0.85;
@@ -94,7 +94,8 @@ export function register({
           guardHeld: 0,
           blockPressed: false,
           crouching: false,
-          escapeCharges: 2,
+          escapeCharges: def.id === 'goku' ? 3 : def.id === 'yamcha' ? 1 : 2,
+          escapeMax: def.id === 'goku' ? 3 : def.id === 'yamcha' ? 1 : 2,
           escapeRegen: 0,
           escapeCooldown: 0,
           breakerCooldown: 0,
@@ -255,9 +256,9 @@ export function register({
           this.juggle = 0;
           this.damageTotal = 0;
         }
-        if (this.escapeCharges < 2) {
+        if (this.def.id === 'yamcha' && this.escapeCharges < this.escapeMax) {
           this.escapeRegen += dt;
-          if (this.escapeRegen >= 6.5) {
+          if (this.escapeRegen >= 10) {
             this.escapeCharges++;
             this.escapeRegen = 0;
           }
@@ -337,6 +338,7 @@ export function register({
               this.takeHit(pending.attacker, {
                 ...pending.attack,
                 isThrow: false,
+                throwResolved: true,
                 unblockable: true,
                 knockdown: true,
               });
@@ -550,7 +552,10 @@ export function register({
           this.chargeHeld += dt;
           this.vel.set(0, 0, 0);
           if (this.chargeHeld > combatModule.KI_RULES.chargeStartup)
-            this.ki = Math.min(this.maxKi, this.ki + combatModule.KI_RULES.chargeRate * dt);
+            this.ki = Math.min(
+              this.maxKi,
+              this.ki + combatModule.KI_RULES.chargeRate * dt * (this.youth?.regenerated ? 0.5 : 1),
+            );
           if (this.ki >= this.maxKi && !this.chargeFull) {
             this.chargeFull = true;
             this.chargeFullTime = matchModule.game.simTime;
@@ -604,7 +609,10 @@ export function register({
         this.walkPhase += n
           ? Math.hypot(this.pos.x - this.previousPos.x, this.pos.z - this.previousPos.z) * 2.25
           : dt * 2.6;
-        this.ki = Math.min(100, this.ki + combatModule.KI_RULES.passiveRate * dt);
+        this.ki = Math.min(
+          100,
+          this.ki + (this.def.id === 'pilaf' ? 0 : combatModule.KI_RULES.passiveRate) * dt,
+        );
         this.clampPos();
       }
       integrate(dt, friction) {
@@ -965,24 +973,23 @@ export function register({
         if (!this.isAI) matchModule.notify('爆冲追击 · 12 能量', 0.4);
         return true;
       }
-      evade(foe) {
+      evade(foe, { free = false } = {}) {
         this.launchFlight = false;
-        this.escapeCharges--;
-        this.ki -= 15;
+        if (!free) {
+          this.escapeCharges--;
+          this.ki -= 15;
+        }
         this.escapeCooldown = 1.0;
         this.escapeRegen = 0;
         this.attack = null;
         this.throwPending = null;
         this.clearQueue();
+        combatModule.spawnAfterimage(this);
+        this.pos.copy(foe.pos).addScaledVector(foe.forward(), -1.25);
+        this.clampPos();
+        this.previousPos.copy(this.pos);
         this.facingAngle = Math.atan2(foe.pos.x - this.pos.x, foe.pos.z - this.pos.z);
-        const yaw = this.isAI
-            ? this.facingAngle
-            : (this.lastInput?.moveYaw ??
-              trainingModule.movementYaw(this === matchModule.enemy ? 1 : 0)),
-          fx = Math.sin(yaw),
-          fz = Math.cos(yaw),
-          side = this.lastInput?.left ? -1 : 1;
-        this.vel.set(-fz * 13 * side - fx * 5, 0, fx * 13 * side - fz * 5);
+        this.vel.set(0, 0, 0);
         this.dashTime = 0.16;
         this.dashKind = 'evade';
         this.invulnerable = 0.22;
@@ -991,12 +998,12 @@ export function register({
         this.comboGrace = 0;
         this.receivedCombo = 0;
         this.juggle = 0;
-        combatModule.spawnAfterimage(this);
         audioModule.combatFeedback('evade', this.pos, 0.18);
         combatModule.emitCombatEvent('evasion', this, foe, null, {
-          cost: 15,
+          cost: free ? 0 : 15,
+          automatic: free,
         });
-        matchModule.notify('残像脱身', 0.6);
+        matchModule.notify(free ? '第三只眼 · 自动残像' : '残像脱身', 0.6);
       }
       breaker(foe) {
         this.launchFlight = false;
@@ -1103,6 +1110,8 @@ export function register({
           });
           this.lastHitText = '完美格挡';
           matchModule.notify('完美格挡 · 可反击', 0.7);
+          if (this.def.id === 'krillin' && !a.counterResponse)
+            combatModule.perfectGuardCounter(this, attacker);
           return;
         }
         const recovered = !['hit', 'knockdown', 'guardbreak', 'grabbed'].includes(this.state);
@@ -1126,7 +1135,7 @@ export function register({
         const scaling = Math.max(0.3, 1 - this.receivedCombo * 0.12);
         let dmg =
           a.dmg *
-          attacker.def.power *
+          (a.damagePower ?? attacker.def.power) *
           (blocking && !guardBreak ? blockDamageScale(a) : scaling) *
           (counter ? 1.14 : 1) *
           (superArmored ? 0.6 : 1);
@@ -1206,7 +1215,8 @@ export function register({
             if (
               !this.launchFlight &&
               !armored &&
-              (this.receivedCombo >= combatModule.COMBO_PROTECTION_HITS ||
+              (this.receivedCombo >=
+                (this.def.id === 'yamcha' ? 4 : combatModule.COMBO_PROTECTION_HITS) ||
                 (this.juggle >= 3 && (!a.chainType || a.terminal)))
             ) {
               combatModule.launchKnockback(this, attacker);

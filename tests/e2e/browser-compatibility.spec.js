@@ -5,6 +5,7 @@ for (const engine of [firefox, webkit])
     test.skip(!process.env.DB_BROWSER_COMPAT, 'Run with installed Firefox/WebKit test engines.');
     const browser = await engine.launch({
       headless: true,
+      args: [],
       ...(engine === firefox ? { firefoxUserPrefs: { 'webgl.force-enabled': true } } : {}),
     });
     const context = await browser.newContext({

@@ -772,6 +772,10 @@ export function register({
       cam.position.set(29, 25, 43);
       cam.lookAt(0, 3, -12);
     }
+    if (map.preview?.thumbnail) {
+      cam.position.fromArray(map.preview.thumbnail.position);
+      cam.lookAt(...map.preview.thumbnail.target);
+    }
     uiModule.portraitRenderer.setSize(600, 240);
     uiModule.portraitRenderer.render(sc, cam);
     const url = uiModule.portraitRenderer.domElement.toDataURL();

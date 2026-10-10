@@ -20,6 +20,12 @@ export function register({
     renderModule.scene.add(worldModule.currentMap.group);
   };
   matchModule.startFight = function startFight() {
+    const regenUsed =
+      matchModule.game.keepPair &&
+      !matchModule.game.matchFinished &&
+      matchModule.game.difficulty !== 'training'
+        ? [matchModule.player, matchModule.enemy].map((f) => !!f?.youth.regenerated)
+        : [false, false];
     combatModule.clearKiBlasts();
     trainingModule.clearDebugBoxes();
     audioModule.initAudio();
@@ -77,6 +83,8 @@ export function register({
       4.2,
       -1,
     );
+    matchModule.player.youth.regenerated = regenUsed[0];
+    matchModule.enemy.youth.regenerated = regenUsed[1];
     uiModule.el.p1name.textContent = pDef.name;
     uiModule.el.p2name.textContent =
       (matchModule.game.difficulty === 'local' ? '2P · ' : 'CPU · ') + eDef.name;

@@ -26,7 +26,7 @@ test('fourteen independent childhood profiles and fixed skill costs', () => {
   assert.equal(YOUTH_PROFILES.krillin.ult.motion, 'kamehameha');
   assert.equal(YOUTH_PROFILES.oolong.skills[0].ability, 'ogre');
   assert.equal(YOUTH_PROFILES.oolong.skills[1].ability, 'bat');
-  assert.equal(YOUTH_PROFILES.tien.ult.lifeCost, 0.06);
+  assert.equal(YOUTH_PROFILES.tien.ult.lifeCost, 0.2);
 });
 test('victory dialogue direction and special shape precedence', () => {
   assert.equal(selectVictoryLine('goku', 'krillin', null), RELATION_LINES['goku:krillin']);

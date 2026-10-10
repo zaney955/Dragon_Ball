@@ -133,7 +133,8 @@ export function register({
         Math.ceil(f.hp) + ' / ' + f.maxHp + ' · 能量 ' + Math.floor(f.ki) + ' / 100';
       uiModule.updateDefenseHUD(f, prefix);
       document.getElementById(prefix + 'escape').textContent =
-        '残像 ' + ('●'.repeat(f.escapeCharges) + '○'.repeat(2 - f.escapeCharges));
+        '残像 ' +
+        ('●'.repeat(f.escapeCharges) + '○'.repeat(Math.max(0, f.escapeMax - f.escapeCharges)));
     }
     document.getElementById('actionState').textContent = uiModule.fighterStatus(
       uiModule.controlledFighter?.() ?? matchModule.player,

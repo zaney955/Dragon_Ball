@@ -4,8 +4,7 @@ import { DEFENSE_RULES } from '../combat/defense-rules.js';
 
 export const BATTLE_PROTOCOL = 3;
 // Increment when simulation behavior changes; data edits also change the fingerprint.
-const simulationRevision =
-  'neutral-confirm-armor-recovery-ogre-spacing-control-stun-floor-fullstate-5';
+const simulationRevision = 'character-feedback-afterimage-passives-mimic-capsules-7';
 let fingerprint = 2166136261;
 for (const char of JSON.stringify([
   simulationRevision,

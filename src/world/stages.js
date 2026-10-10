@@ -29,20 +29,21 @@ export function register({
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = opts.bg || '#7a1a1a';
     ctx.fillRect(0, 0, w, h);
-    // 边框
-    ctx.strokeStyle = opts.border || '#ffd166';
-    ctx.lineWidth = 14;
-    ctx.strokeRect(7, 7, w - 14, h - 14);
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 3;
-    ctx.strokeRect(20, 20, w - 40, h - 40);
+    if (!opts.plain) {
+      ctx.strokeStyle = opts.border || '#ffd166';
+      ctx.lineWidth = 14;
+      ctx.strokeRect(7, 7, w - 14, h - 14);
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(20, 20, w - 40, h - 40);
+    }
     // 文字
     ctx.fillStyle = opts.fg || '#ffe8b8';
     ctx.font = `900 ${opts.fontSize || 130}px "PingFang SC","Microsoft YaHei",serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 12;
+    ctx.shadowBlur = opts.plain ? 0 : 12;
     ctx.fillText(text, w / 2, h / 2 + 6);
     const tex = new THREE.CanvasTexture(canvas);
     tex.anisotropy = 4;

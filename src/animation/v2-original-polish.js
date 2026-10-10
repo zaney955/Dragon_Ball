@@ -8,8 +8,7 @@ export function register({
   render: renderModule,
   ui: uiModule,
 }) {
-  let v1Afterimage,
-    rDef,
+  let rDef,
     tDef,
     oldFour,
     v2PolishBase,
@@ -51,38 +50,6 @@ export function register({
     }
   }
   return function initialize() {
-    v1Afterimage = combatModule.spawnAfterimage;
-    combatModule.spawnAfterimage = function (f) {
-      if (!f.anatomy) return v1Afterimage(f);
-      if (combatModule.v2Supports.filter((x) => x.owner === f && x.kind === 'ghost').length >= 2)
-        return;
-      const mesh = f.root.clone(true);
-      mesh.traverse((o) => {
-        if (o.isMesh) {
-          o.geometry = o.geometry.clone();
-          o.material = new THREE.MeshBasicMaterial({
-            color: f.def.color,
-            transparent: true,
-            opacity: 0.1,
-            depthWrite: false,
-          });
-          o.castShadow = o.receiveShadow = false;
-        }
-      });
-      mesh.position.copy(f.pos);
-      mesh.rotation.y = f.facingAngle;
-      renderModule.scene.add(mesh);
-      combatModule.v2Supports.push({
-        owner: f,
-        mesh,
-        pos: f.pos.clone(),
-        kind: 'ghost',
-        life: 0.15,
-        fire: Infinity,
-        fired: true,
-      });
-    };
-
     // M3: hand, elbow, low step and claw routes retain their actual contact instrument.
     rDef = charactersModule.CHARACTERS[1];
     tDef = charactersModule.CHARACTERS[4];

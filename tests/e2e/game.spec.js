@@ -328,11 +328,15 @@ test('spectator snapshots render all fourteen fighters, attacks and special bodi
         ['oolong', 'ogre'],
         ['oolong', 'bat'],
         ['pilaf', 'combined'],
+        ['bulma', 'capsuleMech'],
+        ...db.CHARACTERS.filter((c) => c.id !== 'oolong').map((c) => ['oolong', 'mimic:' + c.id]),
       ].map(([id, form]) => ({ id, form })),
     );
     try {
       for (const { id, action, form } of cases) {
         online.active = online.host = true;
+        online.acceptedActions = [[], []];
+        online.serialInputs = new Map();
         online.room = { id: 1, spectators: 1, match: { id: 'visual-fixture' } };
         const [host] = db.fixtureYouth(id, 'oxking', 8);
         if (form) {
@@ -367,7 +371,7 @@ test('spectator snapshots render all fourteen fighters, attacks and special bodi
     }
     return frames;
   });
-  expect(frames).toHaveLength(62);
+  expect(frames).toHaveLength(76);
   for (const frame of frames) expect(validSpectatorFrame(frame)).toBe(true);
   expect(errors).toEqual([]);
 });

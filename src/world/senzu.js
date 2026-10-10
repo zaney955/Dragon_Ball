@@ -235,7 +235,7 @@ export function register({
         if (
           !f ||
           f.hp <= 0 ||
-          f.hp >= f.maxHp - 0.1 ||
+          (f.def.id === 'korin' ? f.youth.heals >= 2 : f.hp >= f.maxHp - 0.1) ||
           f.pos.y > 0.001 ||
           ['hit', 'blockstun', 'knockdown', 'grabbed', 'guardbreak', 'dead', 'landing'].includes(
             f.state,
@@ -258,11 +258,15 @@ export function register({
         const f = chosen,
           other = f === matchModule.player ? matchModule.enemy : matchModule.player,
           behindBefore = f.hp / f.maxHp < other.hp / other.maxHp,
-          amount = Math.min(
-            f.maxHp - f.hp,
-            Math.floor(f.maxHp * worldModule.SENZU_RULES.healRatio),
-          );
+          amount =
+            f.def.id === 'korin'
+              ? 0
+              : Math.min(f.maxHp - f.hp, Math.floor(f.maxHp * worldModule.SENZU_RULES.healRatio));
         f.hp += amount;
+        if (f.def.id === 'korin') {
+          f.youth.heals++;
+          f.v2.heals = f.youth.heals;
+        }
         item.active = false;
         item.group.visible = false;
         map.senzuPickups.push({
@@ -275,9 +279,7 @@ export function register({
         matchModule.notify(
           (matchModule.game.difficulty === 'local'
             ? (f === matchModule.player ? '1P' : '2P') + ' '
-            : '') +
-            '仙豆 +' +
-            amount,
+            : '') + (f.def.id === 'korin' ? '仙豆储存 ' + f.youth.heals + '/2' : '仙豆 +' + amount),
           0.75,
         );
         const at = f.pos.clone().add(new THREE.Vector3(0, 1.5, 0));

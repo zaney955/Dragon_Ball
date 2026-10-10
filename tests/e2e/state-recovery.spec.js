@@ -76,6 +76,7 @@ test('snapshots preserve linked controls, throws, cover, terrain and bean clocks
     for (const scenario of ['grab', 'control', 'cover', 'terrain', 'bean', 'kami', 'building']) {
       const row = { scenario };
       try {
+        d.game.selectedMap = 0;
         let [p, e] = d.fixtureYouth(
           scenario === 'cover' ? 'bulma' : scenario === 'control' ? 'chiaotzu' : 'goku',
           'krillin',
@@ -91,7 +92,7 @@ test('snapshots preserve linked controls, throws, cover, terrain and bean clocks
         }
         if (scenario === 'cover') {
           p.startSpecial({ variant: 1 });
-          d.releaseYouthAbility(p, p.attack);
+          d.releaseYouthAbility(p, { ...p.attack, ability: 'cover' });
         }
         if (scenario === 'terrain') {
           p.startUlt();
@@ -108,7 +109,7 @@ test('snapshots preserve linked controls, throws, cover, terrain and bean clocks
           for (let n = 0; n < 100; n++) d.tick();
         }
         if (scenario === 'building') {
-          const prop = d.map.destructibles.find((x) => x.building && x.kind !== 'roof');
+          const prop = d.map.destructibles.find((x) => x.building);
           if (!prop) throw new Error('No building fixture');
           for (let n = 0; n < 3; n++)
             d.damageStage(p, { dmg: 120 }, prop.bounds.getCenter(p.pos.clone()));

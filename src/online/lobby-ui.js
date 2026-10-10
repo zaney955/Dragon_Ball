@@ -84,7 +84,8 @@ export function register({ app, characters, match, ui, world }) {
       el('home').inert = true;
       info.hidden = false;
       el('backHome').textContent = '← 房间列表';
-      el('onlineRoomTitle').textContent = `房间 ${room.id} · 系列比分 ${room.series?.scores?.join(' : ') ?? '0 : 0'}`;
+      el('onlineRoomTitle').textContent =
+        `房间 ${room.id} · 系列比分 ${room.series?.scores?.join(' : ') ?? '0 : 0'}`;
       el('heroOwner').textContent = '你的角色';
       el('modeNote').textContent = `180 秒 / 回合 · 已开战 ${room.series?.rounds ?? 0} 场`;
       el('selectionSummary').textContent =

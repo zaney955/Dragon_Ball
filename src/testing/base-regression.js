@@ -717,7 +717,7 @@ export function register({
       step(1, {
         evasion: true,
       });
-      assert(p.ki === 15 && p.escapeCharges === 1 && p.escapeCooldown > 0);
+      assert(p.ki === 15 && p.escapeCharges === p.escapeMax - 1 && p.escapeCooldown > 0);
       assert(p.invulnerable > 0);
     });
     test('P0', '气力不足不能残像', () => {
@@ -728,7 +728,7 @@ export function register({
       step(1, {
         evasion: true,
       });
-      assert(p.escapeCharges === 2 && p.state === 'hit');
+      assert(p.escapeCharges === p.escapeMax && p.state === 'hit');
     });
     test('P0', '爆气35气与冷却', () => {
       const [p] = fresh();
@@ -919,7 +919,11 @@ export function register({
       assert(worldModule.validSenzuPosition(-10, -3), '整洁擂台应允许刷新');
       matchModule.game.selectedMap = 1;
       matchModule.startFight();
-      assert(!worldModule.validSenzuPosition(-10, -3), '荒野岩石应排除刷新');
+      const rock = worldModule.currentMap.destructibles.find((prop) => !prop.tile && !prop.broken);
+      const at = rock.bounds
+        ? rock.bounds.getCenter(new THREE.Vector3())
+        : rock.mesh.getWorldPosition(new THREE.Vector3());
+      assert(!worldModule.validSenzuPosition(at.x, at.z), '荒野岩石应排除刷新');
     });
     test('P1', '拾取回血15%，第二次固定60秒不会提前补货', () => {
       const [p] = fresh();
@@ -1217,7 +1221,10 @@ export function register({
               step(1);
               combatModule.updateKiDiscs(matchModule.STEP);
             }
-            assert(e.hp < e.maxHp, p.def.name + ' → ' + e.def.name + ' ' + dist + 'm 无伤害');
+            assert(
+              e.hp < e.maxHp || (e.def.id === 'tien' && e.lastHitText === '第三只眼 · 自动残像'),
+              p.def.name + ' → ' + e.def.name + ' ' + dist + 'm 无伤害',
+            );
           }
     });
     test('P0', '狼牙四段连击与有效突进', () => {
@@ -1806,7 +1813,7 @@ export function register({
         matchModule.game.ready = 0;
         const p = matchModule.player;
         p.startSpecial();
-        combatModule.releaseYouthAbility(p, p.attack);
+        combatModule.releaseYouthAbility(p, { ...p.attack, ability: 'cover' });
         const cover = combatModule.youthEntities.find((e) => e.kind === 'cover');
         assert(cover);
         const meshes = cover.mesh.children.filter((node) => node.isMesh);

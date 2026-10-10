@@ -119,3 +119,25 @@ test('cached budokai keeps fight damage, flag buffers and lighting independent',
   );
   assert.equal(fresh.destructibles.filter((p) => !p.tile && !p.building).length, 12);
 });
+
+test('instanced paving tracks independent cracked slab transforms and colors', () => {
+  const { map, world } = fixture(),
+    tile = map.destructibles.find((p) => p.tile),
+    batch = map.group.getObjectByName('budokai-instanced-paving');
+  assert.equal(batch.count, 98);
+  assert.equal(tile.mesh.layers.mask, (1 << 31) >>> 0);
+  world.damageStage(
+    { pos: tile.mesh.position.clone(), forward: () => new THREE.Vector3(1, 0, 0), def: {} },
+    { dmg: 25, landingImpact: true },
+    tile.mesh.position,
+  );
+  map.update(1 / 60);
+  const matrix = new THREE.Matrix4(),
+    color = new THREE.Color();
+  batch.getMatrixAt(0, matrix);
+  batch.getColorAt(0, color);
+  assert.ok(matrix.elements.every((n, i) => Math.abs(n - tile.mesh.matrix.elements[i]) < 1e-6));
+  for (const component of ['r', 'g', 'b'])
+    assert.ok(Math.abs(color[component] - tile.mesh.material.color[component]) < 1e-6);
+  assert.ok(tile.broken);
+});

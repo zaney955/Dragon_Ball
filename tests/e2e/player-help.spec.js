@@ -43,6 +43,7 @@ test('all fourteen character exercises can be completed through combat input', a
       d.combatEvents.history.length = 0;
       if (c.id === 'goku') {
         act({ special: true });
+        align();
         act({ special: true, down: true });
       }
       if (c.id === 'roshi') {
@@ -287,7 +288,7 @@ test('local second player and mobile selection show their actual inputs', async 
   }
 });
 
-test('selection and guide practice entries prepare the chosen character and transformation conditions', async ({
+test('selection and guide practice entries prepare the chosen character and automatic transformation conditions', async ({
   page,
 }) => {
   await open(page, false);
@@ -296,8 +297,8 @@ test('selection and guide practice entries prepare the chosen character and tran
   await expect(page.locator('#trainingPanel')).toBeVisible();
   await expect(page.locator('#v2Goal')).toContainText('1/2：');
   await page.locator('#fightGuide').click();
-  await expect(page.locator('#guideConditions [data-met="true"]')).toHaveCount(6);
-  await expect(page.locator('#guideConditions [data-met="false"]')).toHaveCount(0);
+  await expect(page.locator('#guideConditions [data-met="true"]')).toHaveCount(3);
+  await expect(page.locator('#guideConditions [data-met="false"]')).toHaveCount(1);
   const firstRound = await page.evaluate(() => window.__db.game.round);
   await page.locator('#guideCharacter').selectOption('13');
   await page.locator('#guidePractice').click();

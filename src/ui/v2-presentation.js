@@ -37,13 +37,18 @@ export function register({
     };
     return [
       y.form
-        ? `${forms[y.form]} ${y.formTime.toFixed(1)}秒${f.def.id === 'oolong' ? ' · 再按对应技能恢复' : ''}`
+        ? `${forms[y.form] ?? (y.form.startsWith('mimic:') ? '变化必杀' : '胶囊机甲')} ${y.formTime.toFixed(1)}秒${['ogre', 'bat'].includes(y.form) ? ' · 再按对应技能恢复' : ''}`
         : '',
-      f.def.id === 'korin' ? `仙豆 ${y.heals}/1` : '',
+      f.def.id === 'korin' ? `仙豆 ${y.heals}/2` : '',
       f.def.id === 'pilaf'
         ? `武装：${remoteAction(f.def.id, y.weapon).name}${y.form === 'armor' ? (y.armorSpent ? ' · 保护已用' : ' · 保护剩余1次') : ''}`
         : '',
       f.v2?.bladeOut ? '飞刃回收中' : '',
+      y.regenerated ? '再生已用 · 必杀封印 · 聚气减半' : '',
+      y.weakTime > 0 ? '虚弱 ' + y.weakTime.toFixed(1) + '秒' : '',
+      f.def.id === 'yamcha' && f.escapeCharges === 0
+        ? '残像恢复 ' + Math.max(0, 10 - f.escapeRegen).toFixed(1) + '秒'
+        : '',
       y.reversedTime > 0 ? `方向反向 ${y.reversedTime.toFixed(1)}秒` : '',
     ]
       .filter(Boolean)
@@ -67,7 +72,7 @@ export function register({
             ? '恢复本体'
             : f.def.id === 'yamcha' && i === 0 && f.youth.wolfUntil > g.simTime
               ? '追加终掌'
-              : s.name,
+              : info.skill.name,
           cost:
             info.reverting || (f.def.id === 'yamcha' && i === 0 && f.youth.wolfUntil > g.simTime)
               ? 0
@@ -85,7 +90,15 @@ export function register({
                   : skillReason(info, f),
         };
       }),
-      { key: keys.ultimate, name: f.def.ultName, cost: 100, reason: actionAvailability(f, 100, g) },
+      {
+        key: keys.ultimate,
+        name: f.youth.form === 'ape' ? '巨猿震地' : f.def.ultName,
+        cost: 100,
+        reason:
+          f.def.id === 'piccolo' && f.youth.regenerated
+            ? '再生后无法使用'
+            : actionAvailability(f, 100, g),
+      },
     ];
   }
   function completeStep() {
@@ -112,6 +125,7 @@ export function register({
         (condition === 'normal' && !f.youth.form) ||
         (condition === 'flameMode' && f.youth.weapon === 'flame') ||
         (condition === 'floatRetreat' && f.youth.floatTime > 0) ||
+        (condition === 'capsule' && f.youth.capsule) ||
         (['cover', 'smoke', 'demon'].includes(condition) &&
           combatModule.youthEntities.some(
             (e) => e.owner === f && e.kind === condition && e.life > 0,
@@ -152,7 +166,7 @@ export function register({
       foe = matchModule.enemy;
     f.ki = 100;
     foe.ki = 100;
-    f.hp = f.maxHp * (f.def.id === 'goku' ? 0.25 : 0.6);
+    f.hp = f.maxHp * 0.6;
     if (f.def.id === 'goku') {
       matchModule.game.lightPreset = 'moon';
       worldModule.daylight();
@@ -411,7 +425,7 @@ export function register({
       const hit = e.type === 'contact' && !e.blocked;
       const matches =
         (condition === 'contactPrimary' && hit && e.move === f.def.skills[0].name) ||
-        (condition === 'contactSecondary' && hit && e.move === f.def.skills[1].name) ||
+        (condition === 'contactSecondary' && hit && e.move.startsWith(f.def.skills[1].name)) ||
         (condition === 'heavy' && hit && e.chainType === 'heavy') ||
         (condition === 'remote' && hit && e.move === remoteAction(f.def.id, f.youth.weapon).name) ||
         (condition === 'missile' && hit && e.move === '导弹') ||

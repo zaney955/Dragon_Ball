@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { batchScenery as batch } from './scenery-batching.js';
 
 const TAU = Math.PI * 2;
 export const BUDOKAI_LAYOUT = Object.freeze({
@@ -13,96 +13,6 @@ const random = (i) => (((Math.sin(i * 78.233 + 13.719) * 43758.5453) % 1) + 1) %
 
 // Indexed material buckets retain the small stone reliefs without one draw per carving.
 // Breakable slabs and ornaments, moving cloth and instanced clouds stay outside these buckets.
-function batch(root, name, shadows = true, blocker = true, instances = false) {
-  root.updateMatrixWorld(true);
-  const inverse = root.matrixWorld.clone().invert(),
-    buckets = new Map(),
-    originals = new Set(),
-    repeats = new Map(),
-    meshes = [],
-    materials = new Map();
-  const colorable = (m) => m.isMeshToonMaterial && !m.map && !m.vertexColors && !m.transparent;
-  const style = (m) => [m.type, m.side, m.gradientMap?.uuid, m.depthWrite].join(':');
-  function pooled(m, vertexColors) {
-    if (!colorable(m)) return m;
-    const key = style(m) + ':' + vertexColors;
-    if (!materials.has(key)) {
-      const shared = m.clone();
-      shared.color.set(0xffffff);
-      shared.vertexColors = vertexColors;
-      materials.set(key, shared);
-    }
-    return materials.get(key);
-  }
-  root.traverse((o) => {
-    if (!o.isMesh) return;
-    meshes.push(o);
-    const key =
-      o.geometry.uuid + ':' + (colorable(o.material) ? style(o.material) : o.material.uuid);
-    if (!repeats.has(key)) repeats.set(key, []);
-    repeats.get(key).push(o);
-    originals.add(o.geometry);
-  });
-  const output = [],
-    skipped = new Set();
-  if (instances)
-    for (const pieces of repeats.values()) {
-      if (pieces.length < 8) continue;
-      const material = pooled(pieces[0].material, false);
-      const o = new THREE.InstancedMesh(pieces[0].geometry.clone(), material, pieces.length);
-      for (let i = 0; i < pieces.length; i++) {
-        o.setMatrixAt(i, inverse.clone().multiply(pieces[i].matrixWorld));
-        if (material !== pieces[i].material) o.setColorAt(i, pieces[i].material.color);
-        skipped.add(pieces[i]);
-      }
-      o.computeBoundingSphere();
-      output.push(o);
-    }
-  for (const o of meshes) {
-    if (skipped.has(o)) continue;
-    const matrix = inverse.clone().multiply(o.matrixWorld),
-      geo = o.geometry.clone().applyMatrix4(matrix),
-      material = pooled(o.material, true);
-    if (!geo.index)
-      geo.setIndex(Array.from({ length: geo.attributes.position.count }, (_, i) => i));
-    if (matrix.determinant() < 0) {
-      const indices = geo.index.array;
-      for (let i = 0; i < indices.length; i += 3) {
-        const first = indices[i];
-        indices[i] = indices[i + 1];
-        indices[i + 1] = first;
-      }
-    }
-    if (material !== o.material) {
-      const colors = new Float32Array(geo.attributes.position.count * 3),
-        c = o.material.color;
-      for (let i = 0; i < colors.length; i += 3) {
-        colors[i] = c.r;
-        colors[i + 1] = c.g;
-        colors[i + 2] = c.b;
-      }
-      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-      geo.deleteAttribute('uv');
-    }
-    if (!buckets.has(material)) buckets.set(material, []);
-    buckets.get(material).push(geo);
-  }
-  root.clear();
-  for (const [material, pieces] of buckets) {
-    const geometry = mergeGeometries(pieces);
-    geometry.computeBoundingSphere();
-    output.push(new THREE.Mesh(geometry, material));
-    for (const geo of pieces) geo.dispose();
-  }
-  for (const o of output) {
-    o.name = name;
-    o.castShadow = o.receiveShadow = shadows;
-    o.userData.cameraBlocker = blocker;
-    root.add(o);
-  }
-  for (const geo of originals) geo.dispose();
-}
-
 // A bounded CPU template avoids reconstructing thousands of details during the online handshake.
 // Static arrays can be reused after GPU disposal; animated buffers and materials remain per match.
 const templates = new WeakMap();
@@ -884,9 +794,10 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
     ].map((c) => M(c)),
     skins = [0xe4b992, 0xcb936d, 0xf1cbb0].map((c) => M(c)),
     hair = [M(0x313431), M(0x695344), M(0xb99048)];
-  const torsoGeo = new THREE.CylinderGeometry(0.18, 0.24, 0.52, 12),
-    headGeo = new THREE.SphereGeometry(0.19, 16, 12),
-    hairGeo = new THREE.SphereGeometry(0.196, 16, 10, 0, TAU, 0, Math.PI * 0.58);
+  const torsoGeo = new THREE.CylinderGeometry(0.18, 0.24, 0.52, 10),
+    headGeo = new THREE.SphereGeometry(0.19, 12, 8),
+    hairGeo = new THREE.SphereGeometry(0.196, 12, 8, 0, TAU, 0, Math.PI * 0.58),
+    crowdSphere = new THREE.SphereGeometry(1, 10, 7);
   let spectators = 0;
   for (const side of [-1, 1])
     for (let row = 0; row < 4; row++)
@@ -925,11 +836,11 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
             0.065,
             6,
           );
-          ball(g, skin, s * 0.33, raised ? 1.35 : 0.47, 0.2, 0.069);
+          mesh(g, crowdSphere, skin, s * 0.33, raised ? 1.35 : 0.47, 0.2, [0.069, 0.069, 0.069]);
         }
         if (n % 5 === 0) {
           cylinder(g, ivory, 0, 1.27, 0, 0.3, 0.05, 0.3, 20);
-          ball(g, ivory, 0, 1.31, 0, 0.22, [1, 0.5, 1]);
+          mesh(g, crowdSphere, ivory, 0, 1.31, 0, [0.22, 0.11, 0.22]);
         }
         spectators++;
       }
@@ -1022,6 +933,7 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
     umbrella(side * 16.8, -9.8);
     umbrella(side * 27.8, 4.0);
   }
+  const foliageGeometry = new THREE.SphereGeometry(1, 12, 8);
   function cypress(x, z, h) {
     const g = new THREE.Group();
     g.position.set(x, -1.35, z);
@@ -1037,14 +949,14 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
       const t = i / 52,
         a = i * 2.399,
         r = Math.sin(Math.PI * t) * 0.86;
-      ball(
+      mesh(
         g,
+        foliageGeometry,
         foliage[i % 3],
         Math.cos(a) * r,
         h * 0.16 + t * h * 0.8,
         Math.sin(a) * r,
-        0.27 + 0.22 * Math.sin(Math.PI * t),
-        [0.86, 1.45, 0.86],
+        [0.86, 1.45, 0.86].map((s) => s * (0.27 + 0.22 * Math.sin(Math.PI * t))),
       );
     }
   }
@@ -1265,8 +1177,25 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
   batch(arena, 'budokai-arena-masonry', true, false);
   batch(hall, 'budokai-hall-detail');
   batch(gate, 'budokai-gate-relief');
-  batch(gardens, 'budokai-garden-detail', true, true, true);
-  batch(stands, 'budokai-spectator-detail', true, false, true);
+  // Spatially separate both sides and the rear. A single garden bucket spans
+  // the playable origin and defeats even a finite camera-ray broad phase.
+  gardens.updateMatrixWorld(true);
+  const gardenCells = new Map();
+  for (const child of [...gardens.children]) {
+    const center = new THREE.Box3().setFromObject(child).getCenter(new THREE.Vector3());
+    const key = (center.x < 0 ? 'left' : 'right') + ':' + Math.floor(center.z / 12);
+    if (!gardenCells.has(key)) {
+      const cell = new THREE.Group();
+      gardenCells.set(key, cell);
+      gardens.add(cell);
+    }
+    gardenCells.get(key).attach(child);
+  }
+  for (const [key, cell] of gardenCells)
+    batch(cell, 'budokai-garden-detail-' + key, true, true, true);
+  // Crowd shading comes from the toon ramp; tiny crowd shadows cannot be read
+  // from the arena and doubled hundreds of thousands of off-ring triangles.
+  batch(stands, 'budokai-spectator-detail', false, false, true);
   // mountains already have an indexed vertex-color bucket; temporarily detach for the other horizon materials.
   distant.remove(mountains);
   batch(distant, 'budokai-city-and-palms', false, false, true);
@@ -1300,7 +1229,7 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
   ramp.magFilter = ramp.minFilter = THREE.NearestFilter;
   const cloudMaterial = M(0xffffff);
   cloudMaterial.gradientMap = ramp;
-  const cloudGeometry = new THREE.SphereGeometry(1, 20, 14),
+  const cloudGeometry = new THREE.SphereGeometry(1, 12, 8),
     clouds = new THREE.InstancedMesh(cloudGeometry, cloudMaterial, 180),
     dummy = new THREE.Object3D();
   clouds.name = 'budokai-clouds';
@@ -1345,7 +1274,42 @@ function finishStage(group, world, render, lightPreset) {
   group.traverse((o) => {
     if (o.name === 'budokai-tournament-banner') bannerMeshes.push(o);
   });
-  let time = 0;
+  // Keep the original slab meshes as independent damage/snapshot records, while
+  // drawing their current transforms and colors in one instanced submission.
+  const slabs = [];
+  group.traverse((o) => {
+    if (o.name === 'breakable-arena-slab') slabs.push(o);
+  });
+  const slabMaterial = slabs[0].material.clone();
+  slabMaterial.color.set(0xffffff);
+  const paving = new THREE.InstancedMesh(slabs[0].geometry, slabMaterial, slabs.length);
+  paving.name = 'budokai-instanced-paving';
+  paving.castShadow = paving.receiveShadow = true;
+  paving.userData.cameraBlocker = false;
+  const previous = slabs.map(() => ({ matrix: new THREE.Matrix4(), color: -1 }));
+  function syncPaving() {
+    slabs.forEach((slab, i) => {
+      slab.updateMatrix();
+      const color = slab.material.color.getHex();
+      if (!previous[i].matrix.equals(slab.matrix)) {
+        paving.setMatrixAt(i, slab.matrix);
+        previous[i].matrix.copy(slab.matrix);
+        paving.instanceMatrix.needsUpdate = true;
+      }
+      if (previous[i].color !== color) {
+        paving.setColorAt(i, slab.material.color);
+        previous[i].color = color;
+        paving.instanceColor.needsUpdate = true;
+      }
+    });
+  }
+  for (const slab of slabs) slab.layers.set(31);
+  syncPaving();
+  paving.computeBoundingSphere();
+  paving.onBeforeRender = syncPaving;
+  group.add(paving);
+  let time = 0,
+    clothTime = 0;
   const map = {
     group,
     bounds: { ...BUDOKAI_LAYOUT.bounds },
@@ -1358,7 +1322,11 @@ function finishStage(group, world, render, lightPreset) {
     },
     update(dt) {
       time += dt;
+      syncPaving();
       clouds.rotation.y = time * 0.0011;
+      clothTime += dt;
+      if (clothTime < 1 / 30) return;
+      clothTime %= 1 / 30;
       for (let i = 0; i < bannerMeshes.length; i++) {
         const o = bannerMeshes[i],
           p = o.geometry.attributes.position;

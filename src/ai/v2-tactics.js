@@ -17,7 +17,7 @@ export function register({ ai, combat, match }) {
           id = f.def.id;
         let variant = null;
         if (
-          (id === 'goku' && f.hp / f.maxHp <= 0.25) ||
+          (id === 'goku' && dist < 1.8) ||
           (id === 'korin' && f.hp / f.maxHp < 0.7 && dist > 3 && !seen.attack) ||
           (['roshi', 'tien'].includes(id) && dist > 3 && !seen.attack)
         )
@@ -44,7 +44,10 @@ export function register({ ai, combat, match }) {
             .available,
       );
       input.actions = input.actions.filter((a) => {
-        if (['ape', 'bat'].includes(f.youth.form) && ['blast', 'ult', 'throw'].includes(a.type))
+        if (
+          (f.youth.form === 'bat' && ['blast', 'ult', 'throw'].includes(a.type)) ||
+          (f.youth.form === 'ape' && ['blast', 'throw'].includes(a.type))
+        )
           return false;
         return a.type !== 'blast' || !['gyumao', 'oolong', 'korin'].includes(f.def.id);
       });
