@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { command, roomList } from './lobby.js';
 import { validSpectatorFrame } from '../src/online/spectator-codec.js';
+import { SpectatorFlow } from './spectator-flow.js';
 import { MessageBudget, validRelayPacket } from './traffic-policy.js';
 
 export class OnlineLobby extends DurableObject {
@@ -8,6 +9,7 @@ export class OnlineLobby extends DurableObject {
     super(ctx, env);
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
     this.rates = new Map();
+    this.viewers = new Map();
   }
 
   sessions() {
@@ -33,6 +35,7 @@ export class OnlineLobby extends DurableObject {
       )
         s.watching = 0;
     }
+    for (const s of sessions) if (!s.watching) this.viewers.delete(s.ws);
     this.save(sessions);
     const rooms = roomList(sessions);
     for (const s of sessions)
@@ -42,8 +45,10 @@ export class OnlineLobby extends DurableObject {
   send(ws, data) {
     try {
       ws.send(JSON.stringify(data));
+      return true;
     } catch {
       /* Close event removes membership. */
+      return false;
     }
   }
 
@@ -97,13 +102,25 @@ export class OnlineLobby extends DurableObject {
         !validSpectatorFrame(message.frame)
       )
         return;
-      for (const spectator of sessions.filter((s) => s.watching === self.room && !s.room))
-        this.send(spectator.ws, {
-          type: 'spectator-frame',
-          match: self.match.id,
-          room: self.room,
-          frame: message.frame,
-        });
+      for (const spectator of sessions.filter((s) => s.watching === self.room && !s.room)) {
+        const send = (frame) =>
+          this.send(spectator.ws, {
+            type: 'spectator-frame',
+            match: self.match.id,
+            room: self.room,
+            frame,
+          });
+        if (spectator.spectatorFlow) {
+          const flow = this.viewers.get(spectator.ws) ?? new SpectatorFlow();
+          this.viewers.set(spectator.ws, flow);
+          flow.offer(self.match.id, message.frame, send);
+        } else send(message.frame);
+      }
+      return;
+    }
+    if (message.type === 'spectator-ack') {
+      if (self.watching && !self.room && Number.isSafeInteger(message.seq))
+        this.viewers.get(ws)?.acknowledge(message.match, message.seq);
       return;
     }
     if (message.type === 'signal' || message.type === 'relay') {
@@ -138,6 +155,7 @@ export class OnlineLobby extends DurableObject {
     }));
     if (result.error) return this.send(ws, { type: 'error', message: result.error });
     if (result.changed) {
+      if (message.type === 'watch') this.viewers.delete(ws);
       this.save(sessions);
       this.publish(sessions);
     }
@@ -161,6 +179,7 @@ export class OnlineLobby extends DurableObject {
       this.publish(sessions);
     } else if (self?.watching) this.publish(sessions);
     this.rates.delete(ws);
+    this.viewers.delete(ws);
   }
 
   webSocketError(ws) {

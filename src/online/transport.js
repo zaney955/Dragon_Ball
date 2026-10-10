@@ -68,6 +68,7 @@ export class OnlineTransport {
     }
     const fail = (message) => {
       if (this.ws !== socket) return;
+      this.onDiagnostic?.('socket-error', { message, state: socket.readyState });
       this.close();
       this.onState({ you: null, rooms: [] });
       this.onError(message);
@@ -100,7 +101,16 @@ export class OnlineTransport {
         this.onError('连接协商失败：' + error.message);
       }
     };
-    socket.onclose = () => {
+    socket.onclose = (event) => {
+      if (this.ws !== socket) return;
+      this.onDiagnostic?.('socket-closed', {
+        code: event?.code,
+        reason: event?.reason,
+        clean: event?.wasClean,
+        queuedBytes: socket.bufferedAmount,
+        pending: this.delivery?.pending.size,
+        delivery: this.delivery ? { ...this.delivery.stats } : null,
+      });
       clearTimeout(this.connectTimeout);
       clearInterval(this.heartbeat);
       this.resetPeer();
@@ -109,8 +119,12 @@ export class OnlineTransport {
     };
     socket.onerror = () => fail('暂时无法连接联机服务，请重试');
   }
+  canSendSpectator() {
+    return this.ws?.readyState === WebSocket.OPEN && (this.ws.bufferedAmount ?? 0) < 8192;
+  }
   send(data) {
     if (this.ws?.readyState !== WebSocket.OPEN) return false;
+    if (data.type === 'spectator-frame' && !this.canSendSpectator()) return false;
     this.stats.socketMessages++;
     if (!['signal', 'relay', 'spectator-frame'].includes(data.type)) this.stats.controlMessages++;
     if (data.type === 'spectator-frame') this.stats.spectatorMessages++;
@@ -197,7 +211,12 @@ export class OnlineTransport {
     else if (this.channel.bufferedAmount >= 65536) this.useRelay('channel-backpressure');
     else {
       const oldest = this.delivery?.pending.values().next().value;
-      if (oldest && performance.now() - oldest.at > 750) this.useRelay('receipt-timeout');
+      if (
+        oldest &&
+        performance.now() - oldest.at >
+          Math.max(1500, this.delivery.stats.rtt ? 2 * this.delivery.stats.rto : 0)
+      )
+        this.useRelay('receipt-timeout');
     }
   }
   writePacket(packet) {

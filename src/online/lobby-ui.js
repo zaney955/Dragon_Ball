@@ -201,7 +201,7 @@ export function register({ app, characters, match, ui, world }) {
           watch.textContent = '观战';
           watch.className = 'onlineWatch';
           watch.disabled = !online.you;
-          watch.onclick = () => online.command({ type: 'watch', room: room.id });
+          watch.onclick = () => online.command({ type: 'watch', room: room.id, flow: true });
           card.append(watch);
         }
         el('onlineRooms').append(card);

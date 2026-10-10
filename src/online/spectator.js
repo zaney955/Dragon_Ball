@@ -1,4 +1,3 @@
-import { rebuildSpace } from '../world/space.js';
 import { syncDestruction } from '../world/destruction-batching.js';
 import * as THREE from 'three';
 import {
@@ -7,20 +6,26 @@ import {
   GEOMETRY_ARGS,
   pickFields,
   validSpectatorFrame,
+  validSpectatorObject,
 } from './spectator-codec.js';
 
 /** Spectators display host snapshots; they never advance combat or send inputs. */
 export function createSpectator({ online, animation, combat, match, render, world }) {
   const objects = new Map();
+  const worldStates = new Map();
+  const pendingWorld = new Map();
+  let pending = null,
+    pendingAck = null;
   let snapshot = null,
     arrivedAt = 0,
     lastAt = 0,
-    sentSequence = 0;
+    sentSequence = 0,
+    worldCursor = 0;
   const cameraTarget = new THREE.Vector3();
   const cameraPosition = new THREE.Vector3();
   let cameraReady = false,
     cameraYaw = 0;
-  const stats = { received: 0, sequence: 0, cameraTarget };
+  const stats = { received: 0, applied: 0, coalesced: 0, sequence: 0, cameraTarget, applyMs: 0 };
   const quantize = (n) => Math.round(n * 10000) / 10000;
   function transform(node, worldSpace = false) {
     const position = worldSpace ? node.getWorldPosition(new THREE.Vector3()) : node.position;
@@ -93,7 +98,9 @@ export function createSpectator({ online, animation, combat, match, render, worl
   }
   function capture() {
     const map = world.currentMap;
-    const visible = map.stageParticles?.snapshot() ?? [];
+    const visible = (map.stageParticles?.snapshot() ?? [])
+      .filter(validSpectatorObject)
+      .slice(0, 160);
     const roots = [
       ...combat.youthEntities.map((e) => e.mesh),
       ...combat.v2Projectiles.map((e) => e.mesh),
@@ -109,7 +116,7 @@ export function createSpectator({ online, animation, combat, match, render, worl
       root.traverse((node) => {
         if (visible.length >= 160 || seen.has(node.uuid)) return;
         const v = visual(node);
-        if (v) {
+        if (validSpectatorObject(v)) {
           visible.push(v);
           seen.add(node.uuid);
         }
@@ -132,28 +139,49 @@ export function createSpectator({ online, animation, combat, match, render, worl
           z: b.z,
           expiresAt: Number.isFinite(b.expiresAt) ? b.expiresAt : 0,
         })),
-        damaged: (map.destructibles ?? []).flatMap((b, i) =>
-          (!b.broken && b.stage > 0) || (b.rubble && b.mesh.visible && !b.broken)
-            ? [[i, b.hp, b.stage, transform(b.mesh), b.mesh.material?.color?.getHex() ?? 0xffffff]]
-            : [],
-        ),
-        broken: (map.destructibles ?? []).flatMap((b, i) =>
-          b.broken
-            ? [
-                [
-                  i,
-                  b.tile ? transform(b.mesh) : [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
-                  b.mesh.material?.color?.getHex() ?? 0xffffff,
-                ],
-              ]
-            : [],
-        ),
+        damaged: [],
+        broken: [],
       },
       fighters: [actor(match.player), actor(match.enemy)],
-      objects: visible,
+      objects: [],
     };
-    // Keep the existing socket message bound, prioritizing fighters and gameplay objects.
-    while (JSON.stringify(frame).length > 45000 && frame.objects.length) frame.objects.pop();
+    // Fighters always fit first. Rotate bounded world pages so late viewers
+    // converge even after every tile is destroyed; never truncate the same tail.
+    let size = JSON.stringify(frame).length;
+    const scenery = map.destructibles ?? [];
+    for (let visited = 0; visited < scenery.length; visited++) {
+      const index = worldCursor % scenery.length,
+        item = scenery[index];
+      let entry, target;
+      if (item.broken) {
+        entry = [
+          index,
+          item.tile ? transform(item.mesh) : [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
+          item.mesh.material?.color?.getHex() ?? 0xffffff,
+        ];
+        target = frame.world.broken;
+      } else if (item.stage > 0 || (item.rubble && item.mesh.visible)) {
+        entry = [
+          index,
+          quantize(item.hp),
+          item.stage,
+          transform(item.mesh),
+          item.mesh.material?.color?.getHex() ?? 0xffffff,
+        ];
+        target = frame.world.damaged;
+      }
+      const cost = entry ? JSON.stringify(entry).length + 1 : 0;
+      if (size + cost > 16000) break;
+      if (entry) target.push(entry);
+      size += cost;
+      worldCursor = (index + 1) % scenery.length;
+    }
+    for (const object of visible) {
+      const cost = JSON.stringify(object).length + 1;
+      if (size + cost > 24000) break;
+      frame.objects.push(object);
+      size += cost;
+    }
     return frame;
   }
   function publish(now) {
@@ -162,12 +190,13 @@ export function createSpectator({ online, animation, combat, match, render, worl
       !online.host ||
       online.spectating ||
       !online.room?.spectators ||
-      now - lastAt < 100
+      now - lastAt < 100 ||
+      !online.transport.canSendSpectator()
     )
       return;
     lastAt = now;
     const frame = capture();
-    if (validSpectatorFrame(frame))
+    if (validSpectatorFrame(frame) && JSON.stringify(frame).length <= 24000)
       online.command({ type: 'spectator-frame', match: online.room.match.id, frame });
   }
   function wrapFighter(f, index) {
@@ -204,10 +233,23 @@ export function createSpectator({ online, animation, combat, match, render, worl
     )
       return;
     if (message.frame.seq <= stats.sequence) return;
-    snapshot = message.frame;
+    if (pending) stats.coalesced++;
+    pending = message.frame;
     arrivedAt = online.lastPacket = performance.now();
     stats.received++;
-    stats.sequence = snapshot.seq;
+    stats.sequence = pending.seq;
+    for (const entry of pending.world.broken) pendingWorld.set(entry[0], ['broken', entry]);
+    for (const entry of pending.world.damaged ?? []) pendingWorld.set(entry[0], ['damaged', entry]);
+  }
+  function applyPending() {
+    if (!pending) return;
+    const began = performance.now();
+    snapshot = pending;
+    pending = null;
+    snapshot.world = { ...snapshot.world, broken: [], damaged: [] };
+    for (const [kind, entry] of pendingWorld.values()) snapshot.world[kind].push(entry);
+    pendingWorld.clear();
+    stats.applied++;
     [match.player, match.enemy].forEach((f, i) => {
       const data = snapshot.fighters[i];
       if (f.youth.form !== data.form) {
@@ -233,7 +275,7 @@ export function createSpectator({ online, animation, combat, match, render, worl
             anim: animation.authorYouthMove(f.def, data.attack, data.attack.chainIndex ?? 0),
           }
         : null;
-      if (stats.received === 1) f.pos.fromArray(data.pos);
+      if (stats.applied === 1) f.pos.fromArray(data.pos);
       f.previousPos.copy(f.pos);
     });
     match.game.ready = snapshot.ready;
@@ -249,7 +291,17 @@ export function createSpectator({ online, animation, combat, match, render, worl
       item.group.position.set(bean.x, world.groundHeight(bean.x, bean.z), bean.z);
       item.group.visible = bean.active;
     });
-    for (const [index, data, color] of snapshot.world.broken) {
+    let worldChanged = false;
+    function changed(index, state) {
+      const key = JSON.stringify(state);
+      if (worldStates.get(index) === key) return false;
+      worldStates.set(index, key);
+      worldChanged = true;
+      return true;
+    }
+    for (const entry of snapshot.world.broken) {
+      const [index, data, color] = entry;
+      if (!changed(index, entry)) continue;
       const item = map.destructibles?.[index];
       if (!item) continue;
       item.broken = true;
@@ -263,7 +315,9 @@ export function createSpectator({ online, animation, combat, match, render, worl
       item.mesh.material?.color?.setHex(color);
       if (!item.tile) item.mesh.visible = false;
     }
-    for (const [index, hp, stage, data, color] of snapshot.world.damaged ?? []) {
+    for (const entry of snapshot.world.damaged ?? []) {
+      const [index, hp, stage, data, color] = entry;
+      if (!changed(index, entry)) continue;
       const item = map.destructibles?.[index];
       if (!item) continue;
       item.hp = hp;
@@ -276,10 +330,8 @@ export function createSpectator({ online, animation, combat, match, render, worl
       }
       item.mesh.material?.color?.setHex(color);
       item.fallen = item.tree && stage >= 2;
-      if (!item.tile && !item.broken) item.bounds.copy(new THREE.Box3().setFromObject(item.mesh));
     }
-    syncDestruction(map);
-    rebuildSpace(map);
+    if (worldChanged) syncDestruction(map);
     // Host end-of-match state will remove the subscription and return viewers to the lobby.
     const ids = new Set();
     for (const item of snapshot.objects) {
@@ -319,8 +371,14 @@ export function createSpectator({ online, animation, combat, match, render, worl
         world.disposeGroup(mesh);
         objects.delete(id);
       }
+    stats.applyMs = performance.now() - began;
+    // Credit is returned only after the viewer has actually applied the frame.
+    if (snapshot.flow)
+      pendingAck = { type: 'spectator-ack', match: online.room.match.id, seq: snapshot.seq };
   }
   function update(now, dt) {
+    applyPending();
+    if (pendingAck && online.command(pendingAck)) pendingAck = null;
     if (!snapshot) return;
     const elapsed = Math.min(0.1, (now - arrivedAt) / 1000);
     [match.player, match.enemy].forEach((f, i) => {
@@ -392,8 +450,12 @@ export function createSpectator({ online, animation, combat, match, render, worl
       world.disposeGroup(mesh);
     }
     objects.clear();
+    worldStates.clear();
+    pendingWorld.clear();
+    pending = pendingAck = null;
+    worldCursor = 0;
     snapshot = null;
-    stats.received = stats.sequence = 0;
+    stats.received = stats.applied = stats.coalesced = stats.sequence = stats.applyMs = 0;
     cameraReady = false;
     lastAt = 0;
   }

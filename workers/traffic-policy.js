@@ -22,7 +22,7 @@ export class MessageBudget {
         ? ['receipt', 'recovery'].includes(message.packet?.kind)
           ? 'recovery'
           : 'battle'
-        : message.type === 'spectator-frame'
+        : ['spectator-frame', 'spectator-ack'].includes(message.type)
           ? 'spectator'
           : message.type === 'signal'
             ? 'signal'

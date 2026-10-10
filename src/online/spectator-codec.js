@@ -224,20 +224,22 @@ export function validSpectatorFrame(frame) {
     ) &&
     Array.isArray(frame.objects) &&
     frame.objects.length <= 160 &&
-    frame.objects.every(
-      (o) =>
-        o &&
-        typeof o.id === 'string' &&
-        o.id.length <= 64 &&
-        geometry(o.geometry) &&
-        validTransform(o.transform) &&
-        Number.isInteger(o.color) &&
-        o.color >= 0 &&
-        o.color <= 0xffffff &&
-        finite(o.opacity) &&
-        o.opacity >= 0 &&
-        o.opacity <= 1 &&
-        typeof o.additive === 'boolean',
-    )
+    frame.objects.every(validSpectatorObject)
+  );
+}
+export function validSpectatorObject(o) {
+  return (
+    !!o &&
+    typeof o.id === 'string' &&
+    o.id.length <= 64 &&
+    geometry(o.geometry) &&
+    validTransform(o.transform) &&
+    Number.isInteger(o.color) &&
+    o.color >= 0 &&
+    o.color <= 0xffffff &&
+    finite(o.opacity) &&
+    o.opacity >= 0 &&
+    o.opacity <= 1 &&
+    typeof o.additive === 'boolean'
   );
 }

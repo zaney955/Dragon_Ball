@@ -51,6 +51,7 @@ export function command(sessions, player, message, newMatch) {
     if (!room || room.players.length !== 2 || !room.match?.playing)
       return error('这个房间暂时没有正在进行的对战');
     player.watching = room.id;
+    player.spectatorFlow = message.flow === true;
     return { changed: true };
   }
   if (message.type === 'unwatch') {

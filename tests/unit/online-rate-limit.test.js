@@ -61,3 +61,10 @@ test('state recovery messages preserve host and guest roles through ordered retr
     assert.equal(validRelayPacket(recovery, 1 - seat), false);
   }
 });
+
+test('spectator credit has a separate sustained budget from lobby commands', () => {
+  const budget = new MessageBudget();
+  for (let i = 0; i < 300; i++)
+    assert.equal(budget.allow({ type: 'spectator-ack' }, 100, i * 100), true);
+  assert.equal(budget.allow({ type: 'unwatch' }, 100, 30000), true);
+});

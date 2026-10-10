@@ -1500,3 +1500,164 @@ for (const mode of ['direct', 'relay'])
       await pair.close();
     }
   });
+
+test('slow mobile spectator catches up to the latest frame after dense world damage', async ({
+  browser,
+}) => {
+  const pair = await startDeliveryPair(browser, true, 3);
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
+  const viewer = await context.newPage();
+  try {
+    const viewerErrors = await lobby(viewer);
+    // Freeze simulation only; real RAF, WebSockets and snapshot publication run.
+    const count = await pair.host.evaluate(() => {
+      const db = window.__db;
+      db.game.paused = true;
+      const items = db.map.destructibles.slice(0, 900);
+      items.forEach((item) => {
+        item.stage = 1;
+        item.hp = 10.1234;
+      });
+      return items.length;
+    });
+    expect(count).toBeGreaterThan(250);
+    await viewer.evaluate(() => {
+      const online = window.__db.online,
+        send = online.command;
+      window.__heldCredit = null;
+      window.__holdCredit = true;
+      online.command = (message) => {
+        if (message.type === 'spectator-ack' && window.__holdCredit) {
+          window.__heldCredit = message;
+          return false;
+        }
+        return send(message);
+      };
+    });
+    await viewer.locator('[data-watch-room="2"]').click();
+    await viewer.waitForFunction(() => window.__db.online.spectator.stats.applied === 1);
+    const first = await viewer.evaluate(() => window.__db.online.spectator.stats.sequence);
+    await viewer.waitForTimeout(1800);
+    expect(await viewer.evaluate(() => window.__db.online.spectator.stats.received)).toBe(1);
+    expect(
+      await pair.host.evaluate(
+        () => window.__db.online.active && window.__db.online.transport.ws.readyState === 1,
+      ),
+    ).toBe(true);
+    await viewer.evaluate(() => {
+      window.__holdCredit = false;
+    });
+    await viewer.waitForFunction(
+      (seq) => window.__db.online.spectator.stats.sequence > seq + 5,
+      first,
+    );
+    await viewer.waitForFunction(
+      (count) => window.__db.map.destructibles.slice(0, count).every((item) => item.stage === 1),
+      count,
+    );
+    expect(await viewer.evaluate(() => window.__db.online.spectator.stats.applied)).toBeGreaterThan(
+      1,
+    );
+    expect([...pair.errors.flat(), ...viewerErrors]).toEqual([]);
+  } finally {
+    await context.close();
+    await pair.close();
+  }
+});
+
+test('600 ms RTT with jitter and a short outage resumes real relay combat without disconnecting', async ({
+  browser,
+}) => {
+  const pair = await startDeliveryPair(browser, true);
+  try {
+    for (const page of [pair.host, pair.guest])
+      await page.evaluate(() => {
+        const socket = window.__db.online.transport.ws,
+          send = socket.send.bind(socket);
+        let index = 0,
+          previous = 0;
+        socket.send = (raw) => {
+          const data = JSON.parse(raw);
+          if (data.type !== 'relay') return send(raw);
+          // FIFO transport delay: 250–350 ms each way, plus one 900 ms black hole.
+          if (performance.now() < (window.__dropUntil ?? 0)) return;
+          const due = Math.max(previous + 1, performance.now() + 250 + (++index % 5) * 25);
+          previous = due;
+          setTimeout(
+            () => {
+              if (socket.readyState === 1) send(raw);
+            },
+            Math.max(0, due - performance.now()),
+          );
+        };
+      });
+    await pair.guest.keyboard.down('KeyA');
+    await pair.host.waitForFunction(() => window.__db.online.remote.left);
+    await pair.guest.keyboard.up('KeyA');
+    await pair.host.waitForFunction(() => !window.__db.online.remote.left);
+    await pair.host.waitForTimeout(3000);
+    const before = await pair.guest.evaluate(() => window.__db.online.remoteSequence);
+    await pair.host.evaluate(() => {
+      window.__dropUntil = performance.now() + 900;
+    });
+    await pair.guest.waitForFunction(
+      (seq) => window.__db.online.remoteSequence > seq + 40,
+      before,
+      { timeout: 12000 },
+    );
+    await pair.guest.keyboard.down('KeyD');
+    await pair.host.waitForFunction(() => window.__db.online.remote.right);
+    await pair.guest.keyboard.up('KeyD');
+    await pair.host.waitForFunction(() => !window.__db.online.remote.right);
+    const samples = await Promise.all(
+      [pair.host, pair.guest].map((page) =>
+        page.evaluate(() => {
+          const o = window.__db.online;
+          return {
+            active: o.active,
+            errors: o.incidents,
+            stats: o.transport.delivery.stats,
+            pending: o.transport.delivery.pending.size,
+            buffered: o.transport.delivery.incoming.size,
+          };
+        }),
+      ),
+    );
+    console.log('WEAK NETWORK', JSON.stringify(samples));
+    expect(samples.every((s) => s.active && s.errors.length === 0)).toBe(true);
+    expect(samples[0].stats.rtt).toBeGreaterThan(450);
+    expect(samples.every((s) => s.pending < 100 && s.buffered < 100)).toBe(true);
+    // A slow connection must also carry a complete state repair without
+    // filling the reliable queue and turning a repair into a disconnect.
+    await pair.guest.evaluate(() => {
+      window.__db.enemy.hp -= 7;
+    });
+    await pair.guest.waitForFunction(
+      () => window.__db.online.diagnostics.some((e) => e.kind === 'state-loaded'),
+      null,
+      { timeout: 20000 },
+    );
+    await pair.host.waitForFunction(() =>
+      window.__db.online.diagnostics.some((e) => e.kind === 'state-resumed'),
+    );
+    // The host resumes before the delayed resume packet reaches the guest.
+    await pair.guest.waitForFunction(
+      () => window.__db.online.active && !window.__db.online.recovery.paused,
+    );
+    await pair.guest.keyboard.down('KeyA');
+    await pair.host.waitForFunction(() => window.__db.online.remote.left);
+    await pair.guest.keyboard.up('KeyA');
+    await pair.host.waitForFunction(() => !window.__db.online.remote.left);
+    for (const page of [pair.host, pair.guest])
+      expect(
+        await page.evaluate(() => window.__db.online.active && !window.__db.online.recovery.paused),
+      ).toBe(true);
+    expect(pair.errors.flat()).toEqual([]);
+  } finally {
+    await pair.close();
+  }
+});

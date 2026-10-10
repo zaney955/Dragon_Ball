@@ -151,7 +151,7 @@ test('missing receipts on a silently stalled direct path trigger bounded relay r
   } = pair(t);
   host.channel.send = () => {};
   host.packet({ kind: 'frames', seq: 1 });
-  for (let i = 0; i < 10; i++) advance(100);
+  for (let i = 0; i < 20; i++) advance(100);
   assert.equal(host.forceRelay, true);
   assert.deepEqual(
     received[1].map((p) => p.seq),
@@ -182,7 +182,7 @@ test('lost receipts cause harmless replay and eventually release the sender hist
   deliver(queues.shift());
   advance(100);
   assert.equal(host.delivery.pending.size, 1);
-  advance(300);
+  advance(700);
   assert.deepEqual(
     received[1].map((p) => p.seq),
     [1],
@@ -299,4 +299,57 @@ test('setup receipts are sent before expensive application initialization blocks
   });
   stream.receive({ kind: 'begin', delivery: { version: 1, seq: 1, ack: 0, epoch: 0 } }, 1);
   assert.deepEqual(seen, ['receipt', 'construct-battle']);
+});
+
+test('a healthy 1200 ms direct RTT learns its delay without a false relay switch', (t) => {
+  const {
+    endpoints: [host, guest],
+    received,
+    errors,
+    advance,
+  } = pair(t);
+  for (const endpoint of [host, guest]) {
+    const send = endpoint.channel.send;
+    endpoint.channel.send = (raw) => setTimeout(() => send(raw), 600);
+  }
+  for (let i = 0; i < 800; i++) {
+    if (i % 5 === 0 && i < 600) host.packet({ kind: 'frames', seq: i / 5 + 1 });
+    advance(10);
+  }
+  assert.equal(host.forceRelay, false);
+  assert.equal(guest.forceRelay, false);
+  assert.equal(received[1].length, 120);
+  assert.ok(host.delivery.stats.rtt >= 1200);
+  assert.ok(host.delivery.stats.retransmitted <= 2);
+  assert.equal(host.delivery.pending.size, 0);
+  assert.deepEqual(errors, []);
+});
+
+test('a sudden RTT increase after a fast connection can relearn without a retransmission storm', (t) => {
+  const {
+    endpoints: [host, guest],
+    errors,
+    advance,
+  } = pair(t);
+  for (let i = 0; i < 20; i++) {
+    host.packet({ kind: 'frames', seq: i + 1 });
+    advance(50);
+  }
+  for (const endpoint of [host, guest]) {
+    const send = endpoint.channel.send;
+    endpoint.channel.send = (raw) => setTimeout(() => send(raw), 300);
+  }
+  for (let i = 0; i < 120; i++) {
+    host.packet({ kind: 'frames', seq: i + 21 });
+    advance(50);
+  }
+  for (let i = 0; i < 20; i++) advance(50);
+  assert.ok(
+    host.delivery.stats.rtt > 450,
+    `failed to learn increased RTT: ${host.delivery.stats.rtt}`,
+  );
+  assert.ok(host.delivery.stats.retransmitted < 30);
+  assert.equal(host.forceRelay, false);
+  assert.equal(host.delivery.pending.size, 0);
+  assert.deepEqual(errors, []);
 });

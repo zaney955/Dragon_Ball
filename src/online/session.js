@@ -53,6 +53,8 @@ export function register({
         'delivery-error',
         'state-recovery-error',
         'connection-closed',
+        'socket-closed',
+        'socket-error',
       ].includes(kind)
     ) {
       online.incidents.push({
@@ -75,6 +77,16 @@ export function register({
     events: structuredClone(online.diagnostics),
     incidents: structuredClone(online.incidents),
     inputSamples: structuredClone(online.inputSamples ?? []),
+    socket: {
+      state: online.transport.ws?.readyState,
+      queuedBytes: online.transport.ws?.bufferedAmount,
+    },
+    spectator: online.spectator
+      ? {
+          ...online.spectator.stats,
+          ageMs: Math.max(0, performance.now() - (online.lastPacket ?? performance.now())),
+        }
+      : null,
     delivery: online.transport.delivery
       ? {
           ...online.transport.delivery.stats,
@@ -529,6 +541,13 @@ export function register({
         Math.min(0.05, Math.max(0, (now - (online.lastVisualAt ?? now - 16)) / 1000)),
       );
       online.lastVisualAt = now;
+      const label = !online.spectator.stats.applied
+        ? '正在接收画面…'
+        : now - online.lastPacket > 1500
+          ? '网络波动，等待画面…'
+          : `观战 · 房间 ${online.room.id}`;
+      const element = document.getElementById('arenaName').lastElementChild;
+      if (element.textContent !== label) element.textContent = label;
       return;
     }
     if (!online.active) {
@@ -561,7 +580,6 @@ export function register({
     online.recovery?.pump(now);
     if (online.recovery?.paused) return;
     if (online.host) {
-      online.spectator.publish(now);
       if (match.game.over && !online.reportedEnd) {
         online.reportedEnd = true;
         online.command({
@@ -618,7 +636,7 @@ export function register({
     resultActions();
   };
   // Called after this frame's simulation and before rendering. Input sampling,
-  // prediction and spectator publication stay in frame(), exactly once per rAF.
+  // prediction stay in frame(); disposable spectator capture follows battle transmission.
   online.flush = () => {
     if (!online.active || online.spectating) return;
     online.transport.pump();
@@ -649,6 +667,7 @@ export function register({
         online.pendingFrames.splice(0, count);
       }
     }
+    if (online.host) online.spectator.publish(now);
   };
   online.renderAlpha = () => 1; // Guest presentation predicts from the latest authoritative frame.
   function resultActions() {
