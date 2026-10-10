@@ -261,7 +261,44 @@ for (const width of [390, 320])
     expect(errors).toEqual([]);
   });
 
-test('eight original tracks decode, crisis latches and pause preserves playback', async ({
+for (const width of [1024, 390])
+  test(`global music toggle persists and does not mute effects at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 720 });
+    const errors = await openGame(page, true, true);
+    const toggle = page.locator('#musicBtn');
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await toggle.click();
+    await expect(toggle).toHaveText('音乐：关');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await page.waitForFunction(() => window.__db.musicDiagnostics().context === 'running');
+    expect(await page.evaluate(() => window.__db.game.muted)).toBe(false);
+    expect(await page.evaluate(() => window.__db.musicDiagnostics().musicEnabled)).toBe(false);
+    await toggle.click();
+    await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'global');
+    expect((await page.evaluate(() => window.__db.musicDiagnostics())).looping).toBe(1);
+    await page.locator('#homeStart').click();
+    await expect(toggle).toBeVisible();
+    await page.locator('#startBtn').click();
+    await expect(toggle).toBeVisible();
+    await page.waitForFunction(() => window.__db.musicDiagnostics().voices === 1);
+    await page.locator('#pauseBtn').click();
+    await expect(toggle).toBeVisible();
+    await page.locator('#pauseMenu').click();
+    expect((await page.evaluate(() => window.__db.musicDiagnostics())).voices).toBe(1);
+    await toggle.click();
+    await page.reload();
+    await expect(page.locator('#loading')).toHaveClass('hidden');
+    await expect(toggle).toHaveText('音乐：关');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await page.locator('#homeStart').click();
+    expect((await page.evaluate(() => window.__db.musicDiagnostics())).voices).toBe(0);
+    await toggle.click();
+    await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'global');
+    expect(errors).toEqual([]);
+  });
+
+test('tracks decode, global music survives combat changes and pause preserves playback', async ({
   page,
 }) => {
   const errors = await openGame(page, true, true);
@@ -284,7 +321,7 @@ test('eight original tracks decode, crisis latches and pause preserves playback'
     d.player.hp = d.player.maxHp * 0.25;
     d.updateBGM();
   });
-  await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'crisis', null, {
+  await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'global', null, {
     polling: 100,
   });
   await page.evaluate(() => {
@@ -297,7 +334,7 @@ test('eight original tracks decode, crisis latches and pause preserves playback'
   await page.waitForFunction(() => window.__db.musicDiagnostics().context === 'suspended', null, {
     polling: 100,
   });
-  expect((await page.evaluate(() => window.__db.musicDiagnostics())).track).toBe('crisis');
+  expect((await page.evaluate(() => window.__db.musicDiagnostics())).track).toBe('global');
   await page.evaluate(() => {
     window.__db.setPaused(false);
     window.__db.updateBGM();
@@ -320,6 +357,7 @@ test('eight original tracks decode, crisis latches and pause preserves playback'
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('dragon-ball-audio')))).toEqual({
     bgm: 0.37,
     sfx: 0.73,
+    musicEnabled: true,
   });
   await page.waitForFunction(() => window.__db.musicDiagnostics().context === 'suspended', null, {
     polling: 100,
@@ -406,11 +444,11 @@ test('offline export opens directly without network dependencies', async ({ page
     d.game.manualTest = false;
     d.game.muted = false;
     document.querySelector('#homeStart').click();
-    await d.playBGM('menu', 0.01);
+    await d.playBGM('global', 0.01);
   });
-  for (const id of ['arena', 'wild', 'island', 'crisis', 'win', 'lose', 'draw'])
+  for (const id of ['menu', 'arena', 'wild', 'island', 'crisis', 'win', 'lose', 'draw'])
     await page.evaluate((id) => window.__db.playBGM(id, 0.01), id);
-  expect((await page.evaluate(() => window.__db.musicDiagnostics())).decoded).toHaveLength(8);
+  expect((await page.evaluate(() => window.__db.musicDiagnostics())).decoded).toHaveLength(9);
   expect((await page.evaluate(() => window.__db.musicDiagnostics())).error).toBeNull();
   expect(errors).toEqual([]);
   expect(network).toEqual([]);

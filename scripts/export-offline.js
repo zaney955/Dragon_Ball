@@ -26,6 +26,13 @@ try {
   const stylesheet = html.match(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"[^>]*>/);
   if (!script || !stylesheet) throw new Error('Expected one bundled script and stylesheet');
   let javascript = await readFile(resolve(scratch, script[1]), 'utf8');
+  for (const name of await readdir(scratch)) {
+    if (!name.endsWith('.mp3')) continue;
+    const bytes = await readFile(join(scratch, name));
+    const embedded = 'data:audio/mpeg;base64,' + bytes.toString('base64');
+    for (const path of [name, encodeURIComponent(name)])
+      javascript = javascript.replaceAll('./' + path, embedded).replaceAll('/' + path, embedded);
+  }
   for (const name of await readdir(join(scratch, 'assets'))) {
     if (!name.endsWith('.mp3')) continue;
     const bytes = await readFile(join(scratch, 'assets', name));
