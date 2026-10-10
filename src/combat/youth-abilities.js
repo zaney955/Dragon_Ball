@@ -194,6 +194,7 @@ export function register({ combat, characters, animation, match, render, world, 
     }
     f.attack = combat.finalizeMove({
       ...a,
+      pursuitFollow: !!a.chainType && f.pursuitWindow > 0 && !!actualFoe?.launchFlight,
       targetDistance: tailAim
         ? Math.hypot(tailAim.x - f.pos.x, tailAim.z - f.pos.z)
         : foe?.pos.distanceTo(f.pos),
@@ -212,6 +213,7 @@ export function register({ combat, characters, animation, match, render, world, 
       f.attack.drive = (a.drive ?? 2.5) + 2;
     if (a.chainType && !f.anatomy && foe && combat.stature(foe) < combat.stature(f) * 0.75)
       f.attack.drive = (a.drive ?? 2.5) + 0.65;
+    if (a.chainType && a.effector === 'elbowR') f.attack.drive = 10;
     if (a.chainType && a.effector === 'torso') f.attack.drive = (a.drive ?? 3) + 2;
     if (a.chainType && f.def.id === 'krillin' && a.chainType === 'light')
       f.attack.drive = (a.drive ?? 2.5) + 1.5;
@@ -225,6 +227,9 @@ export function register({ combat, characters, animation, match, render, world, 
     f.stageFired = false;
     f.vel.copy(f.forward()).multiplyScalar(f.attack.drive ?? 0);
     combat.beginMoveEvent(f, entry);
+    if (a.ability === 'solar') render.spawnSolarFlare(f, f.attack);
+    if (a.ability === 'fourArms') render.spawnBoundAura(f, 0xffd76d, f.attack.dur, f.attack);
+    if (a.ability === 'counter') render.spawnBoundAura(f, 0x8eeaff, f.attack.dur, f.attack);
     return true;
   }
   combat.startYouthAttack = function (f, type, input = {}) {
@@ -410,6 +415,11 @@ export function register({ combat, characters, animation, match, render, world, 
       render.scene.add(mesh);
       render.effects.push({ mesh, life: a.active, maxLife: a.active, type: 'beam' });
     }
+    if (a.groundImpact) {
+      const hit = combat.sampleCombatRig(f).hit[0];
+      const impact = hit.a.clone().add(hit.b).multiplyScalar(0.5).setY(0);
+      world.damageStage(f, { ...a, landingImpact: true }, impact);
+    }
     if (!kind) return;
     if (kind === 'equipment') {
       const k = a.equipment;
@@ -427,6 +437,10 @@ export function register({ combat, characters, animation, match, render, world, 
     if (kind === 'muscle' || kind === 'fourArms') {
       combat.setYouthBody(f, kind);
       v.formTime = 8;
+      if (kind === 'fourArms') {
+        render.spawnShockRing(f.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xffd76d, 1.5);
+        render.spawnSpark(f.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xffefaf, 14, 0.4);
+      }
     }
     if (kind === 'ogre' || kind === 'bat') {
       combat.setYouthBody(f, kind);
@@ -586,9 +600,39 @@ export function register({ combat, characters, animation, match, render, world, 
       (e) => e.kind === 'smoke' && Math.hypot(f.pos.x - e.pos.x, f.pos.z - e.pos.z) < 1.8,
     );
   };
+  combat.counterActive = (f) =>
+    f.hp > 0 &&
+    f.attack?.ability === 'counter' &&
+    f.stateTimer + 1e-9 >= f.attack.hitT &&
+    f.stateTimer <= f.attack.hitT + f.attack.active + 1e-9;
+  combat.reflectProjectile = function (f, b) {
+    if (!combat.counterActive(f)) return false;
+    const attacker = b.owner;
+    if (b.kind === 'blade') attacker.v2.bladeOut = false;
+    b.owner = f;
+    b.direction
+      .copy(attacker.pos)
+      .add(new THREE.Vector3(0, combat.stature(attacker) * 0.65, 0))
+      .sub(b.pos)
+      .normalize();
+    b.attack = { ...b.attack, control: 0, counterResponse: true };
+    b.distance = 0;
+    b.life = Math.max(b.life, (b.attack.range ?? 8) / (b.speed ?? b.velocity));
+    b.returning = false;
+    b.hits?.clear();
+    b.previous.copy(b.pos);
+    b.mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), b.direction);
+    attacker.hitResult = 'reflected';
+    f.lastHitText = '远程反弹';
+    combat.spawnAfterimage(f);
+    render.spawnShockRing(b.pos, 0xb6efff, 0.8);
+    combat.emitCombatEvent('reflection', f, attacker, b.attack);
+    return true;
+  };
   combat.tickYouthFighter = function (f, dt) {
     const v = f.youth;
     if (!v) return;
+    if (f.v2.controlTarget?.v2.controlTime <= 0) f.v2.controlTarget = null;
     if (v.form === 'combined' && !f.attack) combat.endYouthForm(f, false);
     v.cooldowns = v.cooldowns.map((t) => Math.max(0, t - dt));
     if (v.controlGrace > 0) {
@@ -653,7 +697,19 @@ export function register({ combat, characters, animation, match, render, world, 
     for (const e of [...combat.youthEntities]) {
       e.life -= dt;
       const foe = foeOf(e.owner);
-      if (e.kind === 'demon' && foe) {
+      if (e.launchVelocity) {
+        e.launchVelocity.multiplyScalar(Math.exp(-dt * 0.85));
+        e.pos.addScaledVector(e.launchVelocity, dt);
+        e.jumpVel -= dt * 22;
+        e.pos.y += e.jumpVel * dt;
+        if (e.pos.y <= 0) {
+          e.pos.y = 0;
+          e.launchVelocity = null;
+          world.damageStage(e.owner, { dmg: 20, landingImpact: true }, e.pos);
+        }
+        e.mesh.position.copy(e.pos);
+      }
+      if (e.kind === 'demon' && foe && !e.launchVelocity) {
         e.attackTime -= dt;
         const delta = foe.pos.clone().sub(e.pos);
         delta.y = 0;
@@ -857,6 +913,7 @@ export function register({ combat, characters, animation, match, render, world, 
         this.parts.tail.visible = this.youth.tailIntact;
         if (this.youth.form === 'ape') this.parts.tail.rotation.set(0, 0, 0);
       }
+      if (this.parts.finger) this.parts.finger.visible = this.attack?.effector === 'finger';
       if (this.parts.bag) {
         const swinging = this.attack?.motion === 'bagSwing';
         this.parts.bag.visible = swinging;
@@ -926,6 +983,13 @@ export function register({ combat, characters, animation, match, render, world, 
             p.handR.localToWorld(r.hit[0].b.set(0.12, -0.27, 0.04));
             r.hit[0].r = 0.14;
           }
+        }
+        if (effect === 'elbowR') segment(0, 'armR', 'elbowR', radius + 0.045);
+        if (effect === 'finger') {
+          p.handR.localToWorld(r.hit[0].a.set(0, 0, 0));
+          p.handR.localToWorld(r.hit[0].b.set(0, -0.35, 0));
+          r.hit[0].r = 0.04 * f.baseScale;
+          r.hit[0].enabled = true;
         }
         if (effect === 'both') {
           segment(0, 'elbowR', 'handR', radius + 0.035);
@@ -1050,20 +1114,9 @@ export function register({ combat, characters, animation, match, render, world, 
         old = this.attack,
         oldTimer = this.stateTimer,
         hp = this.hp;
-      if (
-        old?.ability === 'counter' &&
-        this.stateTimer >= 0.1 &&
-        this.stateTimer <= 0.26 &&
-        !a.projectile &&
-        !a.isUlt &&
-        !a.isThrow &&
-        ['light', 'heavy'].includes(a.chainType)
-      ) {
+      if (combat.counterActive(this) && !a.isThrow && !a.counterResponse) {
         attacker.hitResult = 'countered';
-        attacker.attack = null;
-        attacker.state = 'hit';
-        attacker.stateTimer = 0;
-        attacker.stunTime = 0.25;
+        this.lastHitText = a.projectile || a.shape === 'beam' ? '远程反弹' : '防反';
         const palm = {
           ...this.def.skills[0],
           ability: undefined,
@@ -1075,8 +1128,66 @@ export function register({ combat, characters, animation, match, render, world, 
           recovery: 0.4,
           effector: 'both',
         };
+        palm.anim = animation.authorYouthMove(this.def, palm);
         launch(this, palm);
         combat.spawnAfterimage(this);
+        if (a.projectile || a.shape === 'beam') {
+          const origin = this.pos.clone().add(new THREE.Vector3(0, combat.stature(this) * 0.7, 0));
+          const direction = attacker.pos
+            .clone()
+            .add(new THREE.Vector3(0, combat.stature(attacker) * 0.65, 0))
+            .sub(origin)
+            .normalize();
+          combat.newProjectile(
+            this,
+            {
+              ...a,
+              ability: undefined,
+              shape: undefined,
+              control: 0,
+              counterResponse: true,
+              range: Math.max(8, a.range ?? 8),
+            },
+            'psychic',
+            { pos: origin, direction, speed: 20, life: 0.8, radius: a.width ?? 0.12 },
+          );
+          combat.emitCombatEvent('reflection', this, attacker, a);
+        } else {
+          attacker.attack = null;
+          if (typeof attacker.takeHit === 'function') {
+            attacker.takeHit(
+              this,
+              combat.finalizeMove({
+                ...palm,
+                counterResponse: true,
+                serial: ++combat.combatEvents.serial,
+                ki: 0,
+                chainType: 'heavy',
+                knockdown: false,
+                launch: undefined,
+                kb: 0,
+              }),
+            );
+            if (attacker.hp > 0) combat.launchKnockback(attacker, this, 'counter');
+          } else {
+            // Summon pounces use a source proxy rather than a Fighter instance.
+            const minion = combat.youthEntities.find((e) => e.pos === attacker.pos);
+            if (minion) {
+              minion.hp -= palm.dmg * this.def.power;
+              minion.launchVelocity = minion.pos
+                .clone()
+                .sub(this.pos)
+                .setY(0)
+                .normalize()
+                .multiplyScalar(11.5);
+              minion.jumpVel = 7;
+              minion.pos.y = Math.max(0.04, minion.pos.y);
+              minion.warning = 0;
+              minion.attackTime = 1.5;
+            }
+          }
+          combat.emitCombatEvent('counter', this, attacker, a);
+        }
         return;
       }
       const armored =
@@ -1103,7 +1214,7 @@ export function register({ combat, characters, animation, match, render, world, 
           target.stunTime = 0;
           this.v2.controlTarget = null;
         }
-        if (armored && this.hp > 0) {
+        if (armored && this.hp > 0 && !this.launchFlight) {
           this.attack = old;
           this.state = old?.isUlt ? 'ult' : old ? 'attack' : 'idle';
           this.stateTimer = oldTimer;
@@ -1122,11 +1233,16 @@ export function register({ combat, characters, animation, match, render, world, 
         }
         if (attacker.youth && a.ability === 'wolf')
           attacker.youth.wolfUntil = match.game.simTime + 0.25;
-        if (a.control > 0) combat.applyControl(attacker, this, a);
+        if (a.control > 0 && !this.launchFlight) combat.applyControl(attacker, this, a);
       }
     };
     combat.applyControl = function (owner, foe, a) {
-      if (foe.hp <= 0 || foe.invulnerable > 0 || ['block', 'blockstun'].includes(foe.state))
+      if (
+        foe.hp <= 0 ||
+        foe.launchFlight ||
+        foe.invulnerable > 0 ||
+        ['block', 'blockstun'].includes(foe.state)
+      )
         return false;
       const v = foe.youth;
       if (v.controlGrace > 0 && v.controlCount >= 3) return false;
@@ -1141,6 +1257,7 @@ export function register({ combat, characters, animation, match, render, world, 
       foe.stateTimer = 0;
       foe.stunTime = duration;
       foe.vel.set(0, 0, 0);
+      render.spawnBoundAura(foe, 0xd6a1ff, duration, null, true);
       combat.emitCombatEvent('control', owner, foe, a, { duration });
       return true;
     };

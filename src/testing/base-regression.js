@@ -641,9 +641,9 @@ export function register({
       );
       assert(e.lastDamage < first && e.lastScaling === 0.88);
     });
-    test('P0', '八击强制脱离并倒地', () => {
+    test('P0', '六击强制击飞并落地保护', () => {
       const [p, e] = fresh();
-      e.receivedCombo = 7;
+      e.receivedCombo = 5;
       e.takeHit(
         p,
         combatModule.finalizeMove({
@@ -653,7 +653,7 @@ export function register({
           level: 'mid',
         }),
       );
-      assert(e.invulnerable >= 0.8 && e.state === 'knockdown');
+      assert(e.invulnerable >= 0.2 && e.state === 'hit' && e.launchFlight);
       const hp = e.hp;
       e.takeHit(p, {
         dmg: 100,
@@ -678,7 +678,7 @@ export function register({
           launch: 5,
         }),
       );
-      assert(e.state === 'knockdown' && e.invulnerable >= 0.8);
+      assert(e.state === 'hit' && e.launchFlight && e.invulnerable >= 0.2);
     });
     test('P0', '霸体仅吸收一次并扣血', () => {
       const [p, e] = fresh(0, 3);
@@ -871,7 +871,7 @@ export function register({
     });
     test('P1', '追击距离和冷却限制', () => {
       const [p, e] = fresh();
-      e.pos.x = 10;
+      e.pos.x = 11;
       p.ki = 50;
       step(1, {
         pursuit: true,

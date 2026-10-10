@@ -11,7 +11,8 @@ export function register({ combat: combatModule, match: matchModule, world: worl
       e = matchModule.enemy,
       ph = 2.35 * p.baseScale,
       eh = 2.35 * e.baseScale;
-    if (p.pos.y > e.pos.y + eh || e.pos.y > p.pos.y + ph) return;
+    if (p.launchFlight || e.launchFlight || p.pos.y > e.pos.y + eh || e.pos.y > p.pos.y + ph)
+      return;
     const min = 0.3 * p.baseScale + 0.3 * e.baseScale,
       dx = p.pos.x - e.pos.x,
       dz = p.pos.z - e.pos.z,

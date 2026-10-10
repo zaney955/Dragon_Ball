@@ -131,6 +131,11 @@ export function register({
       r.root.position.copy(f.pos);
       r.root.position.y += f.attack ? (pose.ry ?? 0) : 0;
       r.root.rotation.set(0, f.facingAngle, 0);
+      if (f.launchFlight) {
+        const lean = THREE.MathUtils.clamp(f.launchElapsed / 0.16, 0, 1);
+        r.root.rotation.set(-lean * 1.15, f.facingAngle, 0, 'YXZ');
+        r.root.position.y += 0.35 * lean;
+      }
       r.root.scale.setScalar(1);
       charactersModule.applyPose(p, pose, 0, true);
       r.root.updateMatrixWorld(true);

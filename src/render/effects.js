@@ -4,7 +4,32 @@ export function register({ render: renderModule }) {
     return Math.atan2(Math.sin(a - b), Math.cos(a - b));
   };
   renderModule.spawnDust = function spawnDust(pos, count = 5) {
-    renderModule.spawnSpark(new THREE.Vector3(pos.x, 0.08, pos.z), 0xcab697, count, 0.23);
+    count = Math.min(count, Math.max(0, 180 - renderModule.effects.length));
+    for (let i = 0; i < count; i++) {
+      const size = 0.1 + Math.random() * 0.16;
+      const mesh = new THREE.Mesh(
+        new THREE.SphereGeometry(size, 7, 5),
+        new THREE.MeshBasicMaterial({
+          color: 0xcab697,
+          transparent: true,
+          opacity: 0.42,
+          depthWrite: false,
+        }),
+      );
+      mesh.position.set(pos.x, 0.08, pos.z);
+      renderModule.scene.add(mesh);
+      renderModule.effects.push({
+        mesh,
+        type: 'dust',
+        life: 0.8,
+        maxLife: 0.8,
+        vel: new THREE.Vector3(
+          (Math.random() - 0.5) * 3,
+          0.5 + Math.random(),
+          (Math.random() - 0.5) * 3,
+        ),
+      });
+    }
   };
   renderModule.spawnSpark = function spawnSpark(pos, color, count, power = 1) {
     count = Math.min(count, Math.max(0, 180 - renderModule.effects.length));
@@ -87,7 +112,31 @@ export function register({ render: renderModule }) {
         continue;
       }
       const t = 1 - e.life / e.maxLife;
-      if (e.type === 'debris') {
+      if (e.type === 'dust') {
+        e.mesh.position.addScaledVector(e.vel, dt);
+        e.vel.multiplyScalar(Math.exp(-dt * 2));
+        e.mesh.scale.setScalar(1 + t * 3);
+        e.mesh.material.opacity = (1 - t) * 0.42;
+      } else if (e.type === 'boundAura') {
+        e.mesh.position.copy(e.owner.pos).add(e.offset);
+        e.mesh.rotation.y += dt * 3;
+        e.mesh.rotation.z += dt * 1.5;
+        e.mesh.scale.setScalar(1 + Math.sin(t * 24) * 0.08);
+        e.mesh.material.opacity = Math.min(0.65, e.life * 3);
+        if (
+          e.owner.hp <= 0 ||
+          (e.attack && e.owner.attack !== e.attack) ||
+          (e.control && e.owner.v2.controlTime <= 0)
+        )
+          e.life = 0;
+      } else if (e.type === 'solarRay') {
+        e.mesh.position.copy(e.owner.pos).add(e.offset);
+        e.mesh.rotation.z = e.angle + t * 0.2;
+        const firing = e.owner.stateTimer >= e.attack.hitT;
+        e.mesh.scale.setScalar(firing ? 1 + t * 3 : 0.3 + t);
+        e.mesh.material.opacity = firing ? (1 - t) * 0.95 : 0.35;
+        if (e.owner.attack !== e.attack || e.owner.hp <= 0) e.life = 0;
+      } else if (e.type === 'debris') {
         e.vel.y -= 12 * dt;
         e.mesh.position.addScaledVector(e.vel, dt);
         e.mesh.rotation.x += dt * 5;
@@ -147,6 +196,67 @@ export function register({ render: renderModule }) {
         e.mesh.material.opacity = t < 0.15 ? t / 0.15 : (1 - t) * 0.9;
       }
     }
+  };
+  renderModule.spawnBoundAura = function (owner, color, life, attack = null, control = false) {
+    for (let i = 0; i < 3; i++) {
+      const mesh = new THREE.Mesh(
+        new THREE.TorusGeometry(0.5, 0.018, 6, 24),
+        new THREE.MeshBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.6,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      mesh.rotation.x = Math.PI / 2 + i * 0.25;
+      const offset = new THREE.Vector3(0, 0.5 + i * 0.35, 0);
+      mesh.position.copy(owner.pos).add(offset);
+      renderModule.scene.add(mesh);
+      renderModule.effects.push({
+        mesh,
+        type: 'boundAura',
+        owner,
+        offset,
+        attack,
+        control,
+        life,
+        maxLife: life,
+      });
+    }
+  };
+  renderModule.spawnSolarFlare = function (owner, attack) {
+    const offset = new THREE.Vector3(0, 2 * owner.baseScale, 0.1);
+    for (let i = 0; i < 12; i++) {
+      const angle = (i * Math.PI) / 6;
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.055, 1.2),
+        new THREE.MeshBasicMaterial({
+          color: 0xfff5cf,
+          transparent: true,
+          opacity: 0.9,
+          side: THREE.DoubleSide,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
+      );
+      mesh.rotation.y = owner.facingAngle;
+      mesh.rotation.z = angle;
+      mesh.position.copy(owner.pos).add(offset);
+      renderModule.scene.add(mesh);
+      const life = attack.hitT + attack.active + 0.2;
+      renderModule.effects.push({
+        mesh,
+        type: 'solarRay',
+        owner,
+        attack,
+        offset,
+        angle,
+        life,
+        maxLife: life,
+      });
+    }
+    renderModule.spawnSpark(owner.pos.clone().add(offset), 0xffffff, 12, 0.15);
   };
   return function initialize() {
     renderModule.CONTACT_PHASE = {

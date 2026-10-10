@@ -146,6 +146,7 @@ export function register({
             (h) => h.enabled && combatModule.capsuleDistanceSq(sweep, h) <= (h.r + sweep.r) ** 2,
           )
         ) {
+          if (combatModule.reflectProjectile?.(foe, b)) continue;
           b.hit = true;
           foe.takeHit(b.owner, b.attack);
           if (b.owner.attack === b.source) {
