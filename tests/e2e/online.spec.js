@@ -470,6 +470,7 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
   ]);
   const [host, guest, viewer, mobile] = await Promise.all(contexts.map((c) => c.newPage()));
   try {
+    await guest.clock.install();
     for (const page of [host, guest])
       await page.addInitScript(() => {
         window.RTCPeerConnection = undefined;
@@ -513,6 +514,7 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
       null,
       { timeout: 10000 },
     );
+    await pauseClock(guest);
     await viewer.locator('[data-watch-room="3"]').click();
     await viewer.waitForFunction(
       () => window.__db.online.spectating && window.__db.online.spectator.stats.received >= 3,
@@ -529,6 +531,7 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
       expect(await page.evaluate(() => window.__db.player.parts.extraArms.length)).toBe(2);
     }
     await host.evaluate(() => (window.__db.game.paused = false));
+    await guest.clock.resume();
     const participantHealth = await host.evaluate(() => [
       window.__db.player.hp,
       window.__db.enemy.hp,
