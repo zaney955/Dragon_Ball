@@ -93,6 +93,22 @@
 .onlineRoomCard button {
   width: 100%;
 }
+.onlineRoomCard .onlineWatch {
+  margin-top: 10px;
+  background: #efa43a;
+  color: #241807;
+  font-weight: 700;
+}
+.spectating #touch,
+.spectating .actionReadout,
+.spectating .dashStatus,
+.spectating #resetPractice,
+.spectating #trainingToggle {
+  display: none;
+}
+.onlineFight.spectating #fightbar {
+  bottom: max(20px, env(safe-area-inset-bottom));
+}
 #onlineRoom {
   margin-top: 24px;
 }

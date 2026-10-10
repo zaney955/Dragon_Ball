@@ -6,7 +6,7 @@ export function register({ app, characters, match, ui, world }) {
     panel.id = 'onlineLobby';
     panel.hidden = true;
     panel.innerHTML =
-      '<div class="onlineShell"><header><div><div class="onlineEyebrow">少年武道会</div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">三个房间，每房两人。双方准备后自动开战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><button id="onlineRetry" hidden>重新连接</button><div id="onlineRooms"></div></div>';
+      '<div class="onlineShell"><header><div><div class="onlineEyebrow">少年武道会</div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">三个房间，每房两名选手。双方开战后，其他玩家可自由观战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><button id="onlineRetry" hidden>重新连接</button><div id="onlineRooms"></div></div>';
     document.body.append(panel);
     const info = document.createElement('section');
     info.id = 'onlineRoomInfo';
@@ -56,7 +56,7 @@ export function register({ app, characters, match, ui, world }) {
     };
     function paintRoom() {
       const room = online.room;
-      if (!room || online.active) return;
+      if (!room || online.active || online.watching) return;
       saveSelection();
       const self = room.players.find((p) => p.id === online.you),
         foe = room.players.find((p) => p.id !== online.you);
@@ -150,10 +150,11 @@ export function register({ app, characters, match, ui, world }) {
       if (el('moveGuide').classList.contains('show')) el('guideClose').click();
       panel.hidden = true;
       el('menu').inert = true;
-      el(online.host ? 'p1name' : 'p2name').textContent =
-        '你 · ' + characters.CHARACTERS[online.room.players[online.host ? 0 : 1].character].name;
+      if (!online.spectating)
+        el(online.host ? 'p1name' : 'p2name').textContent =
+          '你 · ' + characters.CHARACTERS[online.room.players[online.host ? 0 : 1].character].name;
     };
-    online.onReturn = () => (online.room ? paintRoom() : showLobby());
+    online.onReturn = () => (online.room && !online.watching ? paintRoom() : showLobby());
     online.onState = () => {
       if (online.room) {
         paintRoom();
@@ -168,7 +169,7 @@ export function register({ app, characters, match, ui, world }) {
         title.textContent = `房间 ${room.id}`;
         const summary = document.createElement('p');
         summary.textContent = room.players.length
-          ? `${room.players.length}/2 人 · ${room.match ? '对战中' : '等待准备'}`
+          ? `${room.players.length}/2 人 · ${room.match?.playing ? '对战中' : room.match ? '正在连接' : '等待准备'}${room.spectators ? ' · ' + room.spectators + ' 人观战' : ''}`
           : '空房间';
         const button = document.createElement('button');
         button.dataset.room = String(room.id);
@@ -181,6 +182,15 @@ export function register({ app, characters, match, ui, world }) {
         button.onclick = () =>
           online.command({ type: room.players.length ? 'join' : 'create', room: room.id });
         card.append(title, summary, button);
+        if (room.players.length === 2 && room.match?.playing) {
+          const watch = document.createElement('button');
+          watch.dataset.watchRoom = String(room.id);
+          watch.textContent = '观战';
+          watch.className = 'onlineWatch';
+          watch.disabled = !online.you;
+          watch.onclick = () => online.command({ type: 'watch', room: room.id });
+          card.append(watch);
+        }
         el('onlineRooms').append(card);
       }
     };

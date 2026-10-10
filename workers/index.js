@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { command, roomList } from './lobby.js';
+import { validSpectatorFrame } from '../src/online/spectator-codec.js';
 
 export class OnlineLobby extends DurableObject {
   constructor(ctx, env) {
@@ -23,8 +24,18 @@ export class OnlineLobby extends DurableObject {
   }
 
   publish(sessions = this.sessions()) {
+    for (const s of sessions) {
+      const host = sessions.find((p) => p.room === s.watching && p.seat === 0);
+      if (
+        s.watching &&
+        (!host?.match?.playing || !sessions.some((p) => p.room === s.watching && p.seat === 1))
+      )
+        s.watching = 0;
+    }
+    this.save(sessions);
     const rooms = roomList(sessions);
-    for (const s of sessions) this.send(s.ws, { type: 'state', you: s.id, rooms });
+    for (const s of sessions)
+      this.send(s.ws, { type: 'state', you: s.id, watching: s.watching ?? 0, rooms });
   }
 
   send(ws, data) {
@@ -42,6 +53,7 @@ export class OnlineLobby extends DurableObject {
     server.serializeAttachment({
       id: crypto.randomUUID(),
       room: 0,
+      watching: 0,
       seat: 0,
       character: 0,
       ready: false,
@@ -78,6 +90,24 @@ export class OnlineLobby extends DurableObject {
       return this.send(ws, { type: 'error', message: '消息无效' });
     }
     if (!message || typeof message !== 'object') return;
+    if (message.type === 'spectator-frame') {
+      if (
+        !self.room ||
+        self.seat !== 0 ||
+        !self.match?.playing ||
+        message.match !== self.match.id ||
+        !validSpectatorFrame(message.frame)
+      )
+        return;
+      for (const spectator of sessions.filter((s) => s.watching === self.room && !s.room))
+        this.send(spectator.ws, {
+          type: 'spectator-frame',
+          match: self.match.id,
+          room: self.room,
+          frame: message.frame,
+        });
+      return;
+    }
     if (message.type === 'signal' || message.type === 'relay') {
       const peer = sessions.find((s) => self.room && s.room === self.room && s.id !== self.id);
       if (!peer) return;
@@ -120,7 +150,7 @@ export class OnlineLobby extends DurableObject {
   webSocketClose(ws) {
     const self = ws.deserializeAttachment();
     // Clear attachment before publishing: a closing socket can still be returned by getWebSockets().
-    ws.serializeAttachment({ ...self, room: 0 });
+    ws.serializeAttachment({ ...self, room: 0, watching: 0 });
     const sessions = this.sessions();
     if (self?.room) {
       const remaining = sessions.filter((s) => s.room === self.room);
@@ -132,7 +162,7 @@ export class OnlineLobby extends DurableObject {
       }
       this.save(sessions);
       this.publish(sessions);
-    }
+    } else if (self?.watching) this.publish(sessions);
     this.rates.delete(ws);
   }
 

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { spectatorFixture } from '../fixtures/spectator.js';
 
 test.skip(!process.env.ONLINE_TEST, 'Run npm run test:online for the multiplayer runtime.');
 
@@ -22,7 +23,7 @@ test('real Worker enforces concurrent capacity, readiness and disconnect cleanup
     'Capacity stress test runs against isolated local backend.',
   );
   await lobby(page);
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async (frame) => {
     const sockets = [];
     async function connect() {
       const socket = new WebSocket('ws://127.0.0.1:8787/connect');
@@ -32,6 +33,8 @@ test('real Worker enforces concurrent capacity, readiness and disconnect cleanup
         const message = JSON.parse(data);
         if (message.type === 'state') client.state = message;
         if (message.type === 'error') client.error = message.message;
+        if (message.type === 'spectator-frame') client.frame = message.frame;
+        if (message.type === 'peer') client.peer = message.packet;
       };
       await wait(() => client.state);
       return client;
@@ -69,6 +72,36 @@ test('real Worker enforces concurrent capacity, readiness and disconnect cleanup
       });
       await wait(() => clients[0].state.rooms[0].match);
       const started = !!clients[0].state.rooms[0].match.id;
+      const thirdPlayerDenied = !!clients[4].error;
+      clients[4].error = null;
+      send(clients[4], { type: 'watch', room: 1 });
+      await wait(() => clients[4].error);
+      const connectingNotWatchable = !clients[4].state.watching;
+      const id = clients[0].state.rooms[0].match.id;
+      send(clients[0], { type: 'playing', match: id });
+      await wait(() => clients[4].state.rooms[0].match.playing);
+      const observer = await connect();
+      for (const viewer of [clients[4], observer]) send(viewer, { type: 'watch', room: 1 });
+      await wait(() => observer.state.rooms[0].spectators === 2);
+      const observersSeparate = observer.state.rooms[0].players.length === 2;
+      send(clients[0], { type: 'spectator-frame', match: id, frame });
+      await wait(() => observer.frame?.seq === 1 && clients[4].frame?.seq === 1);
+      send(clients[3], { type: 'spectator-frame', match: id, frame: { ...frame, seq: 2 } });
+      send(observer, { type: 'relay', match: id, packet: { kind: 'input', data: [0, 0, []] } });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const isolated = observer.frame.seq === 1 && !clients[0].peer && !clients[3].peer;
+      send(clients[4], { type: 'unwatch' });
+      await wait(() => observer.state.rooms[0].spectators === 1);
+      send(clients[0], { type: 'ended', match: id });
+      await wait(() => observer.state.watching === 0);
+      const endedClearsWatching =
+        observer.state.rooms[0].players.length === 2 &&
+        observer.state.rooms[0].spectators === 0 &&
+        !observer.state.rooms[0].match.playing;
+      send(clients[0], { type: 'playing', match: id });
+      await wait(() => observer.state.rooms[0].match.playing);
+      send(observer, { type: 'watch', room: 1 });
+      await wait(() => observer.state.watching === 1);
       clients[0].socket.close();
       await wait(() => clients[3].state.rooms[0].players.length === 1);
       const promoted =
@@ -80,13 +113,18 @@ test('real Worker enforces concurrent capacity, readiness and disconnect cleanup
         noEarlyStart,
         started,
         promoted,
-        thirdPlayerDenied: !!clients[4].error,
+        thirdPlayerDenied,
+        connectingNotWatchable,
+        observersSeparate,
+        isolated,
+        endedClearsWatching,
+        departureClearsWatching: observer.state.watching === 0,
         emptyClosed: true,
       };
     } finally {
       sockets.forEach(({ socket }) => socket.close());
     }
-  });
+  }, spectatorFixture());
   expect(Object.values(result).every(Boolean)).toBe(true);
   await page.locator('#onlineHome').click();
 });
@@ -359,5 +397,163 @@ test('guest movement responds locally while authoritative frames are delayed', a
     expect(await guest.evaluate(() => window.__db.online.active)).toBe(true);
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
+  }
+});
+
+test('late spectators watch without seats or inputs, follow both fighters, and cleanly rejoin', async ({
+  browser,
+}, testInfo) => {
+  const contexts = await Promise.all([
+    browser.newContext({ viewport: { width: 960, height: 600 } }),
+    browser.newContext({ viewport: { width: 960, height: 600 } }),
+    browser.newContext({ viewport: { width: 960, height: 600 } }),
+    browser.newContext({ viewport: { width: 390, height: 844 } }),
+  ]);
+  const [host, guest, viewer, mobile] = await Promise.all(contexts.map((c) => c.newPage()));
+  try {
+    for (const page of [host, guest])
+      await page.addInitScript(() => {
+        window.RTCPeerConnection = undefined;
+      });
+    const errors = await Promise.all([host, guest, viewer, mobile].map(lobby));
+    await expect(viewer.locator('[data-watch-room]')).toHaveCount(0);
+    await host.locator('[data-room="3"]').click();
+    await expect(guest.locator('[data-room="3"]')).toHaveText('加入房间');
+    await guest.locator('[data-room="3"]').click();
+    await expect.poll(() => host.evaluate(() => window.__db.online.room.players.length)).toBe(2);
+    await host.locator('#charList .char-card').nth(4).click();
+    await expect(viewer.locator('[data-watch-room]')).toHaveCount(0);
+    await host.locator('#startBtn').click();
+    await guest.locator('#startBtn').click();
+    // The button stays absent during the relay handshake and only appears on actual battle start.
+    await expect.poll(() => viewer.evaluate(() => !!window.__db.online.rooms[2].match)).toBe(true);
+    await expect(viewer.locator('[data-watch-room]')).toHaveCount(0);
+    await expect(viewer.locator('[data-watch-room="3"]')).toBeVisible({ timeout: 20000 });
+    await guest.waitForFunction(
+      () => window.__db.game.ready <= 0 && window.__db.online.remoteSequence > 5,
+    );
+    await host.keyboard.down('KeyD');
+    await host.waitForTimeout(500);
+    await host.keyboard.up('KeyD');
+    await host.keyboard.down('KeyI');
+    await host.waitForFunction(() => window.__db.player.ki >= 90, null, { timeout: 10000 });
+    await host.keyboard.up('KeyI');
+    await host.waitForFunction(() => window.__db.player.state !== 'charge');
+    await host.keyboard.down('KeyS');
+    await host.keyboard.press('KeyR');
+    await host.keyboard.up('KeyS');
+    await host.waitForFunction(() => window.__db.player.youth.form === 'fourArms', null, {
+      timeout: 10000,
+    });
+    await viewer.locator('[data-watch-room="3"]').click();
+    await viewer.waitForFunction(
+      () => window.__db.online.spectating && window.__db.online.spectator.stats.received >= 3,
+    );
+    await mobile.locator('[data-watch-room="3"]').click();
+    await mobile.waitForFunction(() => window.__db.online.spectator.stats.received >= 3);
+    await expect.poll(() => host.evaluate(() => window.__db.online.room.spectators)).toBe(2);
+    for (const page of [viewer, mobile]) {
+      await expect(page.locator('#touch')).toBeHidden();
+      await expect(page.locator('#singleTarget')).toBeHidden();
+      await expect(page.locator('#splitOverlay')).toBeHidden();
+      await expect(page.locator('#pauseBtn')).toHaveText('退出观战');
+      expect(await page.evaluate(() => window.__db.player.youth.form)).toBe('fourArms');
+      expect(await page.evaluate(() => window.__db.player.parts.extraArms.length)).toBe(2);
+    }
+    const participantHealth = await host.evaluate(() => [
+      window.__db.player.hp,
+      window.__db.enemy.hp,
+    ]);
+    for (const page of [viewer, mobile]) {
+      await page.keyboard.down('KeyW');
+      for (const key of ['KeyJ', 'KeyK', 'KeyR', 'KeyF', 'KeyU', 'KeyO'])
+        await page.keyboard.press(key);
+      await page.keyboard.up('KeyW');
+      const stats = await page.evaluate(() => window.__db.online.transport.stats);
+      expect(stats.directMessages + stats.relayMessages + stats.spectatorMessages).toBe(0);
+    }
+    expect(await host.evaluate(() => [window.__db.player.hp, window.__db.enemy.hp])).toEqual(
+      participantHealth,
+    );
+    await host.keyboard.down('KeyA');
+    await host.waitForTimeout(400);
+    await host.keyboard.up('KeyA');
+    await host.waitForTimeout(600);
+    const owner = await host.evaluate(() => [
+      window.__db.player.pos.toArray(),
+      window.__db.enemy.pos.toArray(),
+    ]);
+    for (const page of [viewer, mobile]) {
+      const view = await page.evaluate(() => {
+        const db = window.__db;
+        return {
+          positions: [db.player.pos.toArray(), db.enemy.pos.toArray()],
+          target: db.online.spectator.stats.cameraTarget.toArray(),
+          projected: [db.player, db.enemy].map((f) =>
+            f.parts.head.getWorldPosition(f.pos.clone()).project(db.camera).toArray(),
+          ),
+          seats: db.online.room.players.length,
+          observerSeat: db.online.room.players.some((p) => p.id === db.online.you),
+        };
+      });
+      expect(view.seats).toBe(2);
+      expect(view.observerSeat).toBe(false);
+      for (let i = 0; i < 2; i++)
+        expect(Math.hypot(...view.positions[i].map((p, j) => p - owner[i][j]))).toBeLessThan(0.5);
+      for (const axis of [0, 2])
+        expect(
+          Math.abs(view.target[axis] - (view.positions[0][axis] + view.positions[1][axis]) / 2),
+        ).toBeLessThan(0.2);
+      for (const projected of view.projected) {
+        expect(Math.abs(projected[0])).toBeLessThan(0.95);
+        expect(Math.abs(projected[1])).toBeLessThan(0.95);
+        expect(projected[2]).toBeGreaterThan(-1);
+        expect(projected[2]).toBeLessThan(1);
+      }
+    }
+    await viewer.screenshot({ path: testInfo.outputPath('spectator-desktop.png') });
+    await mobile.screenshot({ path: testInfo.outputPath('spectator-mobile.png') });
+    await host.keyboard.press('KeyF');
+    await expect
+      .poll(() => viewer.evaluate(() => window.__db.online.spectator.objects.size), {
+        intervals: [30],
+        timeout: 3000,
+      })
+      .toBeGreaterThan(0);
+    await viewer.locator('#pauseBtn').click();
+    await expect(viewer.locator('#onlineLobby')).toBeVisible();
+    await expect.poll(() => host.evaluate(() => window.__db.online.room.spectators)).toBe(1);
+    expect(
+      await host.evaluate(
+        () => window.__db.online.active && window.__db.online.room.players.length === 2,
+      ),
+    ).toBe(true);
+    expect(await viewer.evaluate(() => window.__db.online.spectator.objects.size)).toBe(0);
+    await viewer.locator('[data-watch-room="3"]').click();
+    await viewer.waitForFunction(() => window.__db.online.spectator.stats.received >= 2);
+    await contexts[3].close();
+    await expect.poll(() => host.evaluate(() => window.__db.online.room.spectators)).toBe(1);
+    await host.locator('#pauseBtn').click();
+    await expect(viewer.locator('#onlineLobby')).toBeVisible();
+    await expect(viewer.locator('[data-watch-room]')).toHaveCount(0);
+    expect(
+      await viewer.evaluate(() => window.__db.online.active || window.__db.online.spectating),
+    ).toBe(false);
+    expect(await viewer.evaluate(() => window.__db.online.spectator.objects.size)).toBe(0);
+    await expect(host.locator('#startBtn')).toHaveText('准备');
+    await expect(guest.locator('#startBtn')).toHaveText('准备');
+    await host.locator('#startBtn').click();
+    await guest.locator('#startBtn').click();
+    await expect(viewer.locator('[data-watch-room="3"]')).toBeVisible({ timeout: 20000 });
+    await viewer.locator('[data-watch-room="3"]').click();
+    await viewer.waitForFunction(() => window.__db.online.spectator.stats.received >= 2);
+    // Closing a participant ends viewing; closing a spectator above did not disturb the match.
+    await contexts[0].close();
+    await expect(viewer.locator('#onlineLobby')).toBeVisible();
+    await expect(viewer.locator('[data-watch-room]')).toHaveCount(0);
+    expect(await viewer.evaluate(() => window.__db.online.spectator.objects.size)).toBe(0);
+    expect(errors.flat()).toEqual([]);
+  } finally {
+    await Promise.all(contexts.map((c) => c.close()));
   }
 });

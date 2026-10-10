@@ -1,14 +1,28 @@
 import { OnlineTransport } from './transport.js';
 import { decodeInput, encodeInput } from './input-codec.js';
 import { GuestPresentation } from './presentation.js';
+import { createSpectator } from './spectator.js';
 
-export function register({ app, ai, characters, combat, input, match, render, ui, world }) {
+export function register({
+  app,
+  ai,
+  animation,
+  characters,
+  combat,
+  input,
+  match,
+  render,
+  ui,
+  world,
+}) {
   const online = (app.online = {
     active: false,
     rooms: [],
     you: null,
     room: null,
     host: false,
+    spectating: false,
+    watching: 0,
     sequence: 0,
     remote: { actions: [] },
     pendingFrames: [],
@@ -42,10 +56,11 @@ export function register({ app, ai, characters, combat, input, match, render, ui
     input.clearPresses();
     online.localActions = [];
     online.lastInput = null;
-    if (online.active && !online.host)
+    if (online.active && !online.host && !online.spectating)
       online.transport.packet({ kind: 'input', data: encodeInput(neutral()) });
   };
   online.stop = () => {
+    online.spectator?.clear();
     online.presentation?.clear();
     online.presentation = null;
     for (const fighter of [match.player, match.enemy]) {
@@ -55,6 +70,8 @@ export function register({ app, ai, characters, combat, input, match, render, ui
       }
     }
     online.active = false;
+    online.spectating = false;
+    match.game.spectating = false;
     online.pendingFrames = [];
     online.remoteActions = [];
     online.remote = neutral();
@@ -65,7 +82,7 @@ export function register({ app, ai, characters, combat, input, match, render, ui
     online.guestStarted = false;
     online.transport.match = null;
     match.game.online = false;
-    document.body.classList.remove('onlineFight');
+    document.body.classList.remove('onlineFight', 'spectating');
     if (previousSettings) Object.assign(match.game, previousSettings);
     previousSettings = null;
     document.getElementById('pauseBtn').textContent = '暂停';
@@ -74,9 +91,14 @@ export function register({ app, ai, characters, combat, input, match, render, ui
   };
   online.returnToRoom = () => {
     const id = online.room?.match?.id;
+    const watching = online.spectating;
     online.stop();
     baseBack();
-    if (id) online.command({ type: 'finish', match: id });
+    if (watching) {
+      online.command({ type: 'unwatch' });
+      online.watching = 0;
+      online.room = null;
+    } else if (id) online.command({ type: 'finish', match: id });
     online.onReturn?.();
   };
   online.leave = (disconnect = false) => {
@@ -95,9 +117,10 @@ export function register({ app, ai, characters, combat, input, match, render, ui
     online.rooms = [];
     online.you = null;
     online.room = null;
+    online.watching = 0;
   };
 
-  function beginBattle() {
+  function beginBattle(spectating = false) {
     if (online.active || !online.room?.match) return;
     const room = online.room;
     previousSettings = Object.fromEntries(
@@ -115,6 +138,7 @@ export function register({ app, ai, characters, combat, input, match, render, ui
       ].map((key) => [key, match.game[key]]),
     );
     online.active = true;
+    online.spectating = spectating;
     online.sequence = 0;
     online.remoteSequence = 0;
     online.pendingFrames = [];
@@ -125,6 +149,7 @@ export function register({ app, ai, characters, combat, input, match, render, ui
     online.host = room.players.find((p) => p.id === online.you)?.seat === 0;
     Object.assign(match.game, {
       online: true,
+      spectating,
       onlineSeat: online.host ? 0 : 1,
       difficulty: 'local',
       selectedChar: room.players[0].character,
@@ -143,7 +168,8 @@ export function register({ app, ai, characters, combat, input, match, render, ui
     online.lastInputSend = 0;
     online.lastVisualAt = null;
     online.receivedInput = online.appliedInput = null;
-    if (!online.host) {
+    if (spectating) online.spectator.start();
+    else if (!online.host) {
       const fighters = [match.player, match.enemy];
       online.presentation = new GuestPresentation({
         fighters,
@@ -191,13 +217,15 @@ export function register({ app, ai, characters, combat, input, match, render, ui
       }
     }
     document.body.classList.add('onlineFight');
+    document.body.classList.toggle('spectating', spectating);
     online.onBegin?.();
     document.getElementById('arenaName').lastElementChild.textContent =
-      `联机 · ${online.host ? '1P' : '2P'} · 房间 ${room.id}`;
-    document.getElementById('againBtn').textContent = '返回房间';
-    document.getElementById('menuBtn').textContent = '返回房间';
-    document.getElementById('pauseBtn').textContent = '返回房间';
-    status('已连接，正在联机对战');
+      `${spectating ? '观战' : '联机 · ' + (online.host ? '1P' : '2P')} · 房间 ${room.id}`;
+    for (const id of ['againBtn', 'menuBtn', 'pauseBtn'])
+      document.getElementById(id).textContent = spectating ? '退出观战' : '返回房间';
+    if (online.host) online.command({ type: 'playing', match: room.match.id });
+    online.reportedEnd = false;
+    status(spectating ? '正在观战，可随时退出' : '已连接，正在联机对战');
   }
 
   function packet(data) {
@@ -288,6 +316,20 @@ export function register({ app, ai, characters, combat, input, match, render, ui
   }
 
   online.frame = () => {
+    if (online.active && online.spectating) {
+      const now = performance.now();
+      if (now - online.lastPacket > 15000) {
+        online.returnToRoom();
+        status('观战连接中断，已返回大厅');
+        return;
+      }
+      online.spectator.update(
+        now,
+        Math.min(0.05, Math.max(0, (now - (online.lastVisualAt ?? now - 16)) / 1000)),
+      );
+      online.lastVisualAt = now;
+      return;
+    }
     if (!online.active) {
       if (online.preparing && performance.now() - online.preparing.at > 30000) {
         online.returnToRoom();
@@ -315,6 +357,13 @@ export function register({ app, ai, characters, combat, input, match, render, ui
       return;
     }
     const now = performance.now();
+    if (online.host) {
+      online.spectator.publish(now);
+      if (match.game.over && !online.reportedEnd) {
+        online.reportedEnd = true;
+        online.command({ type: 'ended', match: online.room.match.id });
+      }
+    }
     if (!online.host && now - online.lastPacket > 15000 && !match.game.over) {
       online.returnToRoom();
       status('对战连接中断，请重新准备');
@@ -364,7 +413,11 @@ export function register({ app, ai, characters, combat, input, match, render, ui
     const oldRoom = online.room;
     online.you = data.you;
     online.rooms = data.rooms;
-    online.room = data.rooms.find((r) => r.players.some((p) => p.id === data.you)) ?? null;
+    online.watching = data.watching ?? 0;
+    online.room =
+      data.rooms.find((r) => r.players.some((p) => p.id === data.you)) ??
+      data.rooms.find((r) => r.id === online.watching) ??
+      null;
     online.host = online.room?.players.find((p) => p.id === data.you)?.seat === 0;
     if (!online.room?.match) {
       online.preparing = null;
@@ -379,7 +432,13 @@ export function register({ app, ai, characters, combat, input, match, render, ui
       online.stop();
       baseBack();
       online.onReturn?.();
-      status(data.you ? '对手已离开，等待新的玩家加入' : '连接中断，请重新进入大厅');
+      status(data.you ? '对战已结束或玩家已离开' : '连接中断，请重新进入大厅');
+    }
+    if (online.watching && online.room?.match?.playing) {
+      online.transport.resetPeer();
+      if (!online.active) beginBattle(true);
+      online.onState?.();
+      return;
     }
     if (online.room?.players.length === 2) {
       const key = online.room.players.map((p) => p.id).join(':');
@@ -396,6 +455,7 @@ export function register({ app, ai, characters, combat, input, match, render, ui
   }
 
   return function initialize() {
+    online.spectator = createSpectator({ online, animation, combat, match, render, world });
     const configured = import.meta.env.VITE_ONLINE_URL;
     online.transport = new OnlineTransport({
       url:
@@ -403,6 +463,7 @@ export function register({ app, ai, characters, combat, input, match, render, ui
         `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/online`,
       onState: state,
       onPacket: packet,
+      onSpectatorFrame: (message) => online.spectator.receive(message),
       onStatus: status,
       onError: status,
     });
@@ -411,6 +472,10 @@ export function register({ app, ai, characters, combat, input, match, render, ui
       if (!online.active) return baseAdvance(raw, ...providers);
       if (match.game.over) {
         document.getElementById('againBtn').textContent = '返回房间';
+        return;
+      }
+      if (online.spectating) {
+        input.clearPresses();
         return;
       }
       if (!online.host) {
@@ -457,7 +522,7 @@ export function register({ app, ai, characters, combat, input, match, render, ui
       baseBack = match.backToMenu;
       match.backToMenu = () => {
         if (online.active) {
-          online.transport.packet({ kind: 'return' });
+          if (!online.spectating) online.transport.packet({ kind: 'return' });
           online.returnToRoom();
         } else baseBack();
       };

@@ -171,7 +171,11 @@ export function register({
   renderModule.updateViewHUD = function updateViewHUD(split) {
     document.getElementById('splitOverlay').hidden = !split;
     document.getElementById('singleTarget').hidden =
-      split || !!matchModule.victory || matchModule.game.screen === 'menu' || !matchModule.enemy;
+      split ||
+      !!matchModule.game.spectating ||
+      !!matchModule.victory ||
+      matchModule.game.screen === 'menu' ||
+      !matchModule.enemy;
     if (!matchModule.player || !matchModule.enemy) return;
     if (split) {
       for (const [own, foe, prefix, cam] of [

@@ -1,7 +1,7 @@
 /** A single lobby socket; peer traffic uses WebRTC unless the connection is unavailable. */
 export class OnlineTransport {
-  constructor({ url, onState, onPacket, onStatus, onError }) {
-    Object.assign(this, { url, onState, onPacket, onStatus, onError });
+  constructor({ url, onState, onPacket, onSpectatorFrame, onStatus, onError }) {
+    Object.assign(this, { url, onState, onPacket, onSpectatorFrame, onStatus, onError });
     this.stats = {
       socketMessages: 0,
       relayMessages: 0,
@@ -9,6 +9,7 @@ export class OnlineTransport {
       connections: 0,
       heartbeats: 0,
       controlMessages: 0,
+      spectatorMessages: 0,
     };
     this.generation = 0;
     this.forceRelay = false;
@@ -51,6 +52,7 @@ export class OnlineTransport {
         if (message.type === 'error') this.onError(message.message);
         if (message.type === 'peer' && message.match === this.match) this.onPacket(message.packet);
         if (message.type === 'signal') await this.signal(message);
+        if (message.type === 'spectator-frame') this.onSpectatorFrame?.(message);
       } catch (error) {
         this.onError('连接协商失败：' + error.message);
       }
@@ -67,7 +69,8 @@ export class OnlineTransport {
   send(data) {
     if (this.ws?.readyState !== WebSocket.OPEN) return false;
     this.stats.socketMessages++;
-    if (!['signal', 'relay'].includes(data.type)) this.stats.controlMessages++;
+    if (!['signal', 'relay', 'spectator-frame'].includes(data.type)) this.stats.controlMessages++;
+    if (data.type === 'spectator-frame') this.stats.spectatorMessages++;
     this.ws.send(JSON.stringify(data));
     return true;
   }

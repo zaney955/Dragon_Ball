@@ -133,7 +133,8 @@ export function register({
       matchModule.enemy.render(visualDt, alpha);
       uiModule.updateHUD();
     }
-    renderModule.updateUltimateVisuals(paused || matchModule.game.hitStop > 0 ? 0 : raw);
+    if (!appModule.online?.spectating)
+      renderModule.updateUltimateVisuals(paused || matchModule.game.hitStop > 0 ? 0 : raw);
     uiModule.updateExtraHUD();
     trainingModule.updateTrainingHUD();
     trainingModule.updateV1HUD();

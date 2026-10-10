@@ -13,6 +13,7 @@ export function roomList(sessions) {
       ringOut: host?.ringOut ?? false,
       revision: host?.revision ?? 0,
       match: host?.match ?? null,
+      spectators: sessions.filter((s) => s.watching === index + 1).length,
       players: members.map(({ id, seat, character, ready }) => ({ id, seat, character, ready })),
     };
   });
@@ -27,6 +28,18 @@ export function command(sessions, player, message, newMatch) {
       s.ready = false;
       s.match = null;
     });
+  if (message.type === 'watch') {
+    if (player.room) return error('请先离开当前房间');
+    const room = roomList(sessions).find((r) => r.id === message.room);
+    if (!room || room.players.length !== 2 || !room.match?.playing)
+      return error('这个房间暂时没有正在进行的对战');
+    player.watching = room.id;
+    return { changed: true };
+  }
+  if (message.type === 'unwatch') {
+    player.watching = 0;
+    return { changed: true };
+  }
   if (message.type === 'create' || message.type === 'join') {
     if (player.room) return error('请先离开当前房间');
     const room = Number(message.room);
@@ -37,6 +50,7 @@ export function command(sessions, player, message, newMatch) {
     if (occupants.length >= PLAYER_LIMIT || occupants.some((s) => s.match))
       return error('房间已满');
     player.room = room;
+    player.watching = 0;
     player.seat = occupants.length ? 1 : 0;
     player.map = occupants[0]?.map ?? 0;
     player.light = occupants[0]?.light ?? 'day';
@@ -48,6 +62,7 @@ export function command(sessions, player, message, newMatch) {
     return { changed: true };
   }
   if (message.type === 'leave') {
+    player.watching = 0;
     const remaining = members().filter((s) => s !== player);
     reset(remaining);
     remaining.forEach((s) => {
@@ -60,6 +75,14 @@ export function command(sessions, player, message, newMatch) {
     return { changed: true };
   }
   if (!player.room) return error('请先加入房间');
+  if (message.type === 'playing' || message.type === 'ended') {
+    if (player.seat !== 0 || player.match?.id !== message.match || members().length !== 2)
+      return error('对局状态无效');
+    const playing = message.type === 'playing';
+    if (!!player.match.playing === playing) return { changed: false };
+    members().forEach((s) => (s.match = { ...s.match, playing }));
+    return { changed: true };
+  }
   if (message.type === 'select') {
     if (player.match) return error('对战中不能更换角色');
     const character = Number(message.character);

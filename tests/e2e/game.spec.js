@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { validSpectatorFrame } from '../../src/online/spectator-codec.js';
 
 async function openGame(page, testMode = true, fixedOnly = false) {
   const errors = [];
@@ -154,6 +155,75 @@ test('all fourteen fighters display valid HUD resources and skill text', async (
     expect(row.idle).toContain(row.resource);
     expect(row.idle + row.skill + row.guide, row.id).not.toMatch(/undefined|undifined|NaN|null/);
   }
+  expect(errors).toEqual([]);
+});
+
+test('spectator snapshots render all fourteen fighters, attacks and special bodies', async ({
+  page,
+}) => {
+  const errors = await openGame(page, true, true);
+  const frames = await page.evaluate(() => {
+    const db = window.__db,
+      online = db.online,
+      frames = [];
+    const command = online.command;
+    let captured,
+      now = performance.now();
+    online.command = (packet) => {
+      captured = structuredClone(packet.frame);
+    };
+    const cases = db.CHARACTERS.flatMap((c) =>
+      ['idle', 'light', 'heavy', 'ult'].map((action) => ({ id: c.id, action })),
+    );
+    cases.push(
+      ...[
+        ['goku', 'ape'],
+        ['roshi', 'muscle'],
+        ['tien', 'fourArms'],
+        ['oolong', 'ogre'],
+        ['oolong', 'bat'],
+        ['pilaf', 'combined'],
+      ].map(([id, form]) => ({ id, form })),
+    );
+    try {
+      for (const { id, action, form } of cases) {
+        online.active = online.host = true;
+        online.room = { id: 1, spectators: 1, match: { id: 'visual-fixture' } };
+        const [host] = db.fixtureYouth(id, 'oxking', 8);
+        if (form) {
+          db.setYouthBody(host, form);
+          host.youth.formTime = 5;
+        } else if (action === 'ult') host.startUlt();
+        else if (action !== 'idle') host.startAttack(action);
+        if (host.attack) host.stateTimer = host.attack.hitT;
+        host.render(0.016, 1);
+        db.enemy.render(0.016, 1);
+        captured = null;
+        online.spectator.publish((now += 120));
+        if (!captured) throw Error(`${id} ${action ?? form}: missing snapshot`);
+        online.stop();
+        // A fresh observer starts with human models, independent of the sender's body/attack.
+        db.fixtureYouth(id, 'oxking', 8);
+        online.active = online.spectating = true;
+        db.game.online = db.game.spectating = true;
+        online.spectator.start();
+        online.spectator.receive({ room: 1, match: 'visual-fixture', frame: captured });
+        db.player.render(0.016, 1);
+        db.enemy.render(0.016, 1);
+        db.renderGameViews();
+        if (online.spectator.stats.received !== 1 || db.player.youth.form !== (form ?? null))
+          throw Error(`${id}: missing observer body`);
+        frames.push(captured);
+        online.stop();
+      }
+    } finally {
+      online.command = command;
+      online.stop();
+    }
+    return frames;
+  });
+  expect(frames).toHaveLength(62);
+  for (const frame of frames) expect(validSpectatorFrame(frame)).toBe(true);
   expect(errors).toEqual([]);
 });
 
