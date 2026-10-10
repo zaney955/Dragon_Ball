@@ -273,7 +273,13 @@ test('local second player and mobile selection show their actual inputs', async 
         ).toBe(false);
     }
     await expect(mobile.locator('#touch [data-key="KeyF"]')).toHaveText('导弹');
-    await expect(mobile.locator('#touchStatus')).toContainText('导弹：就绪');
+    await expect(mobile.locator('#touchStatus')).not.toContainText('就绪');
+    await expect(mobile.locator('#touchStatus')).toContainText('必杀：能量不足，还差70');
+    await mobile.evaluate(() => {
+      window.__db.player.ki = 100;
+      window.__db.updateExtraHUD();
+    });
+    await expect(mobile.locator('#touchStatus')).toHaveText('');
     await mobile.locator('#fightGuide').click();
     await expect(mobile.locator('#guideInput')).toHaveValue('touch');
     await expect(mobile.locator('#guideClose')).toBeInViewport();
@@ -288,7 +294,7 @@ test('selection and guide practice entries prepare the chosen character and tran
   await page.locator('#homeStart').click();
   await page.locator('#heroPractice').click();
   await expect(page.locator('#trainingPanel')).toBeVisible();
-  await expect(page.locator('#v2Goal')).toContainText('第 1/2 步');
+  await expect(page.locator('#v2Goal')).toContainText('1/2：');
   await page.locator('#fightGuide').click();
   await expect(page.locator('#guideConditions [data-met="true"]')).toHaveCount(6);
   await expect(page.locator('#guideConditions [data-met="false"]')).toHaveCount(0);
@@ -296,12 +302,12 @@ test('selection and guide practice entries prepare the chosen character and tran
   await page.locator('#guideCharacter').selectOption('13');
   await page.locator('#guidePractice').click();
   await expect(page.locator('#p1name')).toHaveText('皮尔夫大王');
-  await expect(page.locator('#v2Goal')).toContainText('第 1/3 步');
+  await expect(page.locator('#v2Goal')).toContainText('1/3：');
   await expect(page.locator('#v2Goal')).toContainText('导弹命中');
   const round = await page.evaluate(() => window.__db.game.round);
   expect(round).toBeGreaterThan(firstRound);
   await page.locator('#v2GoalStop').click();
-  await expect(page.locator('#v2GoalStart')).toHaveText('开始角色练习');
+  await expect(page.locator('#v2GoalStart')).toHaveText('开始');
   expect(await page.evaluate(() => window.__db.getMechanicPractice())).toBeNull();
 });
 

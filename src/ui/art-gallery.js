@@ -1,6 +1,11 @@
 import * as THREE from 'three';
+import { applyDisplayPose } from '../art/display-poses.js';
+import {
+  addDisplayFloor,
+  configureDisplayShadows,
+  configureStageDisplayShadows,
+} from '../art/display-lighting.js';
 export function register({
-  animation: animationModule,
   art: artModule,
   characters: charactersModule,
   match: matchModule,
@@ -17,6 +22,12 @@ export function register({
     v.r.setSize(rect.width, rect.height, false);
     v.cam.aspect = rect.width / rect.height;
     v.cam.updateProjectionMatrix();
+    if (v.characterSize) {
+      const zoom = v.distance ? v.distance / v.baseDistance : 1;
+      const size = v.characterSize;
+      v.baseDistance = Math.max(size.y, (size.x + size.z * 0.4) / v.cam.aspect) * 2.1;
+      v.distance = v.baseDistance * zoom;
+    }
     if (reset) {
       v.yaw = v.isStage ? 0.65 : -0.35;
       v.pitch = v.isStage ? 0.46 : 0.12;
@@ -38,9 +49,15 @@ export function register({
       v.sc.remove(v.model);
       worldModule.disposeGroup(v.model);
     }
+    if (v.floor) {
+      v.sc.remove(v.floor);
+      worldModule.disposeGroup(v.floor);
+      v.floor = null;
+    }
     const [kind, key] = uiModule.assetSelect.value.split(':'),
       index = Number(key);
     v.isStage = kind === 'stage';
+    v.characterSize = null;
     if (v.isStage) {
       const map = worldModule.MAPS[index].build();
       v.model = map.group;
@@ -53,16 +70,25 @@ export function register({
       const def = charactersModule.CHARACTERS[index],
         body = def.buildBody();
       v.model = body.root;
-      charactersModule.applyPose(body.parts, animationModule.IDLE_POSE, 1, true);
+      const pose = applyDisplayPose(body, def.id, charactersModule);
       const bounds = new THREE.Box3().setFromObject(body.root),
         size = bounds.getSize(new THREE.Vector3());
       bounds.getCenter(v.center);
       v.baseDistance = Math.max(size.y * 2.1, size.x * 2.4);
+      v.characterSize = size;
+      v.floor = addDisplayFloor(v.sc, bounds);
       document.getElementById('artType').textContent = artModule.ART_PROFILES[def.id].label;
       document.getElementById('artName').textContent = def.name;
       document.getElementById('artNote').textContent = artModule.ART_PROFILES[def.id].note;
+      document.getElementById('artPose').textContent = pose.name;
     }
+    if (v.isStage) document.getElementById('artPose').textContent = '';
     v.sc.add(v.model);
+    v.hemi.intensity = v.isStage ? 1.2 : 1.8;
+    v.fill.intensity = v.isStage ? 0.55 : 1;
+    v.fill.position.set(v.isStage ? 24 : 5, v.isStage ? 14 : 4, v.isStage ? -30 : -6);
+    if (v.isStage) configureStageDisplayShadows(v.r, v.key);
+    else configureDisplayShadows(v.r, v.key, new THREE.Box3().setFromObject(v.model));
     uiModule.fitArtCamera(true);
   };
   function openArtGallery() {
@@ -81,10 +107,12 @@ export function register({
     host.prepend(r.domElement);
     const sc = new THREE.Scene();
     sc.background = new THREE.Color(0xf3e4c2);
-    sc.add(new THREE.HemisphereLight(0xfff8e8, 0x65736a, 1.8));
+    const hemi = new THREE.HemisphereLight(0xfff8e8, 0x65736a, 1.8);
+    sc.add(hemi);
     const key = new THREE.DirectionalLight(0xffe8c6, 2.5);
     key.position.set(-4, 8, 6);
     sc.add(key);
+    sc.add(key.target);
     const fill = new THREE.DirectionalLight(0xbadbe9, 1);
     fill.position.set(5, 4, -6);
     sc.add(fill);
@@ -92,6 +120,10 @@ export function register({
       host,
       r,
       sc,
+      key,
+      hemi,
+      fill,
+      floor: null,
       cam: new THREE.PerspectiveCamera(35, 1, 0.05, 500),
       center: new THREE.Vector3(),
       model: null,
@@ -105,7 +137,8 @@ export function register({
   function closeArtGallery() {
     if (!artView) return;
     const v = artView;
-    worldModule.disposeGroup(v.model);
+    worldModule.disposeGroup(v.sc);
+    v.key.shadow.dispose();
     v.r.dispose();
     v.r.forceContextLoss();
     v.r.domElement.remove();
@@ -142,7 +175,7 @@ export function register({
     artDialog.setAttribute('aria-modal', 'true');
     artDialog.setAttribute('aria-labelledby', 'artHeading');
     artDialog.innerHTML =
-      '<div class="artPanel"><div class="artHeader"><strong id="artHeading">武道图鉴</strong><select id="artAsset" aria-label="选择查看的模型"></select><button id="artReset">重置视角</button><button id="artClose" aria-label="关闭美术图鉴">关闭 ×</button></div><div class="artBody"><div class="artViewport"><div class="artCaption">拖动旋转 · 滚轮缩放</div></div><aside class="artNotes"><div id="artType"></div><h3 id="artName"></h3><p id="artNote"></p></aside></div></div>';
+      '<div class="artPanel"><div class="artHeader"><strong id="artHeading">武道图鉴</strong><select id="artAsset" aria-label="选择查看的模型"></select><button id="artReset">重置视角</button><button id="artClose" aria-label="关闭美术图鉴">关闭 ×</button></div><div class="artBody"><div class="artViewport"><div class="artCaption">拖动旋转 · 滚轮缩放</div></div><aside class="artNotes"><div id="artType"></div><h3 id="artName"></h3><p id="artPose"></p><p id="artNote"></p></aside></div></div>';
     document.body.appendChild(artDialog);
     uiModule.assetSelect = document.getElementById('artAsset');
     for (const [kind, list] of [

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { configureStageDisplayShadows } from './display-lighting.js';
 export function register({
   art: artModule,
   characters: charactersModule,
@@ -754,16 +755,22 @@ export function register({
     const map = def.build(),
       sc = new THREE.Scene();
     sc.background = new THREE.Color(0xa7d5e4);
-    sc.add(map.group, new THREE.HemisphereLight(0xfff2dc, 0x66835c, 2));
-    const key = new THREE.DirectionalLight(0xffe4bc, 2.3);
+    sc.add(map.group, new THREE.HemisphereLight(0xfff8e8, 0x65736a, 1.2));
+    const key = new THREE.DirectionalLight(0xffe8c6, 2.5);
     key.position.set(-12, 24, 12);
     sc.add(key);
+    sc.add(key.target);
+    const fill = new THREE.DirectionalLight(0xbadbe9, 0.55);
+    fill.position.set(24, 14, -30);
+    sc.add(fill);
+    configureStageDisplayShadows(uiModule.portraitRenderer, key);
     const cam = new THREE.PerspectiveCamera(43, 2.5, 0.1, 350);
     cam.position.set(def.id === 'wild' ? 27 : 23, 18, def.id === 'wild' ? 30 : 27);
     cam.lookAt(0, 2, -6);
     uiModule.portraitRenderer.setSize(600, 240);
     uiModule.portraitRenderer.render(sc, cam);
     const url = uiModule.portraitRenderer.domElement.toDataURL();
+    key.shadow.dispose();
     worldModule.disposeGroup(map.group);
     renderModule.scene.background = saved.background;
     renderModule.scene.fog = saved.fog;

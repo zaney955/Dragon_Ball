@@ -198,7 +198,6 @@
     <div id="fightNotice"></div>
     <div id="pause">
       <div class="dialogCard">
-        <div class="dialogEyebrow">少年武道会</div>
         <h2 id="pauseTitle">已暂停</h2>
         <div class="btnrow">
           <button id="resumeBtn">继续对战</button><button id="pauseGuide">操作指南</button
@@ -210,7 +209,6 @@
 
     <div id="menuBackdrop"></div>
     <div id="home">
-      <div class="homeTag">少年篇</div>
       <div class="dragonLogo" aria-label="Dragon Ball">
         <span class="dragon">DRAGON</span
         ><span class="ball"
@@ -230,7 +228,7 @@
       </div>
       <div class="homeActions">
         <button id="homeStart" aria-label="本地游戏" class="homeButton">
-          <span>本地游戏</span><small>电脑对战 · 本地双人 · 自由练习</small></button
+          <span>本地游戏</span></button
         ><button id="homeOnline" aria-label="联机对战" class="homeButton secondary">
           <span>联机对战</span></button
         ><button id="homeExit" aria-label="退出游戏" class="homeButton secondary">
@@ -247,7 +245,7 @@
       </header>
       <div class="selectLayout">
         <aside class="heroPanel">
-          <div class="heroEyebrow" id="heroOwner">1P 武道家</div>
+          <div class="heroEyebrow" id="heroOwner">1P</div>
           <img id="heroImage" class="heroPortrait" alt="角色模型" />
           <h3 id="heroName"></h3>
           <p id="heroTitle" class="heroTitle"></p>
@@ -255,11 +253,11 @@
           <div id="heroUlt" class="heroUlt"></div>
           <div class="heroActions">
             <button id="heroGuide" class="smallBtn">角色玩法</button
-            ><button id="heroPractice" class="smallBtn">练习这个角色</button>
+            ><button id="heroPractice" class="smallBtn">角色练习</button>
           </div>
           <div class="heroStats">
-            <div>总生命<b id="heroHP"></b><small>两条生命连续消耗</small></div>
-            <div>移动速度<b id="heroSpeed"></b><small>100% 为标准速度</small></div>
+            <div>总生命<b id="heroHP"></b></div>
+            <div>速度<b id="heroSpeed"></b><small>标准速度 100%</small></div>
           </div>
         </aside>
         <div class="rosterColumn">
@@ -336,7 +334,6 @@
     </div>
     <div id="result">
       <div class="dialogCard">
-        <div class="dialogEyebrow">少年武道会</div>
         <h2 id="resultTitle">胜利</h2>
         <p id="resultSub"></p>
         <div class="btnrow">
@@ -396,7 +393,7 @@
         </div>
         <div class="guideContent">
           <div class="guideSelectors">
-            <label>查看角色<select id="guideCharacter" aria-label="查看角色"></select></label>
+            <label>角色<select id="guideCharacter" aria-label="查看角色"></select></label>
             <label
               >输入方式<select id="guideInput" aria-label="输入方式">
                 <option value="one">键盘 · 1P / 联机</option>
@@ -415,54 +412,50 @@
           <section id="guideCombos" role="tabpanel" aria-labelledby="combosTab" hidden>
             <h3>胜负与回合</h3>
             <p>
-              本地对战每回合180秒，三局两胜；联机为180秒单回合。生命耗尽判负，超时按剩余总生命比例判胜。自由练习不限时，不判胜负。
+              本地180秒、三局两胜；联机180秒、单回合。生命耗尽判负，超时按剩余总生命比例判胜。练习不限时，不判胜负。
             </p>
             <h3>生命与能量</h3>
             <p>
-              每人有两条生命，先消耗当前条，再消耗备用条，换条不会获得无敌。总生命用于变身条件、回血和超时判胜。每回合恢复两条生命。
+              每人两条生命，依次消耗，换条不提供无敌保护；每回合恢复。变身、回血和超时判胜均按总生命计算。
             </p>
             <p>
-              所有角色共用一条上限100的能量。按住聚气键，站在地面聚气；起势0.25秒后每秒恢复15能量，受击会打断。两项技能各自计算冷却，必杀消耗100能量。
+              能量上限100。地面按住聚气键，起势0.25秒后每秒恢复15能量，受击打断。两项技能独立冷却，必杀消耗100能量。
             </p>
-            <p>
-              技能成功发动时就扣费，起手被打断不退款；条件不满足不会扣费。变身与仙豆的次数只在成功后消耗。
-            </p>
+            <p>技能发动即扣费，被打断不返还；条件不满足不扣费。变身与仙豆只在成功后消耗次数。</p>
             <h3>防御与脱身</h3>
+            <p>按住格挡。下段需下蹲格挡，空中攻击需站立格挡。投技突破格挡，被投时按投技键拆投。</p>
             <p>
-              按住格挡键防御。下段攻击需下蹲格挡；下蹲格挡挡不住空中攻击。投技突破格挡，被投时及时按投技键拆投。
+              普通近战挡住不扣生命，气弹与必杀有穿透伤害。格挡消耗防御，松开格挡并停止攻击后恢复；耗尽会破防。
             </p>
+            <details class="helpDetails">
+              <summary>防御数值</summary>
+              <p>
+                防御上限100：轻击消耗12、重击22、技能至少12、必杀45。持续格挡0.6秒后每秒消耗6点，疲劳最低降至20点。受击后等待1.2秒，每秒恢复24点；破防持续0.9秒，防御归零，恢复到30点才能再次格挡。
+              </p>
+            </details>
             <p>
-              防御有100点：轻击消耗12，重击22，技能至少12，必杀45；普通近战挡住不扣生命，气弹与必杀仍有少量穿透伤害。持续举防0.6秒后每秒消耗6点，疲劳最低降至20点。松开格挡并停止攻击后恢复；受击后需等待1.2秒，每秒恢复24点。耗尽会破防0.9秒，防御归零，恢复到30点才能再次格挡。
-            </p>
-            <p>
-              闪身用于调整站位；残像用于受击时脱身，消耗15能量和一次机会，最多两次，每6.5秒恢复一次。受击时同时按格挡与闪身可爆气解围，消耗35能量，冷却5.5秒。
+              闪身调整站位。受击时：残像脱身消耗15能量，最多两次，每6.5秒恢复一次；格挡+闪身爆气解围，消耗35能量，冷却5.5秒。
             </p>
             <h3>连招与追击</h3>
             <p>
-              连续轻击或重击可以衔接连招，末段需完整收招。挑空或命中后可按爆冲追击，消耗12能量，最远10米。后退与爆冲同时按会连续后空翻三次，也消耗12能量。
+              连续点按轻击或重击衔接连招，末段需完整收招。命中后爆冲追击，12能量、最远10米；后退+爆冲连续后空翻三次，12能量。
             </p>
             <p>
-              连击伤害逐渐降低；连续六次受击或独立空中三次受击会触发击飞保护，避免无限连击。霸体表示不会被打断，仍然会受伤。
+              连击伤害递减。连续六次受击或独立空中三次受击触发击飞保护。霸体不会被打断，仍会受伤。
             </p>
             <h3>舞台规则</h3>
             <p>
-              仙豆争夺：开战25秒、60秒各刷新一次，场上最多一颗，12秒未拾取消失；拾取恢复总生命的15%，满血不会消耗。标准竞技不刷新仙豆。
+              仙豆争夺：25秒、60秒各刷新一颗，场上最多一颗，12秒后消失；恢复总生命15%，满血不消耗。标准竞技无仙豆。
             </p>
-            <p>
-              出界判负只适用于天下一武道会擂台，自由练习不判负。满月夜是悟空大猩猩的必要条件，晴日与暖夕不能变身。
-            </p>
+            <p>天下一武道会擂台出界判负，练习除外。悟空仅在满月夜可变大猩猩。</p>
             <h3>联机与观战</h3>
-            <p>
-              房间最多两名选手，双方准备后开战。进入联机后，无论你在左侧还是右侧，都使用键盘1P或触屏操作。观众不占选手席位。
-            </p>
-            <p>
-              联机中查看指南不会暂停对局；关闭指南后继续操作。返回房间会离开当前对局，双方重新准备后可以再战。
-            </p>
+            <p>每房两名选手，双方准备后开战；观众不占席位。双方均用键盘1P或触屏操作。</p>
+            <p>查看指南不暂停对局。返回房间后，双方重新准备可再战。</p>
           </section>
         </div>
       </div>
     </div>
-    <div id="loading">准备武道会…</div>
+    <div id="loading">加载中…</div>
 
     <script type="module" src="./src/main.js"></script>
   </body>

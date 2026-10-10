@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { applyDisplayPose } from '../art/display-poses.js';
+import { addDisplayFloor, configureDisplayShadows } from '../art/display-lighting.js';
 export function register({
-  animation: animationModule,
   audio: audioModule,
   characters: charactersModule,
   match: matchModule,
@@ -17,16 +18,26 @@ export function register({
     l.position.set(-3, 5, 7);
     sc.add(l);
     const b = def.buildBody();
-    b.root.rotation.y = -0.35;
+    applyDisplayPose(b, def.id, charactersModule);
+    b.root.rotation.y = -0.25;
     sc.add(b.root);
-    const h = 2.6 * b.root.scale.x;
-    const c = new THREE.PerspectiveCamera(33, 1, 0.1, 30);
-    c.position.set(0, h * 0.57, h * 1.9);
-    c.lookAt(0, h * 0.49, 0);
-    charactersModule.applyPose(b.parts, animationModule.IDLE_POSE, 1, true);
+    const bounds = new THREE.Box3().setFromObject(b.root),
+      size = bounds.getSize(new THREE.Vector3()),
+      center = bounds.getCenter(new THREE.Vector3()),
+      c = new THREE.PerspectiveCamera(33, 1, 0.05, 100);
+    // Fit posed hands and weapons as well as the body, with room for the floor shadow.
+    const distance =
+      (Math.max(size.y, size.x) / (2 * Math.tan(THREE.MathUtils.degToRad(33 / 2)))) * 1.18 +
+      size.z / 2;
+    c.position.set(center.x, center.y + distance * 0.06, center.z + distance);
+    c.lookAt(center);
+    addDisplayFloor(sc, bounds);
+    sc.add(l.target);
+    configureDisplayShadows(r, l, bounds);
     r.render(sc, c);
     const url = r.domElement.toDataURL();
-    worldModule.disposeGroup(b.root);
+    l.shadow.dispose();
+    worldModule.disposeGroup(sc);
     return url;
   };
   uiModule.buildMenu = function buildMenu() {

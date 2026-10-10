@@ -162,7 +162,7 @@ export function register({
         '</td></tr>';
     }
     html +=
-      '</table></div><details><summary>帧数与招式规则</summary><p>表中帧数为整数近似，悬停查看精确换算。优势按首个有效帧计算；晚命中会改变优势，以训练读数为准。特殊技的有效时间含段间间隔。</p><p>命中后最早 3 帧取消；格挡时非末段轻击只能接轻击，空挥需等收招。</p><p>技能费用和冷却见角色玩法，两项技能分别计冷却。霸体仍承伤；气功炮发动时额外扣除6%最大生命。</p></details>';
+      '</table></div><details><summary>帧数与招式规则</summary><p>帧数为整数近似，悬停查看精确值。优势按首个有效帧计算，晚命中会改变优势；特殊技有效时间含段间间隔。</p><p>命中后最早3帧取消；格挡时非末段轻击只能接轻击，空挥需等收招。</p></details>';
     trainingModule.table.innerHTML = html;
   };
   trainingModule.updateTrainingHUD = function updateTrainingHUD() {

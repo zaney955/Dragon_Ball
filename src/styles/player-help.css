@@ -19,11 +19,6 @@ button:disabled {
   align-items: flex-start;
   gap: 5px;
 }
-.homeButton small {
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0;
-}
 .homeHelp {
   background: transparent;
   color: var(--paper);
@@ -31,10 +26,6 @@ button:disabled {
   border-bottom: 1px solid var(--line);
   min-height: 40px;
   align-self: flex-start;
-}
-.homeSubtitle::after {
-  content: '十四位角色 · 少年篇对战';
-  letter-spacing: 1px;
 }
 .selectLayout {
   grid-template-columns: 280px minmax(0, 1fr);
@@ -186,10 +177,6 @@ button:disabled {
 .helpLead {
   color: var(--paper) !important;
   font-size: 16px !important;
-}
-.helpCaution {
-  padding-left: 12px;
-  border-left: 3px solid var(--gold);
 }
 .helpMoves {
   display: grid;

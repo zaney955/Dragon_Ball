@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import {
   CHARACTER_HELP,
   INPUT_LABELS,
@@ -11,7 +10,6 @@ import {
 } from './character-help.js';
 export function register({
   ai: aiModule,
-  animation: animationModule,
   characters: charactersModule,
   combat: combatModule,
   match: matchModule,
@@ -20,7 +18,7 @@ export function register({
   ui: uiModule,
   world: worldModule,
 }) {
-  let v1Portrait, v1Selection, v1ExtraHUD, v1ViewHUD, v1ProcessDrill, v2RemoveBase;
+  let v1Selection, v1ExtraHUD, v1ViewHUD, v1ProcessDrill, v2RemoveBase;
   const el = (id) => document.getElementById(id);
   const setText = (node, value) => {
     if (node.textContent !== value) node.textContent = value;
@@ -95,13 +93,13 @@ export function register({
     if (!goal || goal.success) return;
     goal.step++;
     goal.success = goal.step >= CHARACTER_HELP[goal.character].drill.length;
-    if (goal.success) matchModule.notify('角色练习完成 · 可以重试或自由练习', 1.2);
+    if (goal.success) matchModule.notify('角色练习完成', 1.2);
   }
   function updateMechanicPractice() {
     const goal = uiModule.v2Goal,
       f = matchModule.player;
     if (!goal || !f || f.def.id !== goal.character || matchModule.game.difficulty !== 'training') {
-      el('v2Goal').textContent = '按步骤练习当前角色；完成实际操作后才进入下一步。';
+      el('v2Goal').textContent = '点击开始，按步骤练习。';
       return;
     }
     const steps = CHARACTER_HELP[goal.character].drill;
@@ -134,13 +132,13 @@ export function register({
         : value;
     const defenseStep = steps[goal.step]?.[1];
     const warning = ['counter', 'dodgeCounter'].includes(defenseStep)
-      ? `\n对手将在${Math.ceil(Math.max(0, 1.5 - goal.time))}秒后轻击；提前少许发动反击技能。`
+      ? `\n对手${Math.ceil(Math.max(0, 1.5 - goal.time))}秒后轻击。`
       : '';
     const text = goal.success
-      ? `已完成 ${steps.length}/${steps.length} 步 · 可以重试或继续自由练习。`
-      : `第 ${goal.step + 1}/${steps.length} 步：${describe(steps[goal.step][0])}${warning}\n能量不足时按住${touch ? '聚气' : 'I'}；可查看操作指南。`;
+      ? `已完成 ${steps.length}/${steps.length} 步`
+      : `${goal.step + 1}/${steps.length}：${describe(steps[goal.step][0])}${warning}`;
     setText(el('v2Goal'), text);
-    setText(el('v2GoalStart'), goal.success ? '重试角色练习' : '重新开始角色练习');
+    setText(el('v2GoalStart'), goal.success ? '重试' : '重新开始');
   }
   uiModule.startMechanicPractice = function startMechanicPractice() {
     if (matchModule.game.difficulty !== 'training' || matchModule.game.online) return;
@@ -177,42 +175,6 @@ export function register({
     updateMechanicPractice();
   };
   return function initialize() {
-    v1Portrait = uiModule.portrait;
-    uiModule.portrait = function (def) {
-      if (!charactersModule.V2_NEW_DEFS.some((c) => c.id === def.id)) return v1Portrait(def);
-      const r = uiModule.portraitRenderer,
-        sc = new THREE.Scene();
-      sc.background = new THREE.Color(0xefe0be);
-      sc.add(new THREE.HemisphereLight(0xfff4da, 0x7a7968, 1.4));
-      const light = new THREE.DirectionalLight(0xffedcc, 2.2);
-      light.position.set(-3, 5, 7);
-      sc.add(light);
-      const b = def.buildBody();
-      b.root.rotation.y = -0.32;
-      charactersModule.applyPose(
-        b.parts,
-        animationModule.pz({
-          aR: [-0.3, 0, 0.1],
-          aL: [-0.3, 0, -0.1],
-        }),
-        0,
-        true,
-      );
-      if (b.parts.axe) b.parts.axe.rotation.z = Math.PI;
-      b.root.updateMatrixWorld(true);
-      const bounds = new THREE.Box3().setFromObject(b.root),
-        size = bounds.getSize(new THREE.Vector3()),
-        center = bounds.getCenter(new THREE.Vector3()),
-        c = new THREE.PerspectiveCamera(33, 1, 0.05, 40);
-      const dist = Math.max(size.y, size.x) * 1.85;
-      c.position.set(center.x, center.y, dist);
-      c.lookAt(center);
-      sc.add(b.root);
-      r.render(sc, c);
-      const url = r.domElement.toDataURL();
-      worldModule.disposeGroup(b.root);
-      return url;
-    };
     for (const c of charactersModule.CHARACTERS.slice(7)) {
       const op = document.createElement('option');
       op.value = 'character:' + charactersModule.CHARACTERS.indexOf(c);
@@ -251,20 +213,18 @@ export function register({
           .join('') +
         `<div><kbd>${k.ultimate}</kbd><span>${c.ultName}<small>100 能量</small></span></div>`;
       el('heroHP').textContent = c.hp * 2;
-      el('lightingHint').textContent =
-        c.id === 'goku'
-          ? `悟空大猩猩需要满月夜；当前${{ moon: '满月夜', day: '晴日', sunset: '暖夕' }[matchModule.game.lightPreset]}。`
-          : '满月夜会影响悟空的变身条件。';
+      el('lightingHint').textContent = c.id === 'goku' ? '大猩猩变身需满月夜' : '';
+      el('lightingHint').hidden = !el('lightingHint').textContent;
       el('heroPractice').hidden =
         !!matchModule.game.online || matchModule.game.menuPage === 'online';
       el('heroGuide').textContent = '角色玩法';
       el('selectionControls').textContent =
         k === INPUT_LABELS.touch
-          ? '触屏按钮控制；进入对战后显示对应招式'
+          ? ''
           : `${k.move} 移动 · ${k.light} / ${k.heavy} 轻重击 · 按住 ${k.block} 格挡`;
       el('pauseHint').textContent = matchMedia('(pointer: coarse), (max-width: 600px)').matches
-        ? '点按继续对战；切换窗口会自动暂停本地对局'
-        : 'P 继续 · 切换窗口自动暂停本地对局';
+        ? '切换窗口自动暂停'
+        : 'P 继续 · 切换窗口自动暂停';
     };
     v1ExtraHUD = uiModule.updateExtraHUD;
     v1ViewHUD = renderModule.updateViewHUD;
@@ -335,15 +295,22 @@ export function register({
       setText(
         el('specialState'),
         unavailable
-          ? `按住 ${matchMedia('(pointer: coarse), (max-width: 600px)').matches ? '聚气' : 'I 聚气'}，补充能量`
+          ? `按住 ${matchMedia('(pointer: coarse), (max-width: 600px)').matches ? '聚气' : 'I 聚气'}`
           : f.def.id === 'yamcha' && f.youth.wolfUntil > matchModule.game.simTime
             ? `命中窗口 · 再按${matchMedia('(pointer: coarse), (max-width: 600px)').matches ? '主技能' : ' R'}追加终掌`
             : '',
       );
       const touchStatus = el('touchStatus');
+      const statusGroups = new Map();
+      for (const action of rows) {
+        if (['就绪', '没有远程攻击'].includes(action.reason)) continue;
+        const names = statusGroups.get(action.reason) ?? [];
+        names.push(action === rows[3] ? '必杀' : action.name);
+        statusGroups.set(action.reason, names);
+      }
       setText(
         touchStatus,
-        `${rows[0].name}：${rows[0].reason} · ${rows[1].name}：${rows[1].reason} · ${rows[2].name}：${rows[2].reason} · 必杀：${rows[3].reason}`,
+        [...statusGroups].map(([reason, names]) => `${names.join('、')}：${reason}`).join(' · '),
       );
       for (const [fighter, id] of [
         [matchModule.player, 'p1'],
@@ -418,12 +385,12 @@ export function register({
     const goalBox = document.createElement('section');
     goalBox.className = 'mechanicPractice';
     goalBox.innerHTML =
-      '<h4>角色练习</h4><p id="v2Goal" role="status" aria-live="polite"></p><button id="v2GoalStart" class="smallBtn">开始角色练习</button><button id="v2GoalStop" class="smallBtn">结束角色练习</button>';
+      '<h4>角色练习</h4><p id="v2Goal" role="status" aria-live="polite"></p><button id="v2GoalStart" class="smallBtn">开始</button><button id="v2GoalStop" class="smallBtn">结束</button>';
     trainingModule.trainingPanel.insertBefore(goalBox, el('drillTools'));
     el('v2GoalStart').onclick = uiModule.startMechanicPractice;
     el('v2GoalStop').onclick = () => {
       uiModule.v2Goal = null;
-      el('v2GoalStart').textContent = '开始角色练习';
+      el('v2GoalStart').textContent = '开始';
       updateMechanicPractice();
     };
     v1ProcessDrill = trainingModule.processDrillEvent;

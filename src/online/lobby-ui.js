@@ -6,7 +6,7 @@ export function register({ app, characters, match, ui, world }) {
     panel.id = 'onlineLobby';
     panel.hidden = true;
     panel.innerHTML =
-      '<div class="onlineShell"><header><div><div class="onlineEyebrow">少年武道会</div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">选择房间，选好角色后准备。每房两名选手，双方准备后自动开战；对局中可加入观战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><button id="onlineRetry" hidden>重新连接</button><div id="onlineRooms"></div></div>';
+      '<div class="onlineShell"><header><div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">每房两人，双方准备后开战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><button id="onlineRetry" hidden>重新连接</button><div id="onlineRooms"></div></div>';
     document.body.append(panel);
     const info = document.createElement('section');
     info.id = 'onlineRoomInfo';
@@ -85,8 +85,8 @@ export function register({ app, characters, match, ui, world }) {
       info.hidden = false;
       el('backHome').textContent = '← 房间列表';
       el('onlineRoomTitle').textContent = `房间 ${room.id}`;
-      el('heroOwner').textContent = `你的角色 · ${self.seat + 1}P`;
-      el('modeNote').textContent = '联机双人 · 180 秒 · 单回合';
+      el('heroOwner').textContent = '你的角色';
+      el('modeNote').textContent = '180 秒 · 单回合';
       el('selectionSummary').textContent =
         `${characters.CHARACTERS[self.character].name} VS ${foe ? characters.CHARACTERS[foe.character].name : '等待玩家加入'} · ${world.MAPS[room.map].name}`;
       el('playerTabs').hidden = true;
@@ -123,12 +123,13 @@ export function register({ app, characters, match, ui, world }) {
       el('onlineReadyHint').textContent = room.match
         ? '双方已准备，正在连接'
         : !foe
-          ? '等待另一名玩家加入；你可以先准备'
+          ? '等待对手加入，可先准备'
           : self.ready
             ? foe.ready
               ? '双方已准备'
               : '等待对手准备'
-            : '选好角色与舞台后，点击准备对战';
+            : '';
+      el('onlineReadyHint').hidden = !el('onlineReadyHint').textContent;
       el('heroPractice').hidden = true;
     }
     el('homeOnline').onclick = () => {

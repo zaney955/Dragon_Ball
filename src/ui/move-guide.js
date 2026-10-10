@@ -25,7 +25,7 @@ export function register({ characters, combat, match, training, ui }) {
     return characters.CHARACTERS[Number(el('guideCharacter').value)] ?? characters.CHARACTERS[0];
   }
   function helpCard(key, title, meta, description) {
-    return `<article class="helpMove"><div class="helpMoveTitle"><kbd>${key}</kbd><h4>${title}</h4></div><p class="helpMeta">${meta}</p><p>${description}</p></article>`;
+    return `<article class="helpMove"><div class="helpMoveTitle"><kbd>${key}</kbd><h4>${title}</h4></div>${meta ? `<p class="helpMeta">${meta}</p>` : ''}<p>${description}</p></article>`;
   }
   ui.refreshCharacterGuide = function refreshCharacterGuide() {
     const c = guideDef(),
@@ -36,12 +36,12 @@ export function register({ characters, combat, match, training, ui }) {
     const flight = jumpAction(c.id);
     const remote =
       c.id === 'pilaf'
-        ? `按 ${k.remote} 发射当前武装；导弹10能量，喷火12能量。按 ${k.primary} 切换后仍需另按远程键发射；喷火需靠近，射程约2.5米。`
+        ? `按 ${k.remote} 发射，按 ${k.primary} 切换。导弹10能量、射程8米；喷火12能量、射程2.5米。`
         : r.range
-          ? `点按 ${k.remote} 发射${r.name}；每次${r.cost}能量，射程约${r.range}米。`
-          : '这个角色没有远程攻击，请用近战和专属技能。';
+          ? `点按发射；${r.cost}能量，射程约${r.range}米。`
+          : '无远程攻击。';
     el('characterGuide').innerHTML =
-      `<h3>${c.name}</h3><p class="helpLead">${h.summary}</p><p class="helpCaution">${inputCopy(h.caution, k)}</p><div class="helpMoves">${helpCard(k.remote, r.name === '无远程' ? '远程攻击：无' : c.id === 'pilaf' ? '导弹 / 喷火' : r.name, r.range ? '点按发射' : '使用近战与技能', remote)}${helpCard(k.jump, flight, flight === '跳跃' ? '点按跳跃' : '点按起跳，按住继续升高', flight === '跳跃' ? '跳跃躲避地面攻击，在空中也能轻击或重击。' : flight === '筋斗云' ? '悟空使用筋斗云升空；最多连续升空2秒，松开后下降。大猩猩形态不能使用筋斗云。' : '按住跳跃键短时舞空，最多连续2秒，松开后下降。')}${c.skills.map((s, i) => helpCard(i ? k.secondary : k.primary, s.name, skillCost(s), h.skills[i])).join('')}${helpCard(k.ultimate, c.ultName, '100 能量 · 点按发动', h.ultimate)}</div><div id="guideConditions"></div><details class="helpDetails"><summary>基础连招与操作组合</summary><p>轻击连段：连续按 ${k.light}，最多${c.combos.light.length}段。重击连段：连续按 ${k.heavy}，最多${c.combos.heavy.length}段。按键无需同时按，打空后需等待收招。</p><p>${k.forward} + ${k.heavy} 挑空；后退 + ${k.heavy} 下段；${k.throw} 投技与拆投。命中后可以用 ${k.pursuit} 追击。</p></details><button id="guidePractice" class="smallBtn">练习${c.name}</button>`;
+      `<h3>${c.name}</h3><p class="helpLead">${h.summary}</p><div class="helpMoves">${helpCard(k.remote, r.name === '无远程' ? '远程攻击' : c.id === 'pilaf' ? '导弹 / 喷火' : r.name, '', remote)}${helpCard(k.jump, flight, '', flight === '跳跃' ? '点按跳跃，可躲避地面攻击；空中可轻击、重击。' : flight === '筋斗云' ? '点按起跳，按住升高，最多2秒；松开下降。大猩猩形态不可用。' : '点按起跳，按住升高，最多2秒；松开下降。')}${c.skills.map((s, i) => helpCard(i ? k.secondary : k.primary, s.name, skillCost(s), inputCopy(h.skills[i], k))).join('')}${helpCard(k.ultimate, c.ultName, '100 能量', h.ultimate)}</div><div id="guideConditions"></div><details class="helpDetails"><summary>连招与组合</summary><p>连续点按 ${k.light}：最多${c.combos.light.length}段轻击；${k.heavy}：最多${c.combos.heavy.length}段重击。打空需等收招。</p><p>${k.forward} + ${k.heavy} 挑空；后退 + ${k.heavy} 下段；${k.throw} 投技与拆投。命中后可按 ${k.pursuit} 追击。</p></details><button id="guidePractice" class="smallBtn">角色练习</button>`;
     el('guidePractice').hidden = match.game.online || match.game.spectating;
     el('guidePractice').onclick = () => {
       ui.closeGuide(false);
@@ -49,10 +49,10 @@ export function register({ characters, combat, match, training, ui }) {
     };
     ui.updateGuideConditions();
     const rows = [
-      ['移动', k.move, '按住方向键或按钮移动'],
+      ['移动', k.move, '按住移动'],
       ['轻击 / 重击', `${k.light} / ${k.heavy}`, '连续点按衔接连段；打空需等收招'],
       ['格挡', k.block, '按住；下蹲 + 格挡防下段'],
-      ['聚气', k.charge, '按住，在地面站定恢复能量，受击打断'],
+      ['聚气', k.charge, '地面按住恢复能量，受击打断'],
       ['远程攻击', k.remote, remote],
       ['主技能', k.primary, c.skills[0].name],
       ['第二技能', k.secondary, c.skills[1].name],
@@ -60,7 +60,7 @@ export function register({ characters, combat, match, training, ui }) {
       [flight, k.jump, flight === '跳跃' ? '点按跳跃' : '点按起跳，按住升高，最多2秒'],
     ];
     el('guideKeys').innerHTML =
-      `<h3>${c.name} · 基础操作</h3><p class="keyLegend">+ 表示同时按，→ 表示依次按。${el('guideInput').value === 'touch' ? '主技能与第二技能使用各自的按钮，无需组合后退键。' : el('guideInput').value === 'two' ? '小键盘按键用于本地双人2P，键盘上排数字键无效。' : '联机双方都使用这一套按键。'}</p><div class="tableScroll"><table class="keyTable"><thead><tr><th>动作</th><th>输入</th><th>怎么用</th></tr></thead><tbody>${rows.map(([name, key, note]) => `<tr><td>${name}</td><td><kbd>${key}</kbd></td><td>${note}</td></tr>`).join('')}</tbody></table></div><details class="helpDetails"><summary>进阶操作</summary><table><tbody>${[
+      `<h3>${c.name}</h3><p class="keyLegend">+ 同时按，→ 依次按。${el('guideInput').value === 'touch' ? '第二技能有独立按钮。' : el('guideInput').value === 'two' ? '请用小键盘，上排数字键无效。' : '联机双方均用此按键。'}</p><div class="tableScroll"><table class="keyTable"><thead><tr><th>动作</th><th>输入</th><th>用法</th></tr></thead><tbody>${rows.map(([name, key, note]) => `<tr><td>${name}</td><td><kbd>${key}</kbd></td><td>${note}</td></tr>`).join('')}</tbody></table></div><details class="helpDetails"><summary>进阶操作</summary><table><tbody>${[
         ['下蹲', k.crouch, '按住，避开高位攻击'],
         ['挑空', `${k.forward} + ${k.heavy}`, '命中后可爆冲追击'],
         ['下段攻击', `后退 + ${k.heavy}`, '对手需下蹲格挡'],
@@ -77,7 +77,7 @@ export function register({ characters, combat, match, training, ui }) {
         )
         .join(
           '',
-        )}</tbody></table></details><p class="helpMeta">${el('guideInput').value === 'touch' ? '本地暂停与关闭指南使用界面按钮；练习工具内可重置位置与资源、查看判定。' : '本地暂停：P；关闭指南：Esc。自由练习重置：T，判定显示：B。'}</p>`;
+        )}</tbody></table></details>${el('guideInput').value === 'touch' ? '' : '<p class="helpMeta">P 暂停 · Esc 关闭指南 · T 重置练习 · B 显示判定</p>'}`;
     training.refreshMoveTable();
   };
   ui.updateGuideConditions = function updateGuideConditions() {
@@ -143,11 +143,12 @@ export function register({ characters, combat, match, training, ui }) {
     if (match.game.screen === 'fight' && !match.game.over) match.setPaused(true);
     el('guideContext').textContent = match.game.online
       ? match.game.spectating
-        ? '正在观战 · 查看指南不会暂停对局'
-        : '联机对局仍在进行 · 关闭指南后继续操作'
+        ? '观战不会暂停'
+        : '联机对局不会暂停'
       : match.game.screen === 'fight'
-        ? '对局已暂停 · 关闭指南后恢复原状态'
-        : '选择角色和输入方式，查看对应操作';
+        ? '对局已暂停'
+        : '';
+    el('guideContext').hidden = !el('guideContext').textContent;
     selectGuideTab(id);
     el('moveGuide').classList.add('show');
     for (const name of ['home', 'menu', 'hud', 'pause', 'trainingPanel', 'result'])

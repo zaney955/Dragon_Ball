@@ -68,6 +68,7 @@ test('all fourteen gallery models and three playable stages survive cleanup', as
   await page.locator('#homeStart').click();
   await page.locator('.artOpen').click();
   await expect(page.locator('#artGallery')).toHaveClass(/show/);
+  const poses = new Set();
   for (let character = 0; character < 14; character++) {
     await page.locator('#artAsset').selectOption('character:' + character);
     const geometry = await page.evaluate(() => {
@@ -79,17 +80,65 @@ test('all fourteen gallery models and three playable stages survive cleanup', as
           vertices += node.geometry.attributes.position?.count || 0;
         }
       });
-      return { meshes, vertices };
+      const v = window.__db.artView;
+      const floorCount = v.sc.children.filter(
+        (node) => node.name === 'display-shadow-floor',
+      ).length;
+      return {
+        meshes,
+        vertices,
+        pose: v.model.userData.displayPose,
+        finite: [...v.model.position.toArray(), ...v.center.toArray(), v.distance].every(
+          Number.isFinite,
+        ),
+        shadows:
+          v.r.shadowMap.enabled && v.key.castShadow && !!v.key.shadow.map && v.floor.receiveShadow,
+        floorCount,
+      };
     });
     expect(geometry.meshes).toBeGreaterThan(0);
     expect(geometry.vertices).toBeGreaterThan(0);
+    expect(geometry.finite).toBe(true);
+    expect(geometry.shadows).toBe(true);
+    expect(geometry.floorCount).toBe(1);
+    poses.add(geometry.pose);
+    await expect(page.locator('#artPose')).toHaveText(geometry.pose);
     await expect(page.locator('#artName')).not.toBeEmpty();
   }
+  expect(poses.size).toBe(14);
   for (let stage = 0; stage < 3; stage++) {
     await page.locator('#artAsset').selectOption('stage:' + stage);
     expect(await page.evaluate(() => window.__db.artView.model.children.length)).toBeGreaterThan(0);
     await expect(page.locator('#artType')).toHaveText('对战舞台');
+    await expect(page.locator('#artPose')).toBeEmpty();
+    expect(await page.evaluate(() => window.__db.artView.floor)).toBeNull();
+    const lighting = await page.evaluate(() => {
+      const v = window.__db.artView;
+      let casters = 0,
+        receivers = 0;
+      v.model.traverse((node) => {
+        if (node.isMesh && node.castShadow) casters++;
+        if (node.isMesh && node.receiveShadow) receivers++;
+      });
+      return {
+        enabled: v.r.shadowMap.enabled && v.key.castShadow && !!v.key.shadow.map,
+        casters,
+        receivers,
+        focused: v.key.shadow.camera.right - v.key.shadow.camera.left < 100,
+        fill: v.fill.intensity > 0 && v.hemi.intensity > 0,
+        mapWidth: v.key.shadow.map.width,
+        requestedWidth: v.key.shadow.mapSize.x,
+      };
+    });
+    expect(lighting.enabled).toBe(true);
+    expect(lighting.focused).toBe(true);
+    expect(lighting.fill).toBe(true);
+    expect(lighting.mapWidth).toBe(lighting.requestedWidth);
+    expect(lighting.casters).toBeGreaterThan(0);
+    expect(lighting.receivers).toBeGreaterThan(0);
   }
+  await page.locator('#artAsset').selectOption('character:0');
+  expect(await page.evaluate(() => window.__db.artView.key.shadow.map.width)).toBe(1024);
   await page.locator('#artClose').click();
   await expect(page.locator('#artGallery')).not.toHaveClass(/show/);
   for (let stage = 0; stage < 3; stage++) {

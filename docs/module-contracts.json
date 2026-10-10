@@ -454,10 +454,8 @@
       "ui.portraitRenderer"
     ],
     "requires": [
-      "animation.IDLE_POSE",
       "audio.initAudio",
       "characters.CHARACTERS",
-      "characters.applyPose",
       "match.game",
       "match.hex",
       "match.previewMap",
@@ -1440,11 +1438,9 @@
       "ui.portraitRenderer"
     ],
     "requires": [
-      "animation.IDLE_POSE",
       "art.ART_PROFILES",
       "art.stageThumbnail",
       "characters.CHARACTERS",
-      "characters.applyPose",
       "match.game",
       "render.renderer",
       "ui.assetSelect",
@@ -1748,7 +1744,6 @@
       "combat.removeAbility",
       "render.updateViewHUD",
       "training.processDrillEvent",
-      "ui.portrait",
       "ui.specialAvailability",
       "ui.startMechanicPractice",
       "ui.updateExtraHUD",
@@ -1758,10 +1753,7 @@
     "requires": [
       "ai.V2_TACTICS",
       "ai.aiThink",
-      "animation.pz",
       "characters.CHARACTERS",
-      "characters.V2_NEW_DEFS",
-      "characters.applyPose",
       "combat.combatIntersects",
       "combat.combatPose",
       "combat.emitCombatEvent",
@@ -1787,8 +1779,6 @@
       "ui.assetSelect",
       "ui.controlledFighter",
       "ui.fighterStatus",
-      "ui.portrait",
-      "ui.portraitRenderer",
       "ui.specialAvailability",
       "ui.startCharacterPractice",
       "ui.startMechanicPractice",
@@ -1796,8 +1786,7 @@
       "ui.updateGuideConditions",
       "ui.updateSelection",
       "ui.v2Goal",
-      "world.daylight",
-      "world.disposeGroup"
+      "world.daylight"
     ]
   },
   {
