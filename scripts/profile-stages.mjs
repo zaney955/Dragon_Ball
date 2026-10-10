@@ -20,10 +20,13 @@ const destructionStress = async () => {
       d.damageStageObject(targets[i / 3], { dmg: 200 });
       damage.push(performance.now() - before);
     }
-    d.updateEffects(1 / 60);
-    d.map.update(1 / 60);
-    d.updateFightCamera(1 / 60, true);
-    d.renderGameViews();
+    // Live viewport pages already run the normal game loop once per frame.
+    if (window.profileRAF) {
+      d.updateEffects(1 / 60);
+      d.map.update(1 / 60);
+      d.updateFightCamera(1 / 60, true);
+      d.renderGameViews();
+    }
     maxCalls = Math.max(maxCalls, d.renderer.info.render.calls);
   }
   frames.sort((a, b) => a - b);
@@ -40,6 +43,7 @@ const destructionStress = async () => {
 };
 
 const label = process.argv[2] || 'current';
+const mobileOnly = process.argv.includes('--mobile-only');
 const output = `performance/maps/${label}`;
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
@@ -61,6 +65,7 @@ await page.goto(process.env.DB_PREVIEW_URL || 'http://127.0.0.1:5173/?test=1');
 await page.waitForFunction(() => window.__db?.artStageBuilders?.kami, null, { polling: 100 });
 const results = [];
 for (const [index, id] of ['budokai', 'wild', 'kame', 'kami'].entries()) {
+  if (mobileOnly) break;
   const stats = await page.evaluate(async (index) => {
     const d = window.__db;
     Object.assign(d.game, {
@@ -186,6 +191,7 @@ for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
 ]) {
+  if (mobileOnly && viewport.width >= 500) continue;
   const fight = await browser.newPage({
     viewport,
     deviceScaleFactor: viewport.width < 500 ? 2 : 1,
