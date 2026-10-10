@@ -8,13 +8,6 @@ export default defineConfig({
   use: {
     ...base.use,
     baseURL: process.env.ONLINE_BASE_URL || 'http://127.0.0.1:4187',
-    launchOptions: {
-      ...base.use.launchOptions,
-      args:
-        process.platform === 'darwin'
-          ? ['--enable-webgl', '--use-angle=metal']
-          : base.use.launchOptions.args,
-    },
   },
   webServer: process.env.ONLINE_BASE_URL
     ? undefined

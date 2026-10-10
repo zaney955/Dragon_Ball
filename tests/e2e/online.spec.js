@@ -3,6 +3,15 @@ import { spectatorFixture } from '../fixtures/spectator.js';
 
 test.skip(!process.env.ONLINE_TEST, 'Run npm run test:online for the multiplayer runtime.');
 
+async function pauseClock(page) {
+  // Freeze Date before pausing so a slow GPU cannot overtake the pause timestamp
+  // between two protocol calls. Restore normal Date progression while paused.
+  const time = Date.now();
+  await page.clock.setFixedTime(time);
+  await page.clock.pauseAt(time);
+  await page.clock.setSystemTime(time);
+}
+
 async function lobby(page) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
@@ -158,6 +167,8 @@ for (const mode of ['direct', 'relay'])
       await expect(host.locator('#onlineRoomTitle')).toHaveText('房间 1');
       await expect.poll(() => host.evaluate(() => window.__db.online.room.players.length)).toBe(2);
       for (const page of [host, guest]) {
+        await expect(page.locator('#onlineRoomInfo')).toBeVisible();
+        await expect(page.locator('#startBtn')).toBeVisible();
         const boxes = await Promise.all([
           page.locator('#onlineRoomInfo').boundingBox(),
           page.locator('#startBtn').boundingBox(),
@@ -234,9 +245,18 @@ for (const mode of ['direct', 'relay'])
         null,
         { timeout: 20000 },
       );
+      const guestStart = await guest.evaluate(() => window.__db.enemy.pos.toArray());
       await guest.keyboard.down('KeyW');
-      await guest.waitForTimeout(500);
-      await guest.keyboard.up('KeyW');
+      try {
+        await guest.waitForFunction(
+          (start) =>
+            Math.hypot(window.__db.enemy.pos.x - start[0], window.__db.enemy.pos.z - start[2]) >= 2,
+          guestStart,
+          { timeout: 20000 },
+        );
+      } finally {
+        await guest.keyboard.up('KeyW');
+      }
       await host.waitForFunction(() => window.__db.enemy.vel.length() < 0.02, null, {
         timeout: 20000,
       });
@@ -253,8 +273,15 @@ for (const mode of ['direct', 'relay'])
       );
       expect(Math.hypot(pos[0][0] - pos[1][0], pos[0][1] - pos[1][1])).toBeLessThan(0.5);
       await host.keyboard.down('KeyW');
-      await host.waitForTimeout(500);
-      await host.keyboard.up('KeyW');
+      try {
+        await host.waitForFunction(
+          () => window.__db.player.pos.distanceTo(window.__db.enemy.pos) <= 1.2,
+          null,
+          { timeout: 20000 },
+        );
+      } finally {
+        await host.keyboard.up('KeyW');
+      }
       for (let i = 0; i < 8; i++) {
         await guest.keyboard.press('KeyJ');
         await host.keyboard.press('KeyJ');
@@ -344,6 +371,9 @@ test('guest movement responds locally while authoritative frames are delayed', a
       await page.addInitScript(() => {
         window.RTCPeerConnection = undefined;
       });
+    // Advance real game callbacks at 60 Hz during the short measurement windows.
+    // SwiftShader can take longer than 50 ms to draw one frame on a CI runner.
+    await guest.clock.install();
     await Promise.all([lobby(host), lobby(guest)]);
     await host.locator('[data-room="2"]').click();
     await expect(guest.locator('[data-room="2"]')).toHaveText('加入房间');
@@ -353,6 +383,7 @@ test('guest movement responds locally while authoritative frames are delayed', a
     await host.locator('#startBtn').click();
     await guest.locator('#startBtn').click();
     await guest.waitForFunction(() => window.__db.online.active && window.__db.game.ready <= 0);
+    await pauseClock(guest);
     await guest.evaluate(() => {
       const { online, enemy } = window.__db;
       const receive = online.transport.onPacket;
@@ -369,7 +400,7 @@ test('guest movement responds locally while authoritative frames are delayed', a
       window.__db.online.frame();
       return window.__db.online.transport.stats.relayMessages > window.__inputBefore;
     });
-    await guest.waitForTimeout(50);
+    await guest.clock.runFor(50);
     const localDistance = await guest.evaluate(() => {
       const { enemy } = window.__db;
       return Math.hypot(
@@ -381,11 +412,13 @@ test('guest movement responds locally while authoritative frames are delayed', a
     expect(immediateInput).toBe(true);
     expect(localDistance).toBeGreaterThan(0.02);
     await guest.keyboard.up('KeyW');
+    await guest.clock.resume();
     await guest.waitForTimeout(700);
     expect(await guest.evaluate(() => window.__db.online.active)).toBe(true);
     await guest.waitForFunction(() => window.__db.enemy.state === 'idle');
+    await pauseClock(guest);
     await guest.keyboard.press('KeyJ');
-    await guest.waitForTimeout(40);
+    await guest.clock.runFor(40);
     const attackPreview = await guest.evaluate(() => ({
       displayed: window.__db.enemy.onlineVisualAction?.type === 'light',
       authoritativeAttack: !!window.__db.enemy.attack,
@@ -393,6 +426,7 @@ test('guest movement responds locally while authoritative frames are delayed', a
     console.log(JSON.stringify({ attackPreview }));
     expect(attackPreview.displayed).toBe(true);
     expect(attackPreview.authoritativeAttack).toBe(false);
+    await guest.clock.resume();
     await guest.waitForTimeout(500);
     expect(await guest.evaluate(() => window.__db.online.active)).toBe(true);
   } finally {
