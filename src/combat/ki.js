@@ -434,7 +434,7 @@ export function register({
       blastRange: 10,
       blastSpeed: 18,
     });
-    kiBlasts = [];
+    kiBlasts = combatModule.kiBlasts = [];
     combatModule.Fighter.prototype.startKiBlast = function (held = 0) {
       if (
         this.hp <= 0 ||

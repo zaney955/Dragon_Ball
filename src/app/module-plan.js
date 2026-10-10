@@ -1,4 +1,5 @@
 import { register as registerMusic } from '../audio/music.js';
+import { register as registerBattleState } from '../combat/battle-state.js';
 import { register as registerOnlineSession } from '../online/session.js';
 import { register as registerOnlineLobby } from '../online/lobby-ui.js';
 import { register as registerVictory } from '../match/victory.js';
@@ -67,6 +68,8 @@ import { register as registerCombatV2OriginalRules } from '../combat/v2-original
 import { register as registerUiV2Presentation } from '../ui/v2-presentation.js';
 import { register as registerAnimationV2OriginalPolish } from '../animation/v2-original-polish.js';
 import { register as registerArtCharacterReconstruction } from '../art/character-reconstruction.js';
+import { register as registerBudokaiStage } from '../world/budokai.js';
+import { register as registerKamiStage } from '../world/kami.js';
 import { register as registerArtStageReconstruction } from '../art/stage-reconstruction.js';
 import { register as registerArtResources } from '../art/resources.js';
 import { register as registerCharactersFrameData } from '../characters/frame-data.js';
@@ -328,6 +331,8 @@ export const modulePlan = [
     id: 'art/character-reconstruction',
     register: registerArtCharacterReconstruction,
   },
+  { id: 'world/kami', register: registerKamiStage },
+  { id: 'world/budokai', register: registerBudokaiStage },
   {
     id: 'art/stage-reconstruction',
     register: registerArtStageReconstruction,
@@ -355,6 +360,7 @@ export const modulePlan = [
     id: 'testing/v2-regression',
     test: true,
   },
+  { id: 'combat/battle-state', register: registerBattleState },
   { id: 'online/session', register: registerOnlineSession },
   { id: 'online/lobby-ui', register: registerOnlineLobby },
 ];

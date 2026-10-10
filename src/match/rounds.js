@@ -1,4 +1,5 @@
 export function register({
+  app: appModule,
   combat: combatModule,
   input: inputModule,
   match: matchModule,
@@ -18,6 +19,7 @@ export function register({
       };
     matchModule.combatDiagnostics.rounds.push({
       characters: [matchModule.player.def.id, matchModule.enemy.def.id],
+      review: m.review ? structuredClone(m.review.sides) : null,
       rule: matchModule.game.matchRule,
       comeback: pickups.some(
         (p) =>
@@ -42,9 +44,10 @@ export function register({
     const rounds = matchModule.combatDiagnostics.rounds,
       n = rounds.length;
     return {
-      rounds: rounds.map((x) => ({
-        ...x,
-      })),
+      schema: 2,
+      online: appModule.online?.exportDiagnostics?.() ?? null,
+      note: '逆转仅表示落后时吃过仙豆的最终获胜者，不证明仙豆导致获胜；AI胜率不代表真人平衡。',
+      rounds: structuredClone(rounds),
       summary: {
         rounds: n,
         averageDuration: n ? rounds.reduce((v, x) => v + x.duration, 0) / n : 0,
@@ -95,10 +98,19 @@ export function register({
     return Math.abs(d) < 1e-6 ? 'draw' : d > 0 ? 'player' : 'enemy';
   };
   return function initialize() {
+    document.getElementById('exportCombatStats').onclick = () => {
+      const blob = new Blob([JSON.stringify(matchModule.debugStats(), null, 2)], {
+        type: 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = '武道会-对局记录.json';
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
     matchModule.combatDiagnostics = {
-      enabled:
-        new URLSearchParams(location.search).has('test') ||
-        new URLSearchParams(location.search).has('debug'),
+      enabled: true,
       rounds: [],
     };
   };

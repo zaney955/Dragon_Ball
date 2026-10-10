@@ -313,7 +313,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         p.comboIdx = p.def.combos.heavy.length - 2;
         p.startAttack('heavy');
         p.hitResult = 'hit';
-        p.stateTimer = p.attack.hitT + 0.05;
+        p.stateTimer = p.attack.hitT + 0.12;
         combat.launchKnockback(e, p);
         window.__db.tick({ actions: ['pursuit'] });
         assert(p.dashKind === 'pursuit' && !p.attack && p.ki === 88);

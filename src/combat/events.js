@@ -1,5 +1,7 @@
+import { observeCombatEvent } from '../match/combat-review.js';
 import * as THREE from 'three';
 export function register({
+  app: appModule,
   audio: audioModule,
   characters: charactersModule,
   combat: combatModule,
@@ -42,6 +44,18 @@ export function register({
       move: a?.name ?? a?.id,
       serial: a?.serial,
       chainType: a?.chainType,
+      inputAction:
+        a?.chainType ??
+        (['launcher', 'sweep'].includes(a?.id)
+          ? 'heavy'
+          : a?.isUlt
+            ? 'ult'
+            : a?.isThrow
+              ? 'throw'
+              : a?.isKiBlast
+                ? 'blast'
+                : 'special'),
+      chainIndex: a?.chainIndex,
       motion: a?.motion,
       cost: a?.kiCost ?? 0,
       ...detail,
@@ -54,6 +68,12 @@ export function register({
       f.lastCombatEvent = e;
       if (type === 'contact' || type === 'parry') f.lastContactTime = matchModule.game.simTime;
     }
+    if (
+      matchModule.game.roundMetrics?.review &&
+      (!matchModule.game.manualTest || matchModule.game.collectTestStats)
+    )
+      observeCombatEvent(matchModule.game.roundMetrics.review, e);
+    appModule.online?.observeCombatEvent?.(e);
     trainingModule.processDrillEvent(e);
     if (!matchModule.game.manualTest) {
       const pos = (foe ?? f)?.pos.clone().add(new THREE.Vector3(0, (foe ?? f).baseScale * 1.23, 0));

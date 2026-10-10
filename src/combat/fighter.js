@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { superArmorActive } from './attack-rules.js';
 import {
   DEFENSE_RULES,
   canBlock,
@@ -166,6 +167,8 @@ export function register({
         return new THREE.Vector3(Math.sin(this.facingAngle), 0, Math.cos(this.facingAngle));
       }
       enqueue(type, input = {}) {
+        if (['light', 'heavy'].includes(type))
+          this.queue = this.queue.filter((q) => !['light', 'heavy'].includes(q.type));
         if (this.queue.length >= 3) this.queue.shift();
         this.queue.push({
           type,
@@ -173,7 +176,9 @@ export function register({
             up: !!input.up,
             down: !!input.down,
           },
-          life: 0.34,
+          life: ['evasion', 'throw'].includes(type) ? 0.18 : 0.34,
+          enteredAt: matchModule.game.simTime,
+          attackSerial: this.attack?.serial ?? null,
         });
         this.buffered = type;
       }
@@ -236,6 +241,8 @@ export function register({
           if (this.queue[i].life <= 0) this.queue.splice(i, 1);
         this.captureInput(input);
         this.lastInput = input;
+        if (input.block && this.attack)
+          this.queue = this.queue.filter((q) => !['light', 'heavy'].includes(q.type));
         this.parryCooldown = Math.max(0, (this.parryCooldown ?? 0) - dt);
         this.pursuitCooldown = Math.max(0, (this.pursuitCooldown ?? 0) - dt);
         this.kiWarning = Math.max(0, (this.kiWarning ?? 0) - dt);
@@ -735,6 +742,16 @@ export function register({
       updateAttack(dt, foe, input) {
         const a = this.attack;
         if (!a) return;
+        if (
+          this.def.id === 'tien' &&
+          a.chainType === 'heavy' &&
+          a.chainIndex >= 3 &&
+          foe.pos.y > 0.15 &&
+          this.stateTimer < a.hitT
+        ) {
+          const body = combatModule.sampleCombatRig(foe).hurt[1];
+          a.targetY = (body.a.y + body.b.y) * 0.5;
+        }
         if (a.pursuitFollow && foe.launchFlight && this.stateTimer <= a.hitT + a.active) {
           const body = combatModule.sampleCombatRig(foe).hurt[1];
           const delta = body.a.clone().add(body.b).multiplyScalar(0.5).sub(this.pos).setY(0);
@@ -796,8 +813,18 @@ export function register({
           this.stateTimer > a.hitT + a.active + matchModule.STEP
         ) {
           a.whiffFired = true;
+          a.resolvedAt = matchModule.game.simTime;
           combatModule.emitCombatEvent('whiff', this, foe, a, {
             recoveryRemaining: Math.max(0, a.dur - this.stateTimer),
+            punishOpportunity:
+              a.chainType === 'heavy' &&
+              foe &&
+              ['idle', 'walk', 'block', 'crouch'].includes(foe.state) &&
+              foe.pos.y < 0.1 &&
+              this.pos.y < 0.1 &&
+              this.invulnerable <= 0 &&
+              foe.pos.distanceTo(this.pos) <= (foe.def.combos.light[0].range ?? 1.5) &&
+              a.dur - this.stateTimer >= foe.def.combos.light[0].hitT + 0.15,
           });
         }
         if (a.isUlt && a.shape === 'wolf' && this.stateTimer < a.hitT + a.active) {
@@ -823,10 +850,16 @@ export function register({
           windowStart =
             result === 'whiff'
               ? a.hitT + a.active + a.recovery * 0.55
-              : a.hitT + (result === 'block' ? a.active : 0.045);
+              : a.hitT +
+                (result === 'block'
+                  ? a.active + (a.blockCancelDelay ?? 0)
+                  : (a.confirmWindow ?? 0.045));
         if (!a.isUlt && this.stateTimer + 1e-9 >= windowStart) {
           const q = this.queue.find(
-            (q) => rules.includes(q.type) && combatModule.legalCancel(this, a, q),
+            (q) =>
+              rules.includes(q.type) &&
+              (result === 'hit' || !a.chainType || q.enteredAt >= (a.resolvedAt ?? Infinity)) &&
+              combatModule.legalCancel(this, a, q),
           );
           if (q) {
             if (
@@ -870,8 +903,13 @@ export function register({
           this.attack = null;
           this.state = 'idle';
           this.stateTimer = 0;
-          if (a.chainType && !a.terminal && !['launcher', 'sweep'].includes(a.id)) {
-            this.comboTimer = 0.4;
+          if (
+            result === 'hit' &&
+            a.chainType &&
+            !a.terminal &&
+            !['launcher', 'sweep'].includes(a.id)
+          ) {
+            this.comboTimer = a.linkWindow ?? 0.3;
           } else {
             this.comboTimer = 0;
             this.comboType = null;
@@ -976,7 +1014,7 @@ export function register({
         if (dir.lengthSq() < 0.01) dir.copy(this.forward()).negate();
         dir.normalize();
         this.vel.copy(dir).multiplyScalar(7);
-        if (!foe.attack?.superArmor) {
+        if (!superArmorActive(foe)) {
           foe.vel.copy(dir).multiplyScalar(-7);
           foe.attack = null;
           foe.clearQueue();
@@ -990,6 +1028,7 @@ export function register({
           1.5,
         );
         audioModule.combatFeedback('breaker', this.pos, 0.4);
+        combatModule.emitCombatEvent('breaker', this, foe, null, { cost: 35 });
         matchModule.notify('爆气解围', 0.7);
       }
       takeHit(attacker, a) {
@@ -1003,7 +1042,7 @@ export function register({
           if (!matchModule.game.manualTest && this === matchModule.player)
             matchModule.notify('聚气被打断', 0.5);
         }
-        if (a.isThrow && !this.attack?.superArmor) {
+        if (a.isThrow && !superArmorActive(this)) {
           if (
             this.pos.y > 0.2 ||
             ['hit', 'knockdown', 'grabbed', 'guardbreak'].includes(this.state)
@@ -1044,7 +1083,7 @@ export function register({
         if (perfect) this.parryCooldown = 0.65;
         if (perfect) {
           attacker.hitResult = 'parried';
-          if (!attacker.attack?.superArmor) {
+          if (!superArmorActive(attacker)) {
             attacker.attack = null;
             attacker.clearQueue();
             attacker.state = 'hit';
@@ -1069,7 +1108,7 @@ export function register({
         const recovered = !['hit', 'knockdown', 'guardbreak', 'grabbed'].includes(this.state);
         this.armorTimer = this.stateTimer;
         const oldAttack = this.attack,
-          superArmored = !!oldAttack?.superArmor && !blocking,
+          superArmored = superArmorActive(this) && !blocking,
           counter =
             (!superArmored && !!oldAttack && this.stateTimer < oldAttack.hitT) ||
             this.state === 'charge',
@@ -1101,6 +1140,8 @@ export function register({
         )
           matchModule.game.roundMetrics.damage[attacker === matchModule.player ? 0 : 1] +=
             hpBefore - this.hp;
+        const defenderKiBefore = this.ki,
+          attackerKiBefore = attacker.ki;
         this.ki = Math.min(100, this.ki + dmg * 1.15);
         attacker.ki = Math.min(100, attacker.ki + (a.ki ?? 0) * (blocking ? 0.28 : 0.75));
         this.lastScaling = scaling;
@@ -1181,7 +1222,10 @@ export function register({
           }
         }
         if (superArmored) this.lastHitText = '霸体承伤 · 60%';
-        if (!a.projectile) attacker.hitResult = blocking && !guardBreak ? 'blocked' : 'hit';
+        if (!a.projectile) {
+          attacker.hitResult = blocking && !guardBreak ? 'blocked' : 'hit';
+          if (attacker.attack) attacker.attack.resolvedAt = matchModule.game.simTime;
+        }
         this.hitSide = THREE.MathUtils.clamp(
           dir.x * Math.cos(this.facingAngle) - dir.z * Math.sin(this.facingAngle),
           -1,
@@ -1199,6 +1243,8 @@ export function register({
           armored,
           recovered,
           damage: hpBefore - this.hp,
+          attackerKiGain: attacker.ki - attackerKiBefore,
+          defenderKiGain: this.ki - defenderKiBefore,
           recoveryRemaining: Math.max(0, (attacker.attack?.dur ?? 0) - attacker.stateTimer),
           advantage: this.lastAdvantage,
         });

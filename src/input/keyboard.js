@@ -13,6 +13,7 @@ export function register({ combat: combatModule, input: inputModule, match: matc
           combatModule.EDGE_KEYS[e.code]
         )
           combatModule.inputEdges.push({
+            at: performance.now(),
             type: combatModule.EDGE_KEYS[e.code],
             up: !!inputModule.keys.KeyW,
             down: !!inputModule.keys.KeyS,

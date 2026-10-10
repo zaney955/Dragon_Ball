@@ -118,9 +118,7 @@ export function register({
               a.recovery > 0 &&
               Math.abs(a.dur - a.startup - a.active - a.recovery) < 1e-8 &&
               a.anim &&
-              (a.terminal
-                ? a.cancelRules.whiff.length === 0
-                : a.cancelRules.whiff.includes(a.chainType)),
+              a.cancelRules.whiff.length === 0,
           );
       });
       test('行走、后退、闪身、跳跃与落地 ' + def.id, () => {
@@ -254,7 +252,7 @@ export function register({
             b = p.parts.axe.localToWorld(new THREE.Vector3(0.56, 1.1, 0));
           assert(a.distanceTo(r.hit[0].a) < 1e-6 && b.distanceTo(r.hit[0].b) < 1e-6);
         });
-        test('横扫全程霸体、多次承伤及投技保护', () => {
+        test('横扫起手与有效期霸体、多次承伤及投技保护', () => {
           const [p, e] = v2Fixture(index);
           p.startSpecial();
           p.stateTimer = p.attack.hitT;

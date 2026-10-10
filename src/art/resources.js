@@ -306,6 +306,9 @@ export function register({
         });
     });
     worldModule.disposeGroup = function (root) {
+      root.traverse((object) => {
+        if (object.isInstancedMesh) object.dispose();
+      });
       artModule.artDisposeResources(artModule.artResources(root));
     };
     artUncachedFormBuilder = charactersModule.buildOolong;

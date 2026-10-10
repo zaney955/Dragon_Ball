@@ -1,4 +1,5 @@
 import { INPUT_LABELS } from './character-help.js';
+import { superArmorActive } from '../combat/attack-rules.js';
 import { defenseStatus } from '../combat/defense-rules.js';
 
 export function register({
@@ -14,10 +15,13 @@ export function register({
     if (matchModule.game.paused) return '已暂停';
     if (matchModule.game.ready > 0) return '准备';
     if (f.youth?.reversedTime > 0)
-      return '太阳拳 · 方向反向 ' + f.youth.reversedTime.toFixed(1) + '秒';
+      return (
+        '太阳拳 · 前后左右 / 方向招式反向 · 格挡正常 ' + f.youth.reversedTime.toFixed(1) + '秒'
+      );
     if (f.attack?.ability === 'sidestep') return '狼牙侧步 · 等待闪避反击';
     if (f.attack?.youthDodgeCounter) return '狼牙闪身 · 背后击飞';
-    if (f.attack?.superArmor) return f.attack.name + ' · 霸体 · 承伤60%';
+    if (superArmorActive(f)) return f.attack.name + ' · 霸体 · 承伤60%';
+    if (f.attack?.superArmor) return f.attack.name + ' · 收招无霸体 · 可反击';
     if (f.attack) {
       if (f.attack.isKiBlast)
         return (
@@ -131,7 +135,9 @@ export function register({
       document.getElementById(prefix + 'escape').textContent =
         '残像 ' + ('●'.repeat(f.escapeCharges) + '○'.repeat(2 - f.escapeCharges));
     }
-    document.getElementById('actionState').textContent = uiModule.fighterStatus(matchModule.player);
+    document.getElementById('actionState').textContent = uiModule.fighterStatus(
+      uiModule.controlledFighter?.() ?? matchModule.player,
+    );
     document.getElementById('roundScore').textContent =
       '第 ' +
       matchModule.game.matchRound +

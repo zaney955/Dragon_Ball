@@ -766,7 +766,12 @@ export function register({
     configureStageDisplayShadows(uiModule.portraitRenderer, key);
     const cam = new THREE.PerspectiveCamera(43, 2.5, 0.1, 350);
     cam.position.set(def.id === 'wild' ? 27 : 23, 18, def.id === 'wild' ? 30 : 27);
+    if (def.id === 'kami') cam.position.set(38, 38, 57);
     cam.lookAt(0, 2, -6);
+    if (def.id === 'budokai') {
+      cam.position.set(29, 25, 43);
+      cam.lookAt(0, 3, -12);
+    }
     uiModule.portraitRenderer.setSize(600, 240);
     uiModule.portraitRenderer.render(sc, cam);
     const url = uiModule.portraitRenderer.domElement.toDataURL();

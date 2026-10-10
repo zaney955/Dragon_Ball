@@ -82,6 +82,12 @@ select,
   body:has(#hud.show) #musicBtn {
     bottom: max(220px, env(safe-area-inset-bottom));
   }
+  body:has(#result.show) #musicBtn {
+    top: max(20px, env(safe-area-inset-top));
+    left: max(20px, env(safe-area-inset-left));
+    right: auto;
+    bottom: auto;
+  }
 }
 select {
   color-scheme: dark;

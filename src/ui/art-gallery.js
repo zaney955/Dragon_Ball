@@ -62,7 +62,8 @@ export function register({
       const map = worldModule.MAPS[index].build();
       v.model = map.group;
       v.center.set(0, 2, -6);
-      v.baseDistance = index === 1 ? 65 : 47;
+      v.baseDistance = map.preview?.distance ?? (index === 1 ? 65 : 47);
+      if (map.preview) v.center.fromArray(map.preview.center);
       document.getElementById('artType').textContent = '对战舞台';
       document.getElementById('artName').textContent = worldModule.MAPS[index].name;
       document.getElementById('artNote').textContent = worldModule.MAPS[index].desc;

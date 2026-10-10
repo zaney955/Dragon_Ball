@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { command, roomList } from './lobby.js';
 import { validSpectatorFrame } from '../src/online/spectator-codec.js';
+import { MessageBudget, validRelayPacket } from './traffic-policy.js';
 
 export class OnlineLobby extends DurableObject {
   constructor(ctx, env) {
@@ -72,24 +73,21 @@ export class OnlineLobby extends DurableObject {
 
   webSocketMessage(ws, raw) {
     if (typeof raw !== 'string' || raw.length > 49152) return ws.close(1009, '消息过大');
-    const now = Date.now();
-    const rate = this.rates.get(ws) ?? { start: now, count: 0 };
-    if (now - rate.start > 1000) {
-      rate.start = now;
-      rate.count = 0;
-    }
-    this.rates.set(ws, rate);
-    if (++rate.count > 40) return ws.close(1008, '发送过于频繁');
-    const sessions = this.sessions();
-    const self = sessions.find((s) => s.ws === ws);
-    if (!self) return;
     let message;
     try {
       message = JSON.parse(raw);
     } catch {
-      return this.send(ws, { type: 'error', message: '消息无效' });
+      message = null;
     }
-    if (!message || typeof message !== 'object') return;
+    const rate = this.rates.get(ws) ?? new MessageBudget();
+    this.rates.set(ws, rate);
+    if (!rate.allow(message ?? {}, new TextEncoder().encode(raw).byteLength, Date.now()))
+      return ws.close(1008, '发送过于频繁');
+    if (!message || typeof message !== 'object')
+      return this.send(ws, { type: 'error', message: '消息无效' });
+    const sessions = this.sessions();
+    const self = sessions.find((s) => s.ws === ws);
+    if (!self) return;
     if (message.type === 'spectator-frame') {
       if (
         !self.room ||
@@ -131,9 +129,7 @@ export class OnlineLobby extends DurableObject {
       if (!self.match || message.match !== self.match.id || message.match !== peer.match?.id)
         return;
       const packet = message.packet;
-      if (!packet || !['input', 'frames', 'begin', 'ack', 'return'].includes(packet.kind)) return;
-      if (['frames', 'begin'].includes(packet.kind) && self.seat !== 0) return;
-      if (packet.kind === 'input' && self.seat !== 1) return;
+      if (!validRelayPacket(packet, self.seat)) return;
       return this.send(peer.ws, { type: 'peer', match: self.match.id, packet });
     }
     const result = command(sessions, self, message, () => ({
@@ -157,6 +153,7 @@ export class OnlineLobby extends DurableObject {
       for (const s of remaining) {
         s.ready = false;
         s.match = null;
+        s.series = { scores: [0, 0], rounds: 0, votes: [false, false] };
         s.seat = 0;
         s.revision = (s.revision ?? 0) + 1;
       }

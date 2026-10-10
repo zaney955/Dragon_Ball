@@ -9,6 +9,7 @@ export function register({
   const surfaces = {
     budokai: { dust: 0xd2c7ac, rubble: 0xb6a68b, soil: 0x66594a, rim: 0xa28d6f, y: 0.012 },
     wild: { dust: 0xc0ac7d, rubble: 0x9e9878, soil: 0x716044, rim: 0x9c875e, y: 0.024 },
+    kami: { dust: 0xe9e6dc, rubble: 0xcac9c8, soil: 0x656477, rim: 0xb5ac95, y: 0.03 },
     kame: { dust: 0xebd6a8, rubble: 0xc4b086, soil: 0xbba06c, rim: 0xe1c899, y: 0.108 },
   };
   worldModule.prepareBuilding = function prepareBuilding(root, id, options = {}) {
@@ -149,7 +150,7 @@ export function register({
       [-12.3, 0.5],
       [12.3, -0.5],
     ];
-    for (let i = 0; i < positions.length; i++) {
+    for (let i = 0; i < (id === 'kami' ? 0 : positions.length); i++) {
       const [x, z] =
           id === 'budokai'
             ? [(i % 2 ? 1 : -1) * (11.8 + (i % 3) * 0.35), -5.3 + Math.floor(i / 2) * 2.05]

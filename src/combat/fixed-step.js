@@ -1,3 +1,4 @@
+import { sampleControlTime } from '../match/combat-review.js';
 export function register({
   app: appModule,
   ai: aiModule,
@@ -12,6 +13,7 @@ export function register({
 }) {
   function tickCombat(inputProvider, enemyProvider) {
     matchModule.pendingHits = [];
+    const kiBefore = [matchModule.player?.ki, matchModule.enemy?.ki];
     const accept =
       matchModule.game.screen === 'fight' && !matchModule.game.over && matchModule.game.ready <= 0;
     if (matchModule.game.ready > 0) {
@@ -46,6 +48,17 @@ export function register({
       combatModule.updateV2Abilities(matchModule.STEP);
       combatModule.updateKiDiscs(matchModule.STEP);
       worldModule.updateSenzu(matchModule.STEP);
+      if (
+        matchModule.game.roundMetrics?.review &&
+        (!matchModule.game.manualTest || matchModule.game.collectTestStats)
+      )
+        sampleControlTime(
+          matchModule.game.roundMetrics.review,
+          [matchModule.player, matchModule.enemy],
+          matchModule.STEP,
+          matchModule.game.simTime,
+          kiBefore,
+        );
       matchModule.game.simTime += matchModule.STEP;
       trainingModule.updateDrill();
       if (matchModule.game.difficulty === 'training' && matchModule.game.infiniteKi)
@@ -117,10 +130,12 @@ export function register({
       inputModule.clearPresses();
     } else if (!paused) {
       if (!matchModule.game.over) combatModule.advanceCombat(raw);
+      appModule.online?.flush();
       renderModule.updateEffects(raw);
       worldModule.currentMap?.update?.(raw);
       renderModule.updateFightCamera(raw);
     }
+    if (paused) appModule.online?.flush();
     if (matchModule.player && matchModule.enemy) {
       const alpha =
           appModule.online?.active && !appModule.online.host

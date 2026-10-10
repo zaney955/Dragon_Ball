@@ -26,3 +26,9 @@ export function staffReach(attack, time) {
   const smooth = (t) => t * t * (3 - 2 * t);
   return resting + (full - resting) * smooth(grow) * (1 - smooth(retract));
 }
+
+// The tag describes the move. Protection ends at the last active simulation step.
+export function superArmorActive(fighter) {
+  const a = fighter?.attack;
+  return !!a?.superArmor && fighter.hp > 0 && fighter.stateTimer < a.hitT + a.active;
+}

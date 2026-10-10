@@ -62,6 +62,7 @@ export function register({
         inputModule.justPressed[c] = true;
         if (combatModule.EDGE_KEYS[c])
           combatModule.inputEdges.push({
+            at: performance.now(),
             type: combatModule.EDGE_KEYS[c],
             up: !!inputModule.keys.KeyW,
             down: btn.dataset.variant === '1' || !!inputModule.keys.KeyS,

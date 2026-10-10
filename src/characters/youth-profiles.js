@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { NEUTRAL_BALANCE, neutralMove } from './neutral-balance.js';
 // Final, authoritative roster for the childhood era. Values are base damage before scaling.
 export const YOUTH_PROFILES = {
   goku: {
@@ -248,8 +249,15 @@ export const YOUTH_PROFILES = {
         range: 3.2,
         startup: 0.45,
         superArmor: true,
+        recovery: 0.65,
       }),
-      skill('巨斧震地', 'axeChop', 40, 6, { dmg: 20, range: 3.4, shape: 'ground', startup: 0.6 }),
+      skill('巨斧震地', 'axeChop', 40, 6, {
+        dmg: 20,
+        range: 3.4,
+        shape: 'ground',
+        startup: 0.6,
+        recovery: 0.75,
+      }),
     ],
     ult: ultimate('巨斧连环破', 'axeCataclysm', 180, 3.5, {
       shape: 'ground',
@@ -516,6 +524,7 @@ export function register({ characters, animation, combat, ai }) {
       c.name = c.id === 'krillin' ? '克林' : c.name;
       c.resource = '能量';
       c.role ??= c.title;
+      c.neutralPlan = NEUTRAL_BALANCE[c.id].plan;
       for (const type of ['light', 'heavy']) {
         const old = c.combos[type];
         c.combos[type] = p[type].map(([name, motion], i, list) => {
@@ -526,18 +535,10 @@ export function register({ characters, animation, combat, ai }) {
             id: (type === 'light' ? 'l' : 'h') + (i + 1),
             name,
             motion,
-            startup:
-              c.id === 'chiaotzu' && type === 'heavy' && last
-                ? 0.22
-                : base.startup + Math.floor(i / old.length) * 0.015,
-            active: 0.12,
-            recovery: last ? 0.42 : type === 'light' ? 0.18 : 0.27,
-            dmg: last ? (type === 'light' ? 11 : 18) : type === 'light' ? 5 : 9,
-            stun: last ? 0.5 : type === 'light' ? 0.32 : 0.45,
+            ...neutralMove(c.id, type, i),
             kb: last ? 5 : type === 'light' ? 0.35 : 0.45,
             launch: undefined,
             knockdown: last && type === 'heavy',
-            guardDamage: type === 'light' ? 8 : 15,
             hits: undefined,
             ability: undefined,
             shape: undefined,
@@ -547,15 +548,6 @@ export function register({ characters, animation, combat, ai }) {
             chainIndex: i,
             terminal: last,
             level: /sweep|Sweep/.test(motion) || name.includes('脚踝') ? 'low' : 'mid',
-            cancelRules: {
-              hit: last
-                ? ['special', 'ult', 'pursuit']
-                : type === 'light'
-                  ? ['light', 'heavy', 'special', 'ult', 'dash', 'pursuit']
-                  : ['heavy', 'pursuit'],
-              block: type === 'light' && !last ? ['light'] : [],
-              whiff: last ? [] : [type],
-            },
           });
           if (!last) {
             a.launch = undefined;
@@ -566,7 +558,7 @@ export function register({ characters, animation, combat, ai }) {
             a.launch = !last && i >= list.length - 3 ? 5.8 : undefined;
             a.knockdown = last;
             a.kb = last ? 4 : 0.3;
-            a.stun = last ? 0.5 : 0.65;
+            a.stun = last ? 0.7 : 0.65;
           }
           if (c.id === 'chiaotzu' && type === 'heavy') {
             a.shape = 'beam';
@@ -643,14 +635,14 @@ export function register({ characters, animation, combat, ai }) {
         yamcha:
           '狼牙突爪命中后0.25秒内再按R追加终掌；S+R侧步有0.32秒闪避窗口，成功避开攻击或技能后闪到对手背后，狼牙反击将其击飞；投技可破解。',
         gyumao:
-          '重攻击、两种特殊技能与必杀全程霸体，无法打断，承受60%伤害；巨斧震地只能打地面，跳跃可躲。',
+          '重击、两种技能与必杀在起手和有效期霸体、承伤60%，收招可打断；横扫用侧移，震地用看准时机的跳跃规避。',
         chichi: '头盔飞刃往返各命中一次，回收前不可重发；疾步踢打空也退步，可追击。',
         bulma:
           '掩体生命30、持续8秒，双方均不可穿射；烟幕半径1.8、持续3秒，双方瞄准与AI观察均受遮挡。',
         chiaotzu:
           '念力束缚实际命中后控制1.15秒，受击会解除；4秒内控制按100%、50%、25%衰减，随后暂时免疫。',
         oolong:
-          '巨鬼变化5秒，体型变大但伤害不增加；蝙蝠3秒、移速×1.3且无法攻击；再按对应按钮恢复，受伤会解除。',
+          '巨鬼起势推开正前方未防御、未攻击的地面目标，对手可立即行动；格挡、抢招和跳跃可应对。蝙蝠3秒、移速×1.3且无法攻击；受伤会解除。',
         korin:
           '残像步闪避仅0.075秒，0.35秒内轻击可反敲；仙豆前摇0.95秒，成功恢复12%生命，每回合一次。',
         pilaf:
@@ -658,7 +650,7 @@ export function register({ characters, animation, combat, ai }) {
       }[c.id];
       c.tactics.weak =
         c.id === 'gyumao'
-          ? '轻击可打断；重击和技能带霸体，可拉开距离躲避并在收招后反击。'
+          ? '轻击可打断；挥斧起手和有效期霸体，收招失去霸体，可躲避后在收招期间反击。'
           : '技能前摇可打断，打空后可反击；特殊能力的条件与冷却见招式指南。';
       ai.V2_TACTICS[c.id] = c.tactics;
       ai.TACTICS[c.id].notes = c.tactics.basic + '\n' + c.tactics.resource + '\n' + c.tactics.weak;

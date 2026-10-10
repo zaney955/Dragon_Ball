@@ -127,7 +127,7 @@ export function register({
       c.name +
       ' · ' +
       c.role +
-      '</h3><p class="frameLegend">单位：帧（60 帧/秒） · 前 / 有 / 后 = 起手 / 判定 / 收招</p><div class="tableScroll"><table class="frameTable"><tr><th>招式</th><th>前 / 有 / 后</th><th>伤害</th><th>段位</th><th>命中 / 格挡优势</th></tr>';
+      '</h3><p class="frameLegend">单位：帧（60 帧/秒） · 前 / 有 / 后 = 起手 / 判定 / 收招</p><div class="tableScroll"><table class="frameTable"><tr><th>招式</th><th>前 / 有 / 后</th><th>伤害</th><th>段位</th><th>命中 / 格挡优势</th><th>耗防御</th><th>被防后衔接</th></tr>';
     for (const a of m) {
       const rec = Math.round(a.recovery * 60);
       html +=
@@ -159,10 +159,19 @@ export function register({
         Math.round((a.stun - a.active - a.recovery) * 60) +
         ' / ' +
         Math.round((a.blockstun - a.active - a.recovery) * 60) +
+        '</td><td>' +
+        (a.guardDamage ?? '—') +
+        '</td><td>' +
+        ((a.cancelRules?.block ?? [])
+          .map(
+            (type) =>
+              ({ light: '轻击', heavy: '重击', special: '技能', ult: '必杀' })[type] ?? type,
+          )
+          .join(' / ') || '等收招') +
         '</td></tr>';
     }
     html +=
-      '</table></div><details><summary>帧数与招式规则</summary><p>帧数为整数近似，悬停查看精确值。优势按首个有效帧计算，晚命中会改变优势；特殊技有效时间含段间间隔。</p><p>命中后最早3帧取消；格挡时非末段轻击只能接轻击，空挥需等收招。</p></details>';
+      '</table></div><details><summary>帧数与招式规则</summary><p>帧数为整数近似，悬停查看精确值。优势按首个有效帧计算，晚命中会改变优势；特殊技有效时间含段间间隔。</p><p>普通攻击命中后最早6帧衔接，按角色与招式区分被防后选择；被防衔接有可防守空隙，空挥需完整收招。按住格挡会清除积压的普通攻击。</p></details>';
     trainingModule.table.innerHTML = html;
   };
   trainingModule.updateTrainingHUD = function updateTrainingHUD() {

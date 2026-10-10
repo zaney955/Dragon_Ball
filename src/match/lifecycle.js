@@ -1,3 +1,4 @@
+import { createCombatReview, reviewAdvice } from './combat-review.js';
 export function register({
   ai: aiModule,
   audio: audioModule,
@@ -84,6 +85,7 @@ export function register({
     matchModule.game.timeLeft = 180;
     matchModule.game.hitStop = 0;
     matchModule.game.roundMetrics = {
+      review: createCombatReview(),
       attack: [0, 0],
       defend: [0, 0],
       damage: [0, 0],
@@ -233,6 +235,28 @@ export function register({
     }
     document.getElementById('againBtn').textContent =
       winner === 'draw' ? '重赛' : matchModule.game.matchFinished ? '再战一场' : '下一回合';
+    const side = matchModule.game.online ? matchModule.game.onlineSeat : 0;
+    const advice = matchModule.game.spectating
+      ? null
+      : reviewAdvice(matchModule.game.roundMetrics?.review?.sides[side]);
+    const note = document.getElementById('resultAdvice');
+    note.textContent = advice?.text ?? '';
+    note.hidden = !advice;
+    const practice = document.getElementById('resultPractice');
+    practice.hidden = !advice || matchModule.game.online;
+    practice.onclick = () => {
+      const pair = [
+        charactersModule.CHARACTERS.indexOf(matchModule.player.def),
+        charactersModule.CHARACTERS.indexOf(matchModule.enemy.def),
+      ];
+      matchModule.backToMenu();
+      matchModule.game.difficulty = 'training';
+      matchModule.game.selectedChar = pair[0];
+      matchModule.game.opponent = pair[1];
+      matchModule.game.lastPair = pair;
+      matchModule.game.keepPair = true;
+      trainingModule.startDrill(advice.drill);
+    };
     r.classList.add('show');
     r.inert = false;
     uiModule.el.hud.inert = true;

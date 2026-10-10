@@ -98,7 +98,7 @@ export function register({
         '</svg><div class="map-info"><div class="mname">' +
         m.name +
         '</div><div class="mdesc">' +
-        ['石板擂台', '圆顶石峰', '海岛小屋'][i] +
+        ['石板擂台', '圆顶石峰', '海岛小屋', '云海金顶神殿'][i] +
         '</div></div>';
       d.onclick = () => {
         matchModule.game.selectedMap = i;

@@ -50,7 +50,7 @@ test('production home, selection, fight, pause, return and guide', async ({ page
   expect(await page.evaluate(() => window.__db)).toBeUndefined();
   await page.locator('#homeStart').click();
   await expect(page.locator('#charList .char-card')).toHaveCount(14);
-  await expect(page.locator('#mapList .map-card')).toHaveCount(3);
+  await expect(page.locator('#mapList .map-card')).toHaveCount(4);
   await page.locator('#moveGuideBtn').click();
   await expect(page.locator('#moveGuide')).toHaveClass(/show/);
   await page.locator('#guideClose').click();
@@ -248,6 +248,12 @@ test('core combat, complete youth rules and retained system regressions', async 
   expect((await assertSuite(page, 'runYouthTests')).total).toBeGreaterThanOrEqual(37);
   expect((await assertSuite(page, 'runV2OldFourTests')).total).toBe(16);
   expect((await assertSuite(page, 'runV2SystemTests')).total).toBe(57);
+  expect(errors).toEqual([]);
+});
+
+test('dynamic cover blocks real shoulder-camera rays and detaches cleanly', async ({ page }) => {
+  const errors = await openGame(page, true, true);
+  expect((await assertSuite(page, 'runTests', ['camera'])).total).toBe(1);
   expect(errors).toEqual([]);
 });
 
@@ -555,6 +561,17 @@ for (const width of [1024, 390])
       subtitle = await page.locator('#victorySubtitle').boundingBox();
     expect(card.y).toBeGreaterThan(width === 390 ? 844 * 0.6 : 640 * 0.55);
     expect(subtitle.y + subtitle.height <= card.y || card.y + card.height <= subtitle.y).toBe(true);
+    const music = await page.locator('#musicBtn').boundingBox();
+    for (const id of ['exportCombatStats', 'againBtn', 'menuBtn']) {
+      const button = await page.locator('#' + id).boundingBox();
+      expect(
+        music.x + music.width <= button.x ||
+          button.x + button.width <= music.x ||
+          music.y + music.height <= button.y ||
+          button.y + button.height <= music.y,
+        `${id} remains unobstructed by the music control`,
+      ).toBe(true);
+    }
     await expect(page.locator('#resultTitle')).toContainText(width === 390 ? '1P' : '2P');
     await expect(page.locator('#victorySubtitle')).toContainText(
       width === 390 ? '刚才发生什么事' : '明天送牛奶',

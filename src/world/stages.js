@@ -141,6 +141,13 @@ export function register({
         m1: '#efb1ae',
         m2: '#49b9cc',
       },
+      {
+        id: 'kami',
+        name: '天神殿',
+        desc: '云海浮空白石平台 · 多层金顶神殿',
+        m1: '#eee9df',
+        m2: '#78bff0',
+      },
     ];
   };
 }

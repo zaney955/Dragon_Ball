@@ -72,8 +72,8 @@ test('real melee blocks protect life, spend defense and lead to a recoverable gu
     return { rows, broken, locked, unlocked, recovered };
   });
   expect(result.rows).toHaveLength(2);
-  expect(result.rows[0].guard).toBeCloseTo(88);
-  expect(result.rows[1].guard).toBeCloseTo(78);
+  expect(result.rows[0].guard).toBeCloseTo(93);
+  expect(result.rows[1].guard).toBeCloseTo(86);
   for (const row of result.rows) expect(row.hp).toBe(row.before);
   expect(result.broken.guard).toBe(0);
   expect(result.broken.locked).toBe(true);

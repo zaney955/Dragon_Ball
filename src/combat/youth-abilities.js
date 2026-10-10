@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { reverseDirectionalInput, staffReach } from './attack-rules.js';
+import { reverseDirectionalInput, staffReach, superArmorActive } from './attack-rules.js';
 export function register({ combat, characters, animation, match, render, world, ui, audio }) {
   const foeOf = (f) => (f === match.player ? match.enemy : match.player);
   const blockedStates = [
@@ -26,6 +26,7 @@ export function register({ combat, characters, animation, match, render, world, 
       controlGrace: 0,
       reversedTime: 0,
       controlCount: 0,
+      controlBaseRemaining: 0,
       wolfUntil: 0,
       catUntil: 0,
       armorSpent: false,
@@ -511,6 +512,29 @@ export function register({ combat, characters, animation, match, render, world, 
     if (kind === 'ogre' || kind === 'bat') {
       combat.setYouthBody(f, kind);
       v.formTime = kind === 'ogre' ? 5 : 3;
+      if (kind === 'ogre' && foe) {
+        const delta = foe.pos.clone().sub(f.pos).setY(0);
+        const facing = delta.length() > 0 && f.forward().dot(delta.clone().normalize()) > 0.5;
+        const repelled =
+          facing &&
+          delta.length() <= 2.4 &&
+          foe.hp > 0 &&
+          foe.pos.y < 0.2 &&
+          foe.invulnerable <= 0 &&
+          !superArmorActive(foe) &&
+          ['idle', 'walk', 'crouch', 'charge'].includes(foe.state) &&
+          !combat.coverBlocks(f.pos, foe.pos);
+        if (repelled) {
+          const before = foe.pos.clone();
+          moveBy(foe, delta.normalize().multiplyScalar(1.2));
+          // This is spacing, not damage or a stun. The defender can act immediately.
+          combat.emitCombatEvent('feintRepelled', f, foe, a, {
+            distance: before.distanceTo(foe.pos),
+          });
+          foe.lastHitText = '巨鬼惊吓 · 可立即行动';
+          render.spawnShockRing(f.pos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xffdf9c, 1.6);
+        } else combat.emitCombatEvent('feintResisted', f, foe, a);
+      }
     }
     if (kind === 'heal') {
       const healed = Math.min(f.maxHp - f.hp, f.maxHp * 0.12);
@@ -573,8 +597,10 @@ export function register({ combat, characters, animation, match, render, world, 
       ) {
         if (foe.hp > 0 && foe.invulnerable <= 0 && !['block', 'blockstun'].includes(foe.state)) {
           if (dodgeCounter(foe, f, a)) return;
-          combat.applyControl(f, foe, a);
+          if (!combat.applyControl(f, foe, a)) return;
           foe.youth.reversedTime = a.reverseDuration ?? 3;
+          foe.lastHitText = '太阳拳 · 前后左右及方向招式反向 · 格挡正常';
+          if (!match.game.manualTest) match.notify(foe.lastHitText, 1.5);
           combat.emitCombatEvent('reverseDirections', f, foe, a, {
             duration: foe.youth.reversedTime,
           });
@@ -594,6 +620,12 @@ export function register({ combat, characters, animation, match, render, world, 
       characters.box(mesh, characters.M(0x6c8c85), 0, 0.6, 0, 1.1, 1.2, 0.35);
       characters.box(mesh, characters.M(0xe5cba1), 0, 1.23, 0, 1.2, 0.08, 0.45);
       entity(f, 'cover', 8, 30, mesh, f.pos.clone().addScaledVector(f.forward(), 1.2));
+      mesh.traverse((node) => {
+        if (!node.isMesh) return;
+        node.userData.cameraBlocker = true;
+        render.cameraObstacles.push(node);
+      });
+      mesh.updateMatrixWorld(true);
     }
     if (kind === 'smoke') {
       const mesh = new THREE.Group();
@@ -709,7 +741,13 @@ export function register({ combat, characters, animation, match, render, world, 
   combat.tickYouthFighter = function (f, dt) {
     const v = f.youth;
     if (!v) return;
+    const reversing = v.reversedTime > 0;
     v.reversedTime = Math.max(0, v.reversedTime - dt);
+    v.controlBaseRemaining = Math.max(0, v.controlBaseRemaining - dt);
+    if (reversing && v.reversedTime === 0) {
+      combat.emitCombatEvent('directionsRestored', f, null, null);
+      f.lastHitText = '方向恢复';
+    }
     if (
       f.attack?.ability === 'sidestep' &&
       !f.attack.sidestepMoved &&
@@ -1292,7 +1330,7 @@ export function register({ combat, characters, animation, match, render, world, 
           );
           combat.emitCombatEvent('reflection', this, attacker, a);
         } else {
-          const protectedAttack = attacker.attack?.superArmor;
+          const protectedAttack = superArmorActive(attacker);
           if (!protectedAttack) attacker.attack = null;
           if (typeof attacker.takeHit === 'function') {
             attacker.takeHit(
@@ -1352,7 +1390,8 @@ export function register({ combat, characters, animation, match, render, world, 
         if (this.v2.controlTarget) {
           const target = this.v2.controlTarget;
           target.v2.controlTime = 0;
-          target.stunTime = 0;
+          target.stunTime = target.youth.controlBaseRemaining;
+          target.stateTimer = 0;
           this.v2.controlTarget = null;
         }
         if (armored && this.hp > 0 && !this.launchFlight) {
@@ -1376,19 +1415,23 @@ export function register({ combat, characters, animation, match, render, world, 
           attacker.youth.wolfUntil = match.game.simTime + 0.25;
         if (
           a.youthDodgeCounter &&
-          !old?.superArmor &&
+          !superArmorActive({ attack: old, hp: this.hp, stateTimer: oldTimer }) &&
           this.hp > 0 &&
           !['block', 'blockstun'].includes(this.state)
         )
           combat.launchKnockback(this, attacker, 'counter');
-        if (a.control > 0 && !this.launchFlight && !old?.superArmor)
-          combat.applyControl(attacker, this, a);
+        if (
+          a.control > 0 &&
+          !this.launchFlight &&
+          !superArmorActive({ attack: old, hp: this.hp, stateTimer: oldTimer })
+        )
+          combat.applyControl(attacker, this, { ...a, preserveHitstun: true });
       }
     };
     combat.applyControl = function (owner, foe, a) {
       if (
         foe.hp <= 0 ||
-        foe.attack?.superArmor ||
+        superArmorActive(foe) ||
         foe.launchFlight ||
         foe.invulnerable > 0 ||
         ['block', 'blockstun'].includes(foe.state)
@@ -1399,13 +1442,16 @@ export function register({ combat, characters, animation, match, render, world, 
       const duration = a.control * [1, 0.5, 0.25][Math.min(2, v.controlCount)];
       v.controlCount++;
       if (v.controlGrace <= 0) v.controlGrace = 4;
+      const ordinaryHitstun =
+        a.preserveHitstun && foe.state === 'hit' ? Math.max(0, foe.stunTime - foe.stateTimer) : 0;
+      v.controlBaseRemaining = ordinaryHitstun;
       foe.v2.controlTime = duration;
       owner.v2.controlTarget = foe;
       foe.attack = null;
       foe.clearQueue();
       foe.state = 'hit';
       foe.stateTimer = 0;
-      foe.stunTime = duration;
+      foe.stunTime = Math.max(duration, ordinaryHitstun);
       foe.vel.set(0, 0, 0);
       render.spawnBoundAura(foe, 0xd6a1ff, duration, null, true);
       combat.emitCombatEvent('control', owner, foe, a, { duration });

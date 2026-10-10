@@ -1,7 +1,27 @@
+import { OrderedDelivery, validDelivery } from './delivery.js';
+
 /** A single lobby socket; peer traffic uses WebRTC unless the connection is unavailable. */
 export class OnlineTransport {
-  constructor({ url, onState, onPacket, onSpectatorFrame, onStatus, onError }) {
-    Object.assign(this, { url, onState, onPacket, onSpectatorFrame, onStatus, onError });
+  constructor({
+    url,
+    onState,
+    onPacket,
+    onSpectatorFrame,
+    onStatus,
+    onError,
+    onFailure,
+    onDiagnostic,
+  }) {
+    Object.assign(this, {
+      url,
+      onState,
+      onPacket,
+      onSpectatorFrame,
+      onStatus,
+      onError,
+      onFailure,
+      onDiagnostic,
+    });
     this.stats = {
       socketMessages: 0,
       relayMessages: 0,
@@ -14,11 +34,32 @@ export class OnlineTransport {
     this.generation = 0;
     this.forceRelay = false;
   }
+  get match() {
+    return this.matchId;
+  }
+  set match(id) {
+    if (id === this.matchId) return;
+    clearInterval(this.deliveryTimer);
+    this.delivery?.close();
+    this.matchId = id;
+    this.delivery = null;
+    this.epoch = 0;
+    this.forceRelay = false;
+    if (!id) return;
+    this.delivery = new OrderedDelivery({
+      write: (packet) => this.writePacket(packet),
+      deliver: (packet) => this.onPacket(packet),
+      fail: (message) => (this.onFailure ?? this.onError)(message),
+      epoch: () => this.epoch,
+    });
+    this.deliveryTimer = setInterval(() => this.pump(), 25);
+  }
   connect() {
     if (this.ws && this.ws.readyState < 2) return;
     this.stats.connections++;
     this.onStatus('正在连接…');
-    let socket;
+    let socket,
+      handshaken = false;
     try {
       socket = this.ws = new WebSocket(this.url);
     } catch {
@@ -46,11 +87,13 @@ export class OnlineTransport {
         const message = JSON.parse(data);
         if (message.type === 'state') {
           clearTimeout(this.connectTimeout);
-          this.onStatus('已连接');
+          if (!handshaken) this.onStatus('已连接');
+          handshaken = true;
           this.onState(message);
         }
         if (message.type === 'error') this.onError(message.message);
-        if (message.type === 'peer' && message.match === this.match) this.onPacket(message.packet);
+        if (message.type === 'peer' && message.match === this.match)
+          this.receivePacket(message.packet);
         if (message.type === 'signal') await this.signal(message);
         if (message.type === 'spectator-frame') this.onSpectatorFrame?.(message);
       } catch (error) {
@@ -71,8 +114,13 @@ export class OnlineTransport {
     this.stats.socketMessages++;
     if (!['signal', 'relay', 'spectator-frame'].includes(data.type)) this.stats.controlMessages++;
     if (data.type === 'spectator-frame') this.stats.spectatorMessages++;
-    this.ws.send(JSON.stringify(data));
-    return true;
+    try {
+      if (this.ws.bufferedAmount > 512 * 1024) return false;
+      this.ws.send(JSON.stringify(data));
+      return true;
+    } catch {
+      return false;
+    }
   }
   resetPeer() {
     this.generation++;
@@ -107,7 +155,7 @@ export class OnlineTransport {
     channel.onmessage = ({ data }) => {
       try {
         const { match, packet } = JSON.parse(data);
-        if (match === this.match) this.onPacket(packet);
+        if (match === this.match) this.receivePacket(packet);
       } catch {
         this.onError('对战数据无效');
       }
@@ -130,19 +178,54 @@ export class OnlineTransport {
     }
   }
   packet(packet) {
-    if (!this.match) return false;
-    if (
-      !this.forceRelay &&
-      this.channel?.readyState === 'open' &&
-      this.channel.bufferedAmount < 65536
-    ) {
-      this.stats.directMessages++;
-      this.channel.send(JSON.stringify({ match: this.match, packet }));
-      return true;
+    if (!this.match || !this.delivery) return false;
+    this.preparePath();
+    const accepted = this.delivery.send(packet, performance.now());
+    this.pump();
+    return accepted;
+  }
+  useRelay(reason) {
+    if (this.epoch === 1) return;
+    this.forceRelay = true;
+    this.epoch = 1;
+    this.delivery?.retryAll();
+    this.onDiagnostic?.('transport-switch', { reason, epoch: this.epoch });
+  }
+  preparePath() {
+    if (this.forceRelay) this.useRelay('peer-or-local-fallback');
+    else if (this.channel?.readyState !== 'open') this.useRelay('channel-unavailable');
+    else if (this.channel.bufferedAmount >= 65536) this.useRelay('channel-backpressure');
+    else {
+      const oldest = this.delivery?.pending.values().next().value;
+      if (oldest && performance.now() - oldest.at > 750) this.useRelay('receipt-timeout');
     }
-    this.forceRelay = true; // Keep ordering stable for this match after fallback.
+  }
+  writePacket(packet) {
+    if (!this.match) return false;
+    if (!this.forceRelay && this.channel?.readyState === 'open') {
+      try {
+        this.channel.send(JSON.stringify({ match: this.match, packet }));
+        this.stats.directMessages++;
+        return true;
+      } catch {
+        this.useRelay('channel-send-failed');
+        return false;
+      }
+    }
     this.stats.relayMessages++;
     return this.send({ type: 'relay', match: this.match, packet });
+  }
+  receivePacket(packet) {
+    if (!this.match || !this.delivery || !packet) return;
+    // Old clients still receive the application's version-mismatch response.
+    if (!packet.delivery) return this.onPacket(packet);
+    if (validDelivery(packet) && packet.delivery.epoch === 1) this.useRelay('peer-fallback');
+    this.delivery.receive(packet, performance.now());
+  }
+  pump() {
+    if (!this.delivery) return;
+    if (this.delivery.pending.size || this.delivery.ackPending) this.preparePath();
+    this.delivery.pump(performance.now());
   }
   close() {
     clearTimeout(this.connectTimeout);

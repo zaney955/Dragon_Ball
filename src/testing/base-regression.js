@@ -552,7 +552,7 @@ export function register({
       step(16);
       assert(p.hitResult === 'hit');
       p.enqueue('light');
-      step(2);
+      step(12);
       assert(p.comboIdx === 1);
     });
     test('P0', '空挥禁止取消', () => {
@@ -564,10 +564,10 @@ export function register({
       step(1);
       assert(p.comboType === 'light');
     });
-    test('P0', '格挡取消只允许继续轻击', () => {
+    test('P0', '悟空首拳被防可转重击但终段不能循环', () => {
       fresh();
       const a = matchModule.player.def.combos.light[0];
-      assert(a.cancelRules.block.length === 1 && a.cancelRules.block[0] === 'light');
+      assert(a.cancelRules.block.length === 1 && a.cancelRules.block[0] === 'heavy');
       assert(
         !combatModule.legalCancel(
           matchModule.player,
@@ -605,7 +605,7 @@ export function register({
         ),
       );
     });
-    test('P0', '命中停顿输入缓存保留', () => {
+    test('P0', '命中停顿只保留一次普通攻击意图', () => {
       const [p] = fresh();
       matchModule.game.hitStop = 0.05;
       p.captureInput({
@@ -618,7 +618,7 @@ export function register({
           },
         ],
       });
-      assert(p.queue.length === 2);
+      assert(p.queue.length === 1);
     });
     test('P0', '固定340ms缓存与过期', () => {
       const [p] = fresh();
@@ -1796,6 +1796,37 @@ export function register({
                 Math.abs(cam.aspect - innerWidth / (innerHeight / 2)) < 1e-8,
             );
         }
+      });
+      test('camera', '动态胶囊掩体实际阻挡镜头射线，隐藏和销毁后移出障碍', () => {
+        fresh();
+        matchModule.game.selectedChar = charactersModule.CHARACTERS.findIndex(
+          (c) => c.id === 'bulma',
+        );
+        matchModule.startFight();
+        matchModule.game.ready = 0;
+        const p = matchModule.player;
+        p.startSpecial();
+        combatModule.releaseYouthAbility(p, p.attack);
+        const cover = combatModule.youthEntities.find((e) => e.kind === 'cover');
+        assert(cover);
+        const meshes = cover.mesh.children.filter((node) => node.isMesh);
+        const origin = cover.pos.clone().add(new THREE.Vector3(0, 0.6, 2));
+        renderModule.cameraRay.set(origin, new THREE.Vector3(0, 0, -1));
+        renderModule.cameraRay.far = 4;
+        assert(
+          renderModule.cameraRay
+            .intersectObjects(renderModule.cameraObstacles, false)
+            .some((hit) => meshes.includes(hit.object)),
+        );
+        cover.mesh.visible = false;
+        renderModule.updateFightCamera(matchModule.STEP);
+        assert(meshes.every((mesh) => !renderModule.cameraObstacles.includes(mesh)));
+        cover.mesh.visible = true;
+        renderModule.cameraObstacles.push(...meshes);
+        cover.hp = 0;
+        combatModule.updateYouthEntities(matchModule.STEP);
+        renderModule.updateFightCamera(matchModule.STEP);
+        assert(meshes.every((mesh) => !renderModule.cameraObstacles.includes(mesh)));
       });
       test('P1', '镜头墙边与场景障碍不会穿入摄像机阻挡体', () => {
         for (let stage = 0; stage < 3; stage++) {

@@ -1,5 +1,24 @@
 import { INPUT_LABELS } from '../ui/character-help.js';
 import * as THREE from 'three';
+export function cameraObstacle(mesh) {
+  if (!mesh.isMesh || mesh.userData.cameraBlocker === false) return false;
+  if (mesh.userData.cameraBlocker === true) return true;
+  const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+  if (!materials.some((m) => m && m.visible !== false && (m.opacity ?? 1) >= 0.95)) return false;
+  mesh.geometry.computeBoundingBox();
+  const size = mesh.geometry.boundingBox
+    .clone()
+    .applyMatrix4(mesh.matrixWorld)
+    .getSize(new THREE.Vector3());
+  return size.y >= 1.3 && Math.max(size.x, size.z) >= 0.4;
+}
+function visibleObstacle(mesh) {
+  for (let node = mesh; node; node = node.parent) {
+    if (!node.visible) return false;
+    if (node.isScene) return true;
+  }
+  return false;
+}
 export function register({
   match: matchModule,
   render: renderModule,
@@ -9,16 +28,9 @@ export function register({
 }) {
   renderModule.resetShoulderCameras = function resetShoulderCameras() {
     renderModule.cameraObstacles.length = 0;
+    renderModule.scene.updateMatrixWorld(true);
     worldModule.currentMap?.group.traverse((o) => {
-      const p = o.geometry?.parameters;
-      if (
-        o.isMesh &&
-        o.geometry.type === 'BoxGeometry' &&
-        p.height >= 1.3 &&
-        p.width >= 0.4 &&
-        !o.material.transparent
-      )
-        renderModule.cameraObstacles.push(o);
+      if (cameraObstacle(o)) renderModule.cameraObstacles.push(o);
     });
     renderModule.scene.updateMatrixWorld(true);
     for (let i = 0; i < 2; i++) {
@@ -44,10 +56,18 @@ export function register({
         );
     const front = new THREE.Vector3(Math.sin(s.yaw), 0, Math.cos(s.yaw)),
       right = new THREE.Vector3(-front.z, 0, front.x);
+    const stature = (fighter) =>
+      ((fighter.parts.anatomy?.hip ?? 1) + (fighter.parts.anatomy?.neck ?? 0.65)) *
+      fighter.baseScale;
+    const ownHeight = stature(f),
+      foeHeight = stature(foe);
     const split = matchModule.game.difficulty === 'local' && !matchModule.game.online,
       back = (split ? 4.9 : 4.8) + Math.min(1.8, dist * 0.07 + Math.abs(delta.y) * 0.2),
       shoulder =
-        (split ? 1.3 : 1.45) + Math.max(0, 1 - dist / 5) * 2 + Math.max(0, f.baseScale - 1) * 0.3;
+        (split ? 1.3 : 1.45) +
+        Math.max(0, 1 - dist / 5) * 2 +
+        Math.max(0, f.baseScale - 1) * 0.3 +
+        Math.max(0, ownHeight - foeHeight) * 2.8 * Math.max(0, 1 - dist / 4);
     const origin = position.clone().add(new THREE.Vector3(0, 1.65 * f.baseScale, 0));
     const desired = position.clone().addScaledVector(front, -back).addScaledVector(right, shoulder);
     desired.y += 2.65 + Math.max(0, f.baseScale - 1) * 1.6 + Math.min(2, Math.abs(delta.y) * 0.3);
@@ -62,7 +82,7 @@ export function register({
     }
     const desiredTarget = position
       .clone()
-      .addScaledVector(front, Math.min(5.5, Math.max(1.1, dist * 0.43)))
+      .addScaledVector(delta.clone().setY(0), Math.min(0.5, 5.5 / Math.max(0.1, dist)))
       .addScaledVector(right, 0);
     desiredTarget.y +=
       Math.max(1.15, foe.baseScale * 1.2) + THREE.MathUtils.clamp(delta.y * 0.45, -0.8, 2.8);
@@ -87,7 +107,12 @@ export function register({
       s.position.y = Math.max(0.4, s.position.y);
     }
     cam.aspect = innerWidth / (innerHeight / (split ? 2 : 1));
-    cam.fov = (split ? 58 : 55) + Math.min(8, Math.abs(delta.y) * 1.5);
+    // A narrow portrait frustum clipped back counters and airborne landings.
+    // Widen the lens while preserving the shoulder position and bounded yaw.
+    cam.fov = Math.min(
+      85,
+      (split ? 58 : 55) + Math.max(0, 1 - cam.aspect) * 55 + Math.min(8, Math.abs(delta.y) * 1.5),
+    );
     cam.updateProjectionMatrix();
     cam.position.copy(s.position);
     cam.lookAt(s.target);
@@ -99,6 +124,7 @@ export function register({
   }
   renderModule.updateFightCamera = function updateFightCamera(dt, snap = false) {
     if (!matchModule.player || !matchModule.enemy) return;
+    renderModule.cameraObstacles = renderModule.cameraObstacles.filter(visibleObstacle);
     updateShoulderView(
       renderModule.camera,
       matchModule.game.onlineSeat === 1 && matchModule.game.online

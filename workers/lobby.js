@@ -13,6 +13,7 @@ export function roomList(sessions) {
       ringOut: host?.ringOut ?? false,
       revision: host?.revision ?? 0,
       match: host?.match ?? null,
+      series: host?.series ?? { scores: [0, 0], rounds: 0, votes: [false, false] },
       spectators: sessions.filter((s) => s.watching === index + 1).length,
       players: members.map(({ id, seat, character, ready }) => ({ id, seat, character, ready })),
     };
@@ -28,6 +29,22 @@ export function command(sessions, player, message, newMatch) {
       s.ready = false;
       s.match = null;
     });
+  const series = (list) => {
+    const value = list[0]?.series ?? { scores: [0, 0], rounds: 0, votes: [false, false] };
+    list.forEach((s) => (s.series = structuredClone(value)));
+    return value;
+  };
+  const start = (list) => {
+    const value = series(list);
+    value.rounds++;
+    value.votes = [false, false];
+    const match = newMatch();
+    list.forEach((s) => {
+      s.match = match;
+      s.ready = true;
+      s.series = structuredClone(value);
+    });
+  };
   if (message.type === 'watch') {
     if (player.room) return error('请先离开当前房间');
     const room = roomList(sessions).find((r) => r.id === message.room);
@@ -59,12 +76,15 @@ export function command(sessions, player, message, newMatch) {
     const revision = (occupants[0]?.revision ?? 0) + 1;
     [...occupants, player].forEach((s) => (s.revision = revision));
     reset([...occupants, player]);
+    const initial = { scores: [0, 0], rounds: 0, votes: [false, false] };
+    [...occupants, player].forEach((s) => (s.series = structuredClone(initial)));
     return { changed: true };
   }
   if (message.type === 'leave') {
     player.watching = 0;
     const remaining = members().filter((s) => s !== player);
     reset(remaining);
+    remaining.forEach((s) => (s.series = { scores: [0, 0], rounds: 0, votes: [false, false] }));
     remaining.forEach((s) => {
       s.seat = 0;
       s.revision = (s.revision ?? 0) + 1;
@@ -79,6 +99,17 @@ export function command(sessions, player, message, newMatch) {
     if (player.seat !== 0 || player.match?.id !== message.match || members().length !== 2)
       return error('对局状态无效');
     const playing = message.type === 'playing';
+    if (playing && player.match.finished) return error('本回合已经结束');
+    if (!playing && !player.match.finished) {
+      const value = series(members());
+      if (message.winner === 0 || message.winner === 1) value.scores[message.winner]++;
+      value.votes = [false, false];
+      members().forEach((s) => {
+        s.series = structuredClone(value);
+        s.match = { ...s.match, playing: false, finished: true, winner: message.winner ?? null };
+      });
+      return { changed: true };
+    }
     if (!!player.match.playing === playing) return { changed: false };
     members().forEach((s) => (s.match = { ...s.match, playing }));
     return { changed: true };
@@ -101,7 +132,7 @@ export function command(sessions, player, message, newMatch) {
     if (player.match) return error('对战中不能修改设置');
     const patch = {};
     if ('map' in message) {
-      if (!Number.isInteger(message.map) || message.map < 0 || message.map > 2)
+      if (!Number.isInteger(message.map) || message.map < 0 || message.map > 3)
         return error('舞台不存在');
       patch.map = message.map;
     }
@@ -136,16 +167,26 @@ export function command(sessions, player, message, newMatch) {
     player.ready = message.ready === true;
     const list = members();
     if (list.length === PLAYER_LIMIT && list.every((s) => s.ready)) {
-      const match = newMatch();
-      list.forEach((s) => {
-        s.match = match;
-      });
+      start(list);
     }
+    return { changed: true };
+  }
+  if (message.type === 'rematch') {
+    if (player.match?.id !== message.match || !player.match.finished || members().length !== 2)
+      return error('本回合尚未确认结束');
+    const list = members(),
+      value = series(list);
+    value.votes[player.seat] = message.ready === true;
+    list.forEach((s) => (s.series = structuredClone(value)));
+    if (value.votes.every(Boolean)) start(list);
     return { changed: true };
   }
   if (message.type === 'finish') {
     if (player.match?.id !== message.match) return error('对局已结束');
     reset(members());
+    const value = series(members());
+    value.votes = [false, false];
+    members().forEach((s) => (s.series = structuredClone(value)));
     return { changed: true };
   }
   return error('不支持的操作');

@@ -32,6 +32,7 @@ export function register({
     renderModule.sun.shadow.camera.right = 24;
     renderModule.sun.shadow.camera.top = 20;
     renderModule.sun.shadow.camera.bottom = -20;
+    worldModule.currentMap?.applyLighting?.(matchModule.game?.lightPreset);
   };
   worldModule.surfaceTexture = function surfaceTexture(kind) {
     const c = document.createElement('canvas');

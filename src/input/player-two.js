@@ -41,6 +41,7 @@ export function register({ input: inputModule, match: matchModule, training: tra
         EDGE_KEYS2[e.code]
       )
         inputModule.inputEdges2.push({
+          at: performance.now(),
           type: EDGE_KEYS2[e.code],
           up: !!inputModule.keys.ArrowUp,
           down: !!inputModule.keys.ArrowDown,

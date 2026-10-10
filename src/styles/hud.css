@@ -149,6 +149,8 @@
 #result.victoryResult .dialogCard {
   pointer-events: auto;
   max-width: 440px;
+  max-height: 28vh;
+  overflow: auto;
   background: #14202bbb;
   color: #fff4d4;
   padding: 16px;
@@ -194,7 +196,7 @@
     margin: 0 0 6px;
   }
   #victorySubtitle {
-    bottom: 190px;
+    bottom: calc(28vh + 24px);
     font-size: 18px;
   }
   #touch .touchGroup button {

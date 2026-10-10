@@ -305,7 +305,8 @@
     ],
     "requires": [
       "render.camera",
-      "render.menuAngle"
+      "render.menuAngle",
+      "world.currentMap"
     ]
   },
   {
@@ -378,6 +379,7 @@
       "input.inputEdges2",
       "input.justPressed",
       "input.keys",
+      "match.backToMenu",
       "match.enemy",
       "match.game",
       "match.notify",
@@ -393,6 +395,7 @@
       "training.clearDebugBoxes",
       "training.drillSystem",
       "training.refreshMoveTable",
+      "training.startDrill",
       "ui.el",
       "ui.hideCombo",
       "ui.updateHUD",
@@ -481,12 +484,14 @@
       "match.roundWinner"
     ],
     "requires": [
+      "app.online",
       "combat.cancelKiHolds",
       "combat.clearKiBlasts",
       "input.clearPresses",
       "input.keys",
       "match.beginVictory",
       "match.combatDiagnostics",
+      "match.debugStats",
       "match.enemy",
       "match.game",
       "match.player",
@@ -708,6 +713,7 @@
       "match.player",
       "match.startFight",
       "training.refreshMoveTable",
+      "ui.controlledFighter",
       "ui.el",
       "ui.fighterStatus",
       "ui.specialAvailability",
@@ -731,6 +737,7 @@
       "render.rim",
       "render.scene",
       "render.sun",
+      "world.currentMap",
       "world.daylight",
       "world.moon",
       "world.warmSkyBackdrop"
@@ -1062,11 +1069,14 @@
       "combat.finalizeMove",
       "combat.inputEdges",
       "combat.legalCancel",
+      "combat.releaseYouthAbility",
       "combat.resolveOverlap",
       "combat.sampleCombatRig",
       "combat.updateKiBlasts",
       "combat.updateKiDiscs",
       "combat.updateV2Abilities",
+      "combat.updateYouthEntities",
+      "combat.youthEntities",
       "input.clearPresses",
       "input.keys",
       "match.STEP",
@@ -1122,6 +1132,7 @@
       "combat.capsuleDistanceSq",
       "combat.collectCombatHits",
       "combat.combatPose",
+      "combat.launchKnockback",
       "combat.neutralCombatPose",
       "combat.resolveOverlap",
       "combat.sampleCombatRig",
@@ -1137,8 +1148,12 @@
       "match.game",
       "match.pendingHits",
       "match.player",
+      "render.cameraRay",
       "render.renderGameViews",
+      "render.resetShoulderCameras",
+      "render.shoulderStates",
       "render.updateEffects",
+      "render.updateFightCamera",
       "render.updateUltimateVisuals",
       "testing.runCollisionMatrix",
       "testing.runCombatTests",
@@ -1150,6 +1165,7 @@
       "ui.specialAvailability",
       "ui.updateExtraHUD",
       "ui.updateHUD",
+      "world.damageStage",
       "world.updateSenzu"
     ]
   },
@@ -1164,6 +1180,7 @@
       "combat.fireKiBlast",
       "combat.kiBlastPose",
       "combat.kiBlastPower",
+      "combat.kiBlasts",
       "combat.kiColor",
       "combat.stopChargeSound",
       "combat.updateKiBlasts",
@@ -1221,6 +1238,7 @@
       "combat.impactKind"
     ],
     "requires": [
+      "app.online",
       "audio.eventSound",
       "characters.CHARACTERS",
       "combat.FEEDBACK_PROFILES",
@@ -1887,6 +1905,30 @@
     ]
   },
   {
+    "module": "world/kami",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "world.buildKamiStage"
+    ],
+    "requires": [
+      "match.game",
+      "world.daylight"
+    ]
+  },
+  {
+    "module": "world/budokai",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "world.buildBudokaiStage"
+    ],
+    "requires": [
+      "match.game",
+      "world.daylight"
+    ]
+  },
+  {
     "module": "art/stage-reconstruction",
     "domain": "art",
     "testing": false,
@@ -1902,7 +1944,6 @@
       "art.artPatch",
       "art.artShareMaterials",
       "art.artStageBuilders",
-      "art.artTexture",
       "art.batchDecoration",
       "art.refinedWindow",
       "art.seaTurtle",
@@ -1910,6 +1951,8 @@
       "characters.box",
       "characters.meshTo",
       "world.MAPS",
+      "world.buildBudokaiStage",
+      "world.buildKamiStage",
       "world.daylight",
       "world.enrichDestruction",
       "world.makeTextTexture",
@@ -2143,6 +2186,7 @@
       "match.skipVictory",
       "match.updateVictory",
       "match.victory",
+      "render.cameraObstacles",
       "render.castUltVisual",
       "render.effects",
       "render.energyMat",
@@ -2356,6 +2400,40 @@
     ]
   },
   {
+    "module": "combat/battle-state",
+    "domain": "combat",
+    "testing": false,
+    "provides": [
+      "combat.captureBattleState",
+      "combat.restoreBattleState",
+      "match.pendingHits",
+      "match.stepAccumulator"
+    ],
+    "requires": [
+      "ai.setCombatSeed",
+      "ai.tacticalSeed",
+      "animation.ANIM",
+      "characters.CHARACTERS",
+      "combat.captureBattleState",
+      "combat.combatEvents",
+      "combat.inputEdges",
+      "combat.restoreBattleState",
+      "combat.setYouthBody",
+      "combat.youthEntities",
+      "input.inputEdges2",
+      "match.enemy",
+      "match.game",
+      "match.pendingHits",
+      "match.player",
+      "match.startFight",
+      "match.stepAccumulator",
+      "render.cameraObstacles",
+      "render.resetShoulderCameras",
+      "render.scene",
+      "world.currentMap"
+    ]
+  },
+  {
     "module": "online/session",
     "domain": "online",
     "testing": false,
@@ -2371,10 +2449,12 @@
       "ai.tacticalSeed",
       "characters.applyPose",
       "combat.advanceCombat",
+      "combat.captureBattleState",
       "combat.combatPose",
       "combat.inputEdges",
       "combat.mobilitySpeed",
       "combat.neutralCombatPose",
+      "combat.restoreBattleState",
       "input.clearPresses",
       "input.justPressed",
       "input.keys",
@@ -2384,6 +2464,7 @@
       "match.clearVictory",
       "match.enemy",
       "match.game",
+      "match.notify",
       "match.player",
       "match.setPaused",
       "match.startFight",

@@ -28,14 +28,14 @@ test('every fighter advances all light and heavy animations through real queued 
             db.game.hitStop = 0;
             if (p.attack?.chainType === type) seen.add(p.attack.id);
             if (e.hp < hp && previous?.chainType === type) hitStages.add(previous.id);
-            if (seen.size === c.combos[type].length && !p.attack) break;
+            if (seen.size === (distance === 8 ? 1 : c.combos[type].length) && !p.attack) break;
           }
           rows.push({
             id: c.id,
             type,
             distance,
             seen: [...seen],
-            expected: c.combos[type].map((a) => a.id),
+            expected: distance === 8 ? [c.combos[type][0].id] : c.combos[type].map((a) => a.id),
             hitStages: [...hitStages],
           });
         }
@@ -51,7 +51,7 @@ test('every fighter advances all light and heavy animations through real queued 
   expect(failures).toEqual([]);
 });
 
-test('ox king armor survives repeated hits throughout every heavy, skill and ultimate', async ({
+test('ox king armor protects startup and active phases but recovery is interruptible for every heavy, skill and ultimate', async ({
   page,
 }) => {
   await openGame(page);
@@ -81,6 +81,12 @@ test('ox king armor survives repeated hits throughout every heavy, skill and ult
         const a = ox.attack;
         ox.stateTimer =
           phase === 'startup' ? 0.01 : phase === 'active' ? a.hitT + 0.02 : a.dur - 0.02;
+        if (phase === 'recovery') {
+          ox.takeHit(foe, { ...foe.def.combos.light[0], dmg: 10, kb: 0 });
+          if (ox.attack || ox.state !== 'hit' || ox.maxHp - ox.hp < 10 * foe.def.power - 0.1)
+            failures.push({ move, phase, recoveryMustBeInterruptible: true });
+          continue;
+        }
         const timer = ox.stateTimer,
           state = ox.state,
           velocity = ox.vel.toArray();
@@ -262,7 +268,7 @@ test('goku overhead staff and extension contact short, normal and tall targets',
   expect(failures).toEqual([]);
 });
 
-test('late inputs can continue every fighter chain after full recovery', async ({ page }) => {
+test('whiffed chains return to a fresh opener after full recovery', async ({ page }) => {
   await openGame(page);
   const failures = await page.evaluate(() => {
     const db = window.__db,
@@ -278,7 +284,7 @@ test('late inputs can continue every fighter chain after full recovery', async (
         }
         const recovered = !p.attack && p.state === 'idle';
         db.tick({ actions: [{ type }] });
-        if (!recovered || p.attack?.id !== c.combos[type][1].id)
+        if (!recovered || p.attack?.id !== c.combos[type][0].id)
           failures.push({ id: c.id, type, stage: p.attack?.id });
       }
     }
@@ -743,7 +749,7 @@ test('backward burst cancels a confirmed heavy hit into retreat and respects stu
     let [p, e] = d.fixtureYouth('goku', 'chichi', 1);
     p.startAttack('heavy');
     const a = p.attack;
-    while (p.stateTimer < a.hitT + 0.06) {
+    while (p.stateTimer < a.hitT + 0.14) {
       d.tick();
       d.game.hitStop = 0;
     }

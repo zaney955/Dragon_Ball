@@ -1,75 +1,5 @@
 import * as THREE from 'three';
 export function register({ art: artModule, characters: charactersModule, world: worldModule }) {
-  function artTempleRoof(g, w, d, y, h) {
-    const clay = artModule.artMat(0x9b6345),
-      edge = artModule.artMat(0x573f30),
-      ridge = artModule.artMat(0xc08a5c);
-    const v = [],
-      uv = [],
-      ind = [],
-      nx = 48,
-      nz = 12;
-    for (let z = 0; z <= nz; z++)
-      for (let x = 0; x <= nx; x++) {
-        const u = (x / nx) * 2 - 1,
-          zz = (z / nz - 0.5) * d,
-          yy = y + h * Math.pow(1 - Math.abs(u), 0.85) + 0.55 * Math.pow(Math.abs(u), 10);
-        v.push((u * w) / 2, yy, zz);
-        uv.push(x / nx, z / nz);
-        if (x < nx && z < nz) {
-          const n = z * (nx + 1) + x;
-          ind.push(n, n + nx + 1, n + 1, n + 1, n + nx + 1, n + nx + 2);
-        }
-      }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-    geo.setIndex(ind);
-    geo.computeVertexNormals();
-    charactersModule.meshTo(g, geo, clay);
-    const soffit = geo.clone();
-    soffit.translate(0, -0.1, 0);
-    const underside = artModule.artMat(0x78533b);
-    underside.side = THREE.BackSide;
-    charactersModule.meshTo(g, soffit, underside);
-    for (let i = 0; i <= 36; i++) {
-      const xx = (i / 36 - 0.5) * w,
-        yy =
-          y +
-          h * Math.pow(1 - Math.abs(xx) / (w / 2), 0.85) +
-          0.55 * Math.pow(Math.abs(xx) / (w / 2), 10);
-      artModule.artLine(
-        g,
-        ridge,
-        [
-          [xx, yy + 0.025, -d / 2],
-          [xx, yy + 0.025, d / 2],
-        ],
-        0.042,
-      );
-    }
-    for (const s of [-1, 1]) {
-      const pts = [];
-      for (let i = 0; i <= 32; i++) {
-        const u = i / 16 - 1;
-        pts.push([
-          (u * w) / 2,
-          y + h * Math.pow(1 - Math.abs(u), 0.85) + 0.55 * Math.pow(Math.abs(u), 10),
-          (s * d) / 2,
-        ]);
-      }
-      artModule.artLine(g, edge, pts, 0.1);
-    }
-    for (let j = 0; j < 20; j++)
-      charactersModule.meshTo(
-        g,
-        new THREE.CylinderGeometry(0.14, 0.14, (d / 20) * 0.94, 12),
-        ridge,
-        0,
-        y + h + 0.1,
-        -d / 2 + ((j + 0.5) * d) / 20,
-      ).rotation.x = Math.PI / 2;
-  }
   function artPalm(g, x, z, h = 8) {
     const t = new THREE.Group();
     g.add(t);
@@ -176,50 +106,6 @@ export function register({ art: artModule, characters: charactersModule, world: 
         ],
         0.027,
       );
-    }
-  }
-  function artCrowd(g, x, z, index) {
-    const shirt = artModule.artMat([0x677f94, 0xb26956, 0xd6a75c, 0x698d77, 0xc6b4a0][index % 5]),
-      skin = artModule.artMat([0xd3a07d, 0xe5b994, 0xb88666][index % 3]),
-      dark = artModule.artMat(0x3c3940);
-    const a = new THREE.Group();
-    a.position.set(x, 0, z);
-    a.rotation.y = x > 0 ? -1.5 : 1.5;
-    g.add(a);
-    artModule.artLoft(
-      a,
-      shirt,
-      [
-        [0.55, 0.16, 0.12],
-        [0.9, 0.23, 0.14],
-        [1.1, 0.18, 0.12],
-      ],
-      12,
-    );
-    charactersModule.ball(a, skin, 0, 1.31, 0, 0.18, [0.9, 1.1, 0.9]);
-    charactersModule.ball(a, dark, 0, 1.42, -0.02, 0.18, [1, 0.5, 1]);
-    for (const s of [-1, 1]) {
-      artModule.artLine(
-        a,
-        shirt,
-        [
-          [s * 0.18, 1.0, 0],
-          [s * 0.26, 0.83, 0.07],
-          [s * 0.15, 0.7, 0.15],
-        ],
-        0.067,
-      );
-      artModule.artLine(
-        a,
-        dark,
-        [
-          [s * 0.09, 0.56, 0],
-          [s * 0.1, 0.25, 0.04],
-          [s * 0.1, 0.05, 0.06],
-        ],
-        0.075,
-      );
-      charactersModule.ball(a, skin, s * 0.15, 0.7, 0.15, 0.065);
     }
   }
   function stageRibbon(g, material, points, width, y) {
@@ -595,160 +481,6 @@ export function register({ art: artModule, characters: charactersModule, world: 
       time += dt;
       for (const update of updates) update(time);
     };
-  }
-  function artStageBudokai() {
-    worldModule.daylight();
-    const group = new THREE.Group(),
-      decor = new THREE.Group();
-    group.add(decor);
-    const stone = artModule.artMat(0xe4d9bd),
-      base = artModule.artMat(0xb6a685),
-      sand = artModule.artMat(0xbcbc87),
-      cream = artModule.artMat(0xe9d4a3),
-      red = artModule.artMat(0xa24e39),
-      wood = artModule.artMat(0x684633);
-    charactersModule.box(decor, sand, 0, -1.45, 0, 180, 0.3, 150);
-    charactersModule.box(decor, base, 0, -0.71, 0, 29, 1.4, 15);
-    stone.map = artModule.artTexture('stone');
-    for (let x = -14; x < 14; x += 2)
-      for (let z = -7; z < 7; z += 2) {
-        const tile = charactersModule.box(group, stone, x + 1, -0.035, z + 1, 1.96, 0.07, 1.96);
-        tile.name = 'breakable-arena-slab';
-      }
-    for (const x of [-14.3, 14.3]) charactersModule.box(decor, cream, x, -0.13, 0, 0.28, 0.28, 15);
-    for (const z of [-7.3, 7.3]) charactersModule.box(decor, cream, 0, -0.13, z, 29, 0.28, 0.28);
-    for (let j = 0; j < 4; j++)
-      charactersModule.box(decor, base, 0, -0.21 - j * 0.3, 7.7 + j * 0.5, 5.2, 0.26, 0.53);
-    for (const s of [-1, 1])
-      for (let j = 0; j < 22; j++) {
-        charactersModule.box(decor, wood, s * 14.52, -0.45, -7 + j * 0.66, 0.014, 0.018, 0.62);
-        charactersModule.box(decor, wood, s * 14.52, -0.96, -6.7 + j * 0.66, 0.014, 0.018, 0.62);
-      }
-    const temple = new THREE.Group();
-    temple.position.z = -16;
-    decor.add(temple);
-    charactersModule.box(temple, cream, 0, 2.8, 0, 19, 7, 4);
-    charactersModule.box(temple, wood, 0, 1.65, 2.05, 3.2, 4.5, 0.13);
-    for (const s of [-1, 1]) {
-      for (const x of [3.8, 7.7]) {
-        charactersModule.box(temple, red, s * x, 2.7, 2.2, 0.45, 6, 0.5);
-        charactersModule.box(temple, wood, s * x, 2.85, 2.08, 2.65, 2.1, 0.1);
-        for (let j = 0; j < 8; j++)
-          charactersModule.box(
-            temple,
-            cream,
-            s * x - 1.18 + j * 0.34,
-            2.85,
-            2.18,
-            0.045,
-            1.95,
-            0.035,
-          );
-        for (let j = 0; j < 4; j++)
-          charactersModule.box(temple, cream, s * x, 1.99 + j * 0.56, 2.2, 2.6, 0.045, 0.04);
-        charactersModule.box(temple, cream, s * x, -0.1, 2.2, 0.68, 0.42, 0.7);
-      }
-      const wing = new THREE.Group();
-      wing.position.set(s * 13.3, 0, 0.1);
-      temple.add(wing);
-      charactersModule.box(wing, cream, 0, 1.3, 0, 6, 3.8, 2.8);
-      artTempleRoof(wing, 7.5, 4.6, 3.2, 1.5);
-    }
-    artTempleRoof(temple, 24, 8, 6.3, 3.15);
-    charactersModule.box(temple, wood, 0, 5.65, 4.25, 10.9, 2.3, 0.22);
-    const sign = worldModule.makeTextTexture('天下一武道会', {
-      w: 1536,
-      h: 320,
-      fontSize: 170,
-      bg: '#f3dfaa',
-      fg: '#343129',
-      border: '#7d4832',
-    });
-    charactersModule.meshTo(
-      temple,
-      new THREE.PlaneGeometry(10.4, 1.98),
-      new THREE.MeshBasicMaterial({
-        map: sign,
-      }),
-      0,
-      5.65,
-      4.38,
-    );
-    for (let j = 0; j < 12; j++)
-      charactersModule.box(temple, cream, -1.45 + j * 0.265, 1.65, 2.15, 0.04, 4.3, 0.04);
-    for (const s of [-1, 1]) {
-      const wall = new THREE.Group();
-      wall.position.set(s * 16, 0, -2);
-      decor.add(wall);
-      charactersModule.box(wall, cream, 0, 0.7, 0, 1.1, 3.4, 24);
-      artTempleRoof(wall, 2.8, 25, 2.3, 0.7);
-      for (let j = 0; j < 19; j++) {
-        charactersModule.box(decor, wood, s * 18, -0.35, -11 + j * 1.25, 0.1, 1.6, 0.1);
-        artCrowd(decor, s * (20 + (j % 2) * 0.6), -10 + j * 1.15, j + (s + 1) * 3);
-      }
-      for (const y of [-0.1, 0.4]) charactersModule.box(decor, wood, s * 18, y, 0, 0.11, 0.07, 24);
-      artPalm(decor, s * 20, -22, 10);
-      charactersModule.meshTo(
-        decor,
-        new THREE.CylinderGeometry(0.06, 0.06, 8.8, 12),
-        wood,
-        s * 12,
-        3.2,
-        -11.6,
-      );
-      const tx = worldModule.makeTextTexture('武', {
-        w: 256,
-        h: 512,
-        fontSize: 160,
-        bg: '#ede1b9',
-        fg: '#263931',
-        border: '#9b4935',
-      });
-      charactersModule.meshTo(
-        decor,
-        new THREE.PlaneGeometry(1.4, 2.8),
-        new THREE.MeshBasicMaterial({
-          map: tx,
-          side: THREE.DoubleSide,
-        }),
-        s * 12 + 0.75,
-        5.4,
-        -11.6,
-      );
-    }
-    for (const x of [-6, 6]) {
-      const paper = artModule.artMat(0xe5b868);
-      charactersModule.ball(decor, paper, x, 4.7, -12.2, 0.35, [1, 1.3, 1]);
-      for (const y of [4.33, 5.07])
-        charactersModule.meshTo(
-          decor,
-          new THREE.CylinderGeometry(0.23, 0.23, 0.07, 16),
-          red,
-          x,
-          y,
-          -12.2,
-        );
-    }
-    worldModule.prepareBuilding(temple, 'budokai-hall', { roofY: 6.3 });
-    group.add(temple);
-    const ambience = stageAtmosphere(group, decor, 'budokai');
-    artModule.artShareMaterials(decor);
-    artModule.batchDecoration(decor);
-    const move = worldModule.worldClouds(group);
-    return worldModule.enrichDestruction(
-      {
-        group,
-        bounds: {
-          x: 13.5,
-          z: 6,
-        },
-        update: (dt) => {
-          move(dt);
-          ambience(dt);
-        },
-      },
-      'budokai',
-    );
   }
   function gokuMountainHome(group, decor) {
     const white = artModule.artMat(0xdce3d9),
@@ -1295,9 +1027,10 @@ export function register({ art: artModule, characters: charactersModule, world: 
   }
   return function initialize() {
     artModule.artStageBuilders = {
-      budokai: artStageBudokai,
+      budokai: worldModule.buildBudokaiStage,
       wild: artStageWild,
       kame: artStageKame,
+      kami: worldModule.buildKamiStage,
     };
     for (const m of worldModule.MAPS) {
       m.build = () => {

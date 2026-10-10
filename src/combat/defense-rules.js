@@ -32,8 +32,7 @@ export function guardCost(a) {
   if (a.isUlt) return 45;
   if (a.isKiBlast) return a.kiCost > 5 ? 18 : 6;
   if (a.projectile) return Math.min(30, Math.max(8, a.guardDamage ?? 18));
-  if (a.chainType === 'light') return 12;
-  if (a.chainType === 'heavy') return 22;
+  if (a.chainType) return a.guardDamage ?? (a.chainType === 'light' ? 12 : 22);
   return Math.min(40, Math.max(12, a.guardDamage ?? 24));
 }
 
