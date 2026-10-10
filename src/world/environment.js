@@ -59,9 +59,47 @@ export function register({
         k.fillRect(x, y, 1 + rnd() * 3, 1 + rnd() * 3);
       }
     }
+    if (kind === 'grass' || kind === 'sand' || kind === 'earth') {
+      for (let i = 0; i < 65; i++) {
+        const x = rnd() * 256,
+          y = rnd() * 256;
+        k.strokeStyle = kind === 'grass' ? 'rgba(72,104,55,.13)' : 'rgba(128,98,54,.12)';
+        k.lineWidth = kind === 'grass' ? 1 : 0.6;
+        k.beginPath();
+        k.moveTo(x - 8, y);
+        k.quadraticCurveTo(x, y - 3, x + 12, y + 1);
+        k.stroke();
+      }
+      for (let i = 0; i < 15; i++) {
+        const x = rnd() * 256,
+          y = rnd() * 256,
+          gradient = k.createRadialGradient(x, y, 0, x, y, 18 + rnd() * 22);
+        gradient.addColorStop(0, kind === 'grass' ? 'rgba(93,111,60,.15)' : 'rgba(162,130,80,.12)');
+        gradient.addColorStop(1, 'rgba(255,255,255,0)');
+        k.fillStyle = gradient;
+        k.fillRect(0, 0, 256, 256);
+      }
+    } else if (kind === 'water') {
+      k.fillStyle = '#c2e9e4';
+      k.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 48; i++) {
+        k.fillStyle = i % 3 ? 'rgba(255,255,255,.4)' : 'rgba(101,167,177,.2)';
+        k.fillRect(rnd() * 256, rnd() * 256, 1 + rnd() * 4, 40 + rnd() * 120);
+      }
+    }
     const t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.repeat.set(kind === 'normal' ? 45 : 1, kind === 'normal' ? 45 : 1);
+    const repeat =
+      kind === 'normal'
+        ? 45
+        : kind === 'grass'
+          ? 28
+          : kind === 'sand'
+            ? 12
+            : kind === 'earth'
+              ? 8
+              : 1;
+    t.repeat.set(repeat, kind === 'water' ? 2 : repeat);
     if (kind !== 'normal') t.colorSpace = THREE.SRGBColorSpace;
     return t;
   };

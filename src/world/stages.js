@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 export function register({
+  art: artModule,
   characters: charactersModule,
   render: renderModule,
   world: worldModule,
@@ -8,6 +9,14 @@ export function register({
     if (worldModule.currentMap) {
       renderModule.scene.remove(worldModule.currentMap.group);
       worldModule.disposeGroup(worldModule.currentMap.group);
+      for (let i = renderModule.effects.length - 1; i >= 0; i--) {
+        const effect = renderModule.effects[i];
+        if (!effect.stageEffect) continue;
+        renderModule.scene.remove(effect.mesh);
+        effect.mesh.geometry?.dispose();
+        effect.mesh.material?.dispose();
+        renderModule.effects.splice(i, 1);
+      }
       worldModule.currentMap = null;
     }
   };
@@ -47,6 +56,7 @@ export function register({
       const c = new THREE.Group();
       for (let j = 0; j < 4; j++)
         charactersModule.ball(c, m, j * 2.3, Math.sin(j) * 0.6, 0, 2.5, [1.4, 0.65, 1]);
+      artModule.batchDecoration(c);
       c.position.set(-70 + i * 12, 19 + (i % 3) * 3, -40 - (i % 4) * 12);
       g.add(c);
       clouds.push(c);

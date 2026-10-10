@@ -103,6 +103,96 @@ test('all fourteen gallery models and three playable stages survive cleanup', as
   expect(errors).toEqual([]);
 });
 
+for (const width of [1024, 390])
+  for (let stage = 0; stage < 3; stage++)
+    test(`enriched stage ${stage} animates, breaks and resets at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 720 });
+      const errors = await openGame(page, true, true);
+      const result = await page.evaluate((stage) => {
+        const d = window.__db;
+        Object.assign(d.game, {
+          manualTest: true,
+          muted: true,
+          selectedMap: stage,
+          selectedChar: 0,
+          opponent: 1,
+          difficulty: 'normal',
+        });
+        document.getElementById('homeStart').click();
+        d.startFight();
+        d.game.ready = 0;
+        const map = d.map,
+          atmosphere = map.group.getObjectByName('stage-atmosphere-' + d.MAPS[stage].id),
+          before = atmosphere.children.map((child) =>
+            child.position.toArray().concat(child.rotation.toArray().slice(0, 3)),
+          );
+        map.update(1);
+        const animated = atmosphere.children.some((child, i) =>
+          child.position
+            .toArray()
+            .concat(child.rotation.toArray().slice(0, 3))
+            .some((value, j) => value !== before[i][j]),
+        );
+        const prop = map.destructibles.find((item) => !item.tile && !item.building),
+          buildingParts = map.destructibles.filter((item) => item.building),
+          buildingHp = buildingParts.map((item) => item.hp);
+        d.damageStage(d.player, { dmg: 20, landingImpact: true }, prop.mesh.position);
+        const target = buildingParts
+            .map((item) => item.bounds.getCenter(item.mesh.position.clone()))
+            .reduce((nearest, center) =>
+              !nearest || Math.abs(center.x) < Math.abs(nearest.x) ? center : nearest,
+            ),
+          from = target.clone().setZ(-map.bounds.z);
+        d.damageStageProjectile(d.player, { dmg: 80 }, from, target, 0.2);
+        d.player.pos.set(0, 0, 0);
+        d.player.facingAngle = Math.PI / 2;
+        d.damageStage(d.player, { dmg: 120, isUlt: true, shape: 'beam', range: 10 });
+        d.renderGameViews();
+        const destroyed = map.destroyedProps,
+          buildingDamaged = buildingParts.some(
+            (item, index) => item.broken || item.hp < buildingHp[index],
+          ),
+          brokenBuildingParts = map.brokenBuildingParts,
+          scars = map.scars.length,
+          calls = d.renderer.info.render.calls,
+          bounds = { ...map.bounds };
+        d.startFight();
+        d.map.update(0.5);
+        d.renderGameViews();
+        return {
+          animated,
+          destroyed,
+          buildingDamaged,
+          brokenBuildingParts,
+          scars,
+          calls,
+          bounds,
+          buildings: d.map.buildings.length,
+          buildingParts: d.map.destructibles.filter((item) => item.building).length,
+          props: d.map.destructibles.filter((item) => !item.tile && !item.building).length,
+          reset:
+            d.map.damageEvents === 0 &&
+            d.map.scars.length === 0 &&
+            d.map.destructibles.every((item) => !item.broken),
+          scenes: d.scene.children.filter((child) => child.name.startsWith('reconstructed-stage-'))
+            .length,
+        };
+      }, stage);
+      expect(result.animated).toBe(true);
+      expect(result.destroyed).toBeGreaterThan(0);
+      expect(result.buildings).toBeGreaterThan(0);
+      expect(result.buildingParts).toBeGreaterThan(3);
+      expect(result.buildingDamaged).toBe(true);
+      expect(result.brokenBuildingParts).toBeGreaterThan(0);
+      expect(result.scars).toBeGreaterThanOrEqual(3);
+      expect(result.calls).toBeLessThan(400);
+      expect(result.bounds).toEqual({ x: 13.5, z: 6 });
+      expect(result.props).toBe(12);
+      expect(result.reset).toBe(true);
+      expect(result.scenes).toBe(1);
+      expect(errors).toEqual([]);
+    });
+
 test('core combat, complete youth rules and retained system regressions', async ({ page }) => {
   const errors = await openGame(page, true, true);
   expect((await assertSuite(page, 'runTests', ['legacy'])).total).toBe(91);

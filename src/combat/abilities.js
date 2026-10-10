@@ -151,9 +151,13 @@ export function register({
     pos.x = THREE.MathUtils.clamp(pos.x, -b.x + 0.4, b.x - 0.4);
     pos.z = THREE.MathUtils.clamp(pos.z, -b.z + 0.4, b.z - 0.4);
     if (
-      worldModule.currentMap.destructibles.some(
-        (x) => !x.tile && !x.broken && x.mesh.position.clone().setY(0).distanceTo(pos) < 0.95,
-      )
+      worldModule.currentMap.destructibles.some((x) => {
+        if (x.tile || x.broken) return false;
+        const at = x.bounds
+          ? x.bounds.getCenter(new THREE.Vector3())
+          : x.mesh.getWorldPosition(new THREE.Vector3());
+        return at.setY(0).distanceTo(pos) < 0.95;
+      })
     )
       return false;
     const mesh = deviceModel(kind);

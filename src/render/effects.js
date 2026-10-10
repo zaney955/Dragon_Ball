@@ -3,30 +3,57 @@ export function register({ render: renderModule }) {
   renderModule.angleDelta = function angleDelta(a, b) {
     return Math.atan2(Math.sin(a - b), Math.cos(a - b));
   };
-  renderModule.spawnDust = function spawnDust(pos, count = 5) {
+  let dustTexture;
+  renderModule.spawnDust = function spawnDust(pos, count = 5, options = {}) {
     count = Math.min(count, Math.max(0, 180 - renderModule.effects.length));
+    if (!count) return;
+    if (!dustTexture) {
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 64;
+      const ctx = canvas.getContext('2d'),
+        gradient = ctx.createRadialGradient(32, 32, 2, 32, 32, 31);
+      gradient.addColorStop(0, 'rgba(255,255,255,.9)');
+      gradient.addColorStop(0.45, 'rgba(255,255,255,.45)');
+      gradient.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 64, 64);
+      dustTexture = new THREE.CanvasTexture(canvas);
+    }
+    const power = options.power ?? 1,
+      radius = options.radius ?? 0.08;
     for (let i = 0; i < count; i++) {
-      const size = 0.1 + Math.random() * 0.16;
-      const mesh = new THREE.Mesh(
-        new THREE.SphereGeometry(size, 7, 5),
-        new THREE.MeshBasicMaterial({
-          color: 0xcab697,
-          transparent: true,
-          opacity: 0.42,
-          depthWrite: false,
-        }),
+      const size = (0.3 + Math.random() * 0.35) * power,
+        angle = i * 2.399,
+        mesh = new THREE.Mesh(
+          new THREE.PlaneGeometry(size, size),
+          new THREE.MeshBasicMaterial({
+            color: options.color ?? 0xcab697,
+            map: dustTexture,
+            transparent: true,
+            opacity: 0.4,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          }),
+        ),
+        life = 0.65 + power * 0.3 + Math.random() * 0.2;
+      mesh.position.set(
+        pos.x + Math.cos(angle) * radius,
+        Math.max(0.08, pos.y + 0.08),
+        pos.z + Math.sin(angle) * radius,
       );
-      mesh.position.set(pos.x, 0.08, pos.z);
+      if (renderModule.camera) mesh.quaternion.copy(renderModule.camera.quaternion);
       renderModule.scene.add(mesh);
       renderModule.effects.push({
         mesh,
         type: 'dust',
-        life: 0.8,
-        maxLife: 0.8,
+        stageEffect: !!options.stageEffect,
+        billboard: true,
+        life,
+        maxLife: life,
         vel: new THREE.Vector3(
-          (Math.random() - 0.5) * 3,
-          0.5 + Math.random(),
-          (Math.random() - 0.5) * 3,
+          Math.cos(angle) * (0.5 + Math.random()) * power,
+          (0.4 + Math.random() * 0.65) * power,
+          Math.sin(angle) * (0.5 + Math.random()) * power,
         ),
       });
     }
@@ -115,8 +142,10 @@ export function register({ render: renderModule }) {
       if (e.type === 'dust') {
         e.mesh.position.addScaledVector(e.vel, dt);
         e.vel.multiplyScalar(Math.exp(-dt * 2));
-        e.mesh.scale.setScalar(1 + t * 3);
-        e.mesh.material.opacity = (1 - t) * 0.42;
+        if (e.billboard && renderModule.camera)
+          e.mesh.quaternion.copy(renderModule.camera.quaternion);
+        e.mesh.scale.setScalar(1 + t * 2.8);
+        e.mesh.material.opacity = (1 - t) * 0.4;
       } else if (e.type === 'boundAura') {
         e.mesh.position.copy(e.owner.pos).add(e.offset);
         e.mesh.rotation.y += dt * 3;
@@ -139,14 +168,22 @@ export function register({ render: renderModule }) {
       } else if (e.type === 'debris') {
         e.vel.y -= 12 * dt;
         e.mesh.position.addScaledVector(e.vel, dt);
-        e.mesh.rotation.x += dt * 5;
-        e.mesh.rotation.z += dt * 3;
-        if (e.mesh.position.y < 0.04) {
-          e.mesh.position.y = 0.04;
-          e.vel.multiplyScalar(0.4);
-          e.vel.y = Math.abs(e.vel.y) * 0.3;
+        if ((e.bounces ?? 0) < 3) {
+          e.mesh.rotation.x += dt * (e.spin?.x ?? 5);
+          e.mesh.rotation.y += dt * (e.spin?.y ?? 0);
+          e.mesh.rotation.z += dt * (e.spin?.z ?? 3);
         }
-        e.mesh.scale.setScalar(Math.max(0.1, 1 - t));
+        const floor = e.floor ?? 0.04;
+        if (e.mesh.position.y < floor) {
+          e.mesh.position.y = floor;
+          e.bounces = (e.bounces ?? 0) + 1;
+          e.vel.multiplyScalar(0.45);
+          e.vel.y = e.bounces < 3 ? Math.abs(e.vel.y) * 0.35 : 0;
+        }
+        e.mesh.scale.setScalar(Math.max(0.01, Math.min(1, (1 - t) * 4)));
+      } else if (e.type === 'stageShock') {
+        e.mesh.scale.setScalar(e.startScale + t * e.grow);
+        e.mesh.material.opacity = (1 - t) * 0.5;
       } else if (e.type === 'spark') {
         e.vel.y += e.gravity * dt;
         e.mesh.position.addScaledVector(e.vel, dt);
