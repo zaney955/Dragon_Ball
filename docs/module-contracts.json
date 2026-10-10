@@ -618,7 +618,7 @@
       "render.updateViewHUD",
       "training.senzuHint",
       "ui.fighterStatus",
-      "ui.specialAvailability",
+      "ui.updateDefenseHUD",
       "world.currentMap"
     ]
   },
@@ -686,6 +686,7 @@
       "ui.fighterStatus",
       "ui.showCombo",
       "ui.specialAvailability",
+      "ui.updateDefenseHUD",
       "ui.updateExtraHUD"
     ],
     "requires": [
@@ -708,7 +709,8 @@
       "training.refreshMoveTable",
       "ui.el",
       "ui.fighterStatus",
-      "ui.specialAvailability"
+      "ui.specialAvailability",
+      "ui.updateDefenseHUD"
     ]
   },
   {
@@ -1026,6 +1028,7 @@
       "training.trainingPanel",
       "training.updateRoundRules",
       "training.updateTrainingHUD",
+      "ui.guideCharacter",
       "world.SENZU_RULES",
       "world.currentMap",
       "world.disposeGroup",
@@ -1457,12 +1460,31 @@
     "module": "ui/move-guide",
     "domain": "ui",
     "testing": false,
-    "provides": [],
+    "provides": [
+      "ui.closeGuide",
+      "ui.controlledFighter",
+      "ui.guideCharacter",
+      "ui.openGuide",
+      "ui.refreshCharacterGuide",
+      "ui.startCharacterPractice",
+      "ui.updateGuideConditions"
+    ],
     "requires": [
+      "characters.CHARACTERS",
+      "match.backToMenu",
+      "match.enemy",
       "match.game",
+      "match.player",
       "match.setPaused",
       "training.refreshMoveTable",
-      "ui.el"
+      "ui.closeGuide",
+      "ui.controlledFighter",
+      "ui.openGuide",
+      "ui.refreshCharacterGuide",
+      "ui.showSelection",
+      "ui.startCharacterPractice",
+      "ui.startMechanicPractice",
+      "ui.updateGuideConditions"
     ]
   },
   {
@@ -1726,9 +1748,9 @@
       "combat.removeAbility",
       "render.updateViewHUD",
       "training.processDrillEvent",
-      "training.refreshMoveTable",
       "ui.portrait",
       "ui.specialAvailability",
+      "ui.startMechanicPractice",
       "ui.updateExtraHUD",
       "ui.updateSelection",
       "ui.v2Goal"
@@ -1740,34 +1762,41 @@
       "characters.CHARACTERS",
       "characters.V2_NEW_DEFS",
       "characters.applyPose",
-      "combat.SPECIAL_MOVES",
       "combat.combatIntersects",
       "combat.combatPose",
       "combat.emitCombatEvent",
-      "combat.finalizeMove",
       "combat.flightPhysics",
       "combat.neutralCombatPose",
       "combat.removeAbility",
       "combat.resolveOverlap",
       "combat.sampleCombatRig",
       "combat.skillAvailability",
+      "combat.youthEntities",
       "match.endGame",
       "match.enemy",
       "match.game",
+      "match.notify",
       "match.player",
       "match.startFight",
+      "render.resetShoulderCameras",
       "render.updateViewHUD",
+      "training.drillSystem",
       "training.processDrillEvent",
       "training.refreshMoveTable",
-      "training.table",
       "training.trainingPanel",
       "ui.assetSelect",
+      "ui.controlledFighter",
+      "ui.fighterStatus",
       "ui.portrait",
       "ui.portraitRenderer",
       "ui.specialAvailability",
+      "ui.startCharacterPractice",
+      "ui.startMechanicPractice",
       "ui.updateExtraHUD",
+      "ui.updateGuideConditions",
       "ui.updateSelection",
       "ui.v2Goal",
+      "world.daylight",
       "world.disposeGroup"
     ]
   },
@@ -2108,6 +2137,7 @@
       "combat.stopChargeSound",
       "combat.tickYouthFighter",
       "combat.v2Projectiles",
+      "combat.warnKi",
       "combat.youthEntities",
       "match.enemy",
       "match.game",
@@ -2224,6 +2254,7 @@
       "training.preciseFrames",
       "training.refreshMoveTable",
       "training.table",
+      "ui.guideCharacter",
       "ui.v2Goal"
     ]
   },

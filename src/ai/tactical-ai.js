@@ -94,6 +94,17 @@ export function register({
       : 0;
     const recovering = !!seen.attack && seen.attack.phase > seen.attack.hitT + seen.attack.active;
     const finish = () => {
+      // Low defense needs room to recover. Hit escape still uses block + dash.
+      if ((ai.guardBroken || ai.guard <= 25) && ai.state !== 'hit') {
+        ai.aiBlockTimer = 0;
+        input.block = false;
+        input.crouch = false;
+        if (!ai.attack && seen.attack && !recovering) {
+          input.down = true;
+          input.light = input.heavy = input.special = input.ult = false;
+          ai.aiIntent = 'defend';
+        }
+      }
       const actions = [];
       for (const type of [
         'light',

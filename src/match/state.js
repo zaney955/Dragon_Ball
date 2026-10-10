@@ -4,7 +4,7 @@ export function register({ match: matchModule }) {
       screen: 'menu',
       selectedChar: 0,
       selectedMap: 0,
-      timeLeft: 99,
+      timeLeft: 180,
       hitStop: 0,
       shake: 0,
       over: false,

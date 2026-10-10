@@ -81,7 +81,7 @@ export function register({
       (matchModule.game.difficulty === 'local' ? '2P · ' : 'CPU · ') + eDef.name;
     uiModule.el.p1ultname.textContent = pDef.ultName;
     uiModule.el.p2ultname.textContent = eDef.ultName;
-    matchModule.game.timeLeft = 99;
+    matchModule.game.timeLeft = 180;
     matchModule.game.hitStop = 0;
     matchModule.game.roundMetrics = {
       attack: [0, 0],
@@ -110,8 +110,8 @@ export function register({
         : matchModule.game.difficulty === 'local'
           ? '本地双人'
           : matchModule.game.difficulty === 'hard'
-            ? '高手对战'
-            : '标准对战') +
+            ? '电脑对战 · 困难'
+            : '电脑对战 · 普通') +
       '</span>';
     matchModule.notify('准备', 1.15);
     renderModule.camera.position.set(-1, 4.6, 14);
@@ -193,7 +193,9 @@ export function register({
     if (winner === 'player') {
       rt.textContent =
         matchModule.game.difficulty === 'local'
-          ? '1P 胜利'
+          ? matchModule.game.matchFinished
+            ? '1P 赢得比赛'
+            : '1P 回合获胜'
           : matchModule.game.matchFinished
             ? '赢得比赛'
             : '回合胜利';
@@ -209,7 +211,9 @@ export function register({
     } else if (winner === 'enemy') {
       rt.textContent =
         matchModule.game.difficulty === 'local'
-          ? '2P 胜利'
+          ? matchModule.game.matchFinished
+            ? '2P 赢得比赛'
+            : '2P 回合获胜'
           : matchModule.game.matchFinished
             ? '比赛结束'
             : '回合落败';
@@ -228,7 +232,7 @@ export function register({
       rs.textContent = '本回合重赛';
     }
     document.getElementById('againBtn').textContent =
-      winner === 'draw' ? '重赛' : matchModule.game.matchFinished ? '再战' : '下一回合';
+      winner === 'draw' ? '重赛' : matchModule.game.matchFinished ? '再战一场' : '下一回合';
     r.classList.add('show');
     r.inert = false;
     uiModule.el.hud.inert = true;

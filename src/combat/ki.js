@@ -19,8 +19,14 @@ export function register({
   };
   combatModule.warnKi = function warnKi(f, cost) {
     f.kiWarning = 0.65;
-    if (!matchModule.game.manualTest && f === matchModule.player)
-      matchModule.notify('气力不足 · 需要 ' + cost + ' 气', 0.65);
+    if (
+      !matchModule.game.manualTest &&
+      f ===
+        (matchModule.game.online && matchModule.game.onlineSeat === 1
+          ? matchModule.enemy
+          : matchModule.player)
+    )
+      matchModule.notify('能量不足，还差 ' + Math.ceil(cost - f.ki) + ' · 按住聚气补充', 0.65);
   };
   combatModule.kiBlastPower = function kiBlastPower(held, available = 100) {
     const charged = held >= combatModule.KI_RULES.blastThreshold && available >= 12;

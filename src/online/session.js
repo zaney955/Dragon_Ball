@@ -37,6 +37,8 @@ export function register({
     ...[match.player, match.enemy].flatMap((f) => [
       f.hp,
       f.ki,
+      f.guard,
+      Number(f.guardBroken),
       f.pos.x,
       f.pos.y,
       f.pos.z,

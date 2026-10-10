@@ -2,6 +2,8 @@ export const FIGHTER_FIELDS = [
   'hp',
   'ki',
   'guard',
+  'guardBroken',
+  'guardDelay',
   'state',
   'stateTimer',
   'walkPhase',

@@ -1,3 +1,4 @@
+import { INPUT_LABELS } from '../ui/character-help.js';
 import * as THREE from 'three';
 export function register({
   match: matchModule,
@@ -189,6 +190,7 @@ export function register({
         document.getElementById(prefix + 'Reserve').style.width =
           Math.min(1, Math.max(0, own.hp / barHp)) * 100 + '%';
         document.getElementById(prefix + 'Ki').style.width = own.ki + '%';
+        uiModule.updateDefenseHUD(own, prefix);
         document
           .getElementById(prefix + 'Ki')
           .parentElement.classList.toggle(
@@ -202,14 +204,15 @@ export function register({
           Math.ceil(own.hp) +
           ' / ' +
           own.maxHp +
-          '  气 ' +
+          '  能量 ' +
           Math.floor(own.ki) +
           '  残像 ' +
           own.escapeCharges +
           '\n' +
-          uiModule.fighterStatus(own) +
-          ' · ' +
-          uiModule.specialAvailability(own) +
+          uiModule.fighterStatus(
+            own,
+            own === matchModule.enemy ? INPUT_LABELS.two : INPUT_LABELS.one,
+          ) +
           '\n仙豆 ' +
           trainingModule.senzuHint(
             own,

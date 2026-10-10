@@ -1,4 +1,11 @@
 import * as THREE from 'three';
+import {
+  DEFENSE_RULES,
+  canBlock,
+  updateDefense,
+  guardCost,
+  blockDamageScale,
+} from './defense-rules.js';
 export function register({
   animation: animationModule,
   audio: audioModule,
@@ -57,6 +64,7 @@ export function register({
           maxKi: 100,
           guard: 100,
           guardDelay: 0,
+          guardBroken: false,
           pos: new THREE.Vector3(startX, 0, 0),
           previousPos: new THREE.Vector3(startX, 0, 0),
           vel: new THREE.Vector3(),
@@ -247,10 +255,10 @@ export function register({
             this.escapeRegen = 0;
           }
         }
-        if (!input.block && this.guardDelay <= 0) this.guard = Math.min(100, this.guard + 17 * dt);
         this.blockPressed = !!input.block && !this.wasBlocking;
         this.guardHeld = input.block ? this.guardHeld + dt : 0;
         this.wasBlocking = !!input.block;
+        updateDefense(this, dt, input.block);
         this.crouching =
           !!input.crouch &&
           this.pos.y < 0.1 &&
@@ -353,7 +361,7 @@ export function register({
           }
           this.integrate(dt, this.launchFlight ? 0.85 : 7);
           if (this.stateTimer + 1e-9 >= this.stunTime && this.pos.y < 0.15) {
-            this.state = input.block ? 'block' : 'idle';
+            this.state = input.block && canBlock(this) ? 'block' : 'idle';
             this.stateTimer = 0;
             this.airRecovery = false;
             this.invulnerable = Math.max(this.invulnerable, 0.045);
@@ -496,7 +504,7 @@ export function register({
           this.pos.y = 0.001;
           renderModule.spawnDust(this.pos, 4);
         }
-        if (input.block && this.pos.y < 0.1) {
+        if (input.block && canBlock(this) && this.pos.y < 0.1) {
           this.state = 'block';
           this.vel.multiplyScalar(Math.exp(-30 * dt));
           this.pos.addScaledVector(this.vel, dt);
@@ -514,7 +522,7 @@ export function register({
             this.startSpecial(action.context);
           } else if (action.type === 'ult') {
             if (this.ki >= 100) this.startUlt(action.context);
-            else if (!this.isAI) matchModule.notify('必杀需要满气', 0.5);
+            else if (!this.isAI) matchModule.notify('必杀需要100能量 · 按住聚气补充', 0.5);
           } else if (action.type === 'throw') this.startThrow();
           else this.startAttack(action.type, action.context);
           if (this.attack) return;
@@ -547,7 +555,7 @@ export function register({
               );
               audioModule.eventSound('pickup');
               matchModule.game.shake = Math.max(matchModule.game.shake, 0.06);
-              if (this === matchModule.player) matchModule.notify('气力充满 · U 必杀', 0.7);
+              if (this === matchModule.player) matchModule.notify('能量已满 · U 必杀', 0.7);
             }
           }
           return;
@@ -916,7 +924,7 @@ export function register({
         combatModule.emitCombatEvent('pursuit', this, foe, null, {
           cost: 12,
         });
-        if (!this.isAI) matchModule.notify('爆冲追击 · 12 元气', 0.4);
+        if (!this.isAI) matchModule.notify('爆冲追击 · 12 能量', 0.4);
         return true;
       }
       evade(foe) {
@@ -1022,11 +1030,13 @@ export function register({
           a.level === 'low' ? this.crouching : a.level === 'overhead' ? !this.crouching : true;
         const blocking =
           ['block', 'blockstun'].includes(this.state) &&
+          canBlock(this) &&
           levelOk &&
           !a.unblockable &&
           this.forward().dot(dir.clone().negate()) > 0.25;
         const perfect =
           blocking &&
+          this.state === 'block' &&
           this.guardHeld <= 0.075 &&
           (this.parryCooldown ?? 0) <= 0 &&
           !a.isUlt &&
@@ -1042,7 +1052,7 @@ export function register({
             attacker.stunTime = this.def.id === 'roshi' ? 0.36 : 0.27;
             attacker.vel.copy(dir).multiplyScalar(-2);
           }
-          this.guard = Math.min(100, this.guard + 12);
+          this.guard = Math.min(DEFENSE_RULES.max, this.guard + DEFENSE_RULES.parryReward);
           this.ki = Math.min(100, this.ki + 7);
           this.invulnerable = 0.045;
           combatModule.commitImpactFeedback('parry');
@@ -1065,19 +1075,20 @@ export function register({
             this.state === 'charge',
           punish = !!oldAttack && this.stateTimer > oldAttack.hitT + (oldAttack.active ?? 0.07);
         let guardBreak = false;
+        this.guardDelay = Math.max(this.guardDelay, DEFENSE_RULES.hitDelay);
         if (blocking) {
-          this.guard = Math.max(0, this.guard - (a.guardDamage ?? a.dmg * 1.5));
-          this.guardDelay = 1.15;
+          this.guard = Math.max(0, this.guard - guardCost(a));
           if (this.guard <= 0) {
             guardBreak = true;
-            this.guard = 16;
+            this.guardBroken = true;
+            this.guardDelay = DEFENSE_RULES.breakDelay;
           }
         }
         const scaling = Math.max(0.3, 1 - this.receivedCombo * 0.12);
         let dmg =
           a.dmg *
           attacker.def.power *
-          (blocking && !guardBreak ? 0.06 : scaling) *
+          (blocking && !guardBreak ? blockDamageScale(a) : scaling) *
           (counter ? 1.14 : 1) *
           (superArmored ? 0.6 : 1);
         dmg = Math.round(dmg * 10) / 10;
@@ -1095,7 +1106,11 @@ export function register({
         this.lastScaling = scaling;
         this.lastDamage = dmg;
         this.lastAdvantage = Math.round(
-          ((guardBreak ? 0.8 : blocking ? (a.blockstun ?? 0.12) : a.stun + (counter ? 0.07 : 0)) -
+          ((guardBreak
+            ? DEFENSE_RULES.breakStun
+            : blocking
+              ? (a.blockstun ?? 0.12)
+              : a.stun + (counter ? 0.07 : 0)) -
             (attacker.attack ? Math.max(0, attacker.attack.dur - attacker.stateTimer) : 0)) *
             60,
         );
@@ -1124,7 +1139,7 @@ export function register({
           this.state = guardBreak ? 'guardbreak' : blocking ? 'blockstun' : 'hit';
           this.stateTimer = 0;
           this.stunTime = guardBreak
-            ? 0.8
+            ? DEFENSE_RULES.breakStun
             : blocking
               ? (a.blockstun ?? 0.12)
               : a.stun + (counter ? 0.07 : 0);
@@ -1190,7 +1205,7 @@ export function register({
         if ((!blocking || guardBreak) && a.dmg >= 10 && !a.isUlt)
           worldModule.damageStage(attacker, a, this.pos);
         if (!blocking) uiModule.popDamage(mid, dmg, a.isUlt ? '#ffe3a0' : '#f9dfa5');
-        if (guardBreak) matchModule.notify('护盾破防', 0.65);
+        if (guardBreak) matchModule.notify('防御值破防', 0.65);
         else if (counter || punish) matchModule.notify(this.lastHitText, 0.42);
         if (attacker === matchModule.player && !blocking) {
           matchModule.game.comboCount = this.receivedCombo;

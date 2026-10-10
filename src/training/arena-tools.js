@@ -7,6 +7,7 @@ export function register({
   match: matchModule,
   render: renderModule,
   training: trainingModule,
+  ui: uiModule,
   world: worldModule,
 }) {
   let trainingToggle, ringLabel, capture;
@@ -100,11 +101,14 @@ export function register({
     return (
       '精确换算（60FPS）：' +
       [a.startup, a.active, a.recovery].map((t) => Number((t * 60).toFixed(2))).join(' / ') +
-      ' F；模拟 120Hz'
+      ' 帧'
     );
   };
   trainingModule.refreshMoveTable = function refreshMoveTable() {
-    const c = matchModule.player?.def ?? charactersModule.CHARACTERS[matchModule.game.selectedChar],
+    const c =
+        uiModule.guideCharacter ??
+        matchModule.player?.def ??
+        charactersModule.CHARACTERS[matchModule.game.selectedChar],
       special = combatModule.SPECIAL_MOVES[c.id],
       m = c.youth
         ? charactersModule.characterMoveData(c)
@@ -158,7 +162,7 @@ export function register({
         '</td></tr>';
     }
     html +=
-      '</table></div><details><summary>帧数与招式规则</summary><p>表中帧数为整数近似，悬停查看精确换算。优势按首个有效帧计算；晚命中会改变优势，以训练读数为准。特殊技的有效时间含段间间隔。</p><p>命中后最早 3 帧取消；格挡时非末段轻击只能接轻击，空挥需等收招。</p><p>技能费用和冷却见下方角色指南，两项技能分别计冷却。霸体仍承伤；气功炮发动时额外扣除6%最大生命。</p></details>';
+      '</table></div><details><summary>帧数与招式规则</summary><p>表中帧数为整数近似，悬停查看精确换算。优势按首个有效帧计算；晚命中会改变优势，以训练读数为准。特殊技的有效时间含段间间隔。</p><p>命中后最早 3 帧取消；格挡时非末段轻击只能接轻击，空挥需等收招。</p><p>技能费用和冷却见角色玩法，两项技能分别计冷却。霸体仍承伤；气功炮发动时额外扣除6%最大生命。</p></details>';
     trainingModule.table.innerHTML = html;
   };
   trainingModule.updateTrainingHUD = function updateTrainingHUD() {
@@ -193,9 +197,9 @@ export function register({
       (matchModule.enemy.lastAdvantage ?? 0) +
       ' F\n' +
       matchModule.enemy.receivedCombo +
-      ' HIT / ' +
+      ' 连击 / ' +
       matchModule.enemy.damageTotal.toFixed(1) +
-      ' DMG / 递减 ' +
+      ' 伤害 / 递减 ' +
       Math.round((matchModule.enemy.lastScaling ?? 1) * 100) +
       '%';
     document.getElementById('inputHistory').textContent = (matchModule.game.inputHistory ?? [])
@@ -273,14 +277,13 @@ export function register({
     trainingModule.trainingPanel = document.createElement('div');
     trainingModule.trainingPanel.id = 'trainingPanel';
     trainingModule.trainingPanel.hidden = true;
-    trainingModule.trainingPanel.innerHTML =
-      '<h3>训练工具</h3><label>陪练 <select id="dummyLive"><option value="idle">站立</option><option value="guard">站立防御</option><option value="lowguard">下段防御</option><option value="after">受击后自动防御</option><option value="random">随机上下段防御</option><option value="tech">自动拆投</option><option value="throws">投技拆解练习</option></select></label><label><input type="checkbox" id="boxesToggle"> 判定显示 B</label><p class="boxLegend">红：攻击 · 蓝：受击 · 黄：占位</p><label><input type="checkbox" id="kiToggle"> 无限气力</label><div id="frameReadout"></div><div id="inputHistory"></div><div class="trainingActions"><button id="liveReset" class="smallBtn">重置 T</button><button id="liveGuide" class="smallBtn">角色帧表</button></div>';
+    trainingModule.trainingPanel.innerHTML = `<h3>练习工具</h3><label>陪练 <select id="dummyLive"><option value="idle">站立</option><option value="guard">站立格挡</option><option value="lowguard">下段格挡</option><option value="after">受击后自动格挡</option><option value="random">随机上下段格挡</option><option value="tech">自动拆投</option><option value="throws">投技拆解练习</option></select></label><label><input type="checkbox" id="kiToggle"> 无限能量</label><div class="trainingActions"><button id="liveReset" class="smallBtn">重置位置与资源 · T</button><button id="liveGuide" class="smallBtn">招式数据</button></div><details id="trainingAdvanced"><summary>高级数据与判定</summary><label><input type="checkbox" id="boxesToggle"> 显示判定 · B</label><p class="boxLegend">红：攻击 · 蓝：受击 · 黄：占位</p><div id="frameReadout"></div><div id="inputHistory"></div></details>`;
     document.body.appendChild(trainingModule.trainingPanel);
     matchModule.game.trainingUiOpen = !matchMedia('(pointer:coarse)').matches;
     trainingToggle = document.createElement('button');
     trainingToggle.id = 'trainingToggle';
     trainingToggle.className = 'smallBtn';
-    trainingToggle.textContent = '训练工具';
+    trainingToggle.textContent = '练习工具';
     trainingToggle.hidden = true;
     trainingToggle.onclick = () =>
       (matchModule.game.trainingUiOpen = !matchModule.game.trainingUiOpen);

@@ -1,3 +1,4 @@
+import { CHARACTER_HELP, INPUT_LABELS, inputCopy } from '../ui/character-help.js';
 export function register({
   ai: aiModule,
   animation: animationModule,
@@ -151,7 +152,14 @@ export function register({
     if (matchModule.game.difficulty !== 'training') return;
     document.getElementById('drillReadout').textContent = matchModule.player ? drillReadout() : '';
     document.getElementById('tacticsReadout').textContent = matchModule.player
-      ? (aiModule.TACTICS[matchModule.player.def.id]?.notes ?? matchModule.player.def.role) +
+      ? CHARACTER_HELP[matchModule.player.def.id].summary +
+        '\n' +
+        inputCopy(
+          CHARACTER_HELP[matchModule.player.def.id].tip,
+          matchMedia('(pointer: coarse), (max-width: 600px)').matches
+            ? INPUT_LABELS.touch
+            : INPUT_LABELS.one,
+        ) +
         (matchModule.player.attack?.armor
           ? '\n霸体 ' +
             (aiModule.armorWindow(matchModule.player)
@@ -170,15 +178,15 @@ export function register({
     DRILLS = {
       confirm: {
         name: '命中确认',
-        help: 'J 试探：命中再按 J；被挡则停止衔接。',
+        help: '轻击试探：命中再接轻击，被挡则停止衔接。',
       },
       guard: {
         name: '格挡确反',
-        help: '先按住 L 防住重击，硬直结束立即 J 反击。',
+        help: '先按住格挡防住重击，硬直结束立即轻击反击。',
       },
       whiff: {
         name: '空挥惩罚',
-        help: '后撤或侧闪诱导重击落空，及时回到射程内 J 反击。',
+        help: '后撤或侧闪诱导重击落空，及时回到射程内轻击反击。',
       },
     };
     ruleLabel = document.createElement('label');

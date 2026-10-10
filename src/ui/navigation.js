@@ -82,7 +82,7 @@ export function register({
     document.getElementById('heroName').textContent = c.name;
     document.getElementById('heroTitle').textContent = c.title;
     document.getElementById('heroUlt').textContent = c.ultName;
-    document.getElementById('heroHP').textContent = c.hp * 2 + '（双血条）';
+    document.getElementById('heroHP').textContent = String(c.hp * 2);
     document.getElementById('heroSpeed').textContent = Math.round(c.speed * 100) + '%';
     document.getElementById('heroOwner').textContent =
       (matchModule.game.selectionPlayer === 1 ? '1P' : '2P') + ' 武道家';
@@ -108,10 +108,10 @@ export function register({
     document.getElementById('opponentLabel').textContent = local ? '2P 角色' : '对手';
     document.getElementById('modeNote').textContent =
       matchModule.game.difficulty === 'training'
-        ? '不限时 · 训练工具可用'
+        ? '不限时 · 可设陪练与分步练习'
         : local
-          ? '上下分屏 · 99 秒 · 三局两胜'
-          : '99 秒 · 三局两胜';
+          ? '同一设备 · 上下分屏 · 每回合180秒'
+          : '对战电脑 · 每回合180秒 · 三局两胜';
     document.getElementById('startBtn').textContent =
       matchModule.game.difficulty === 'training' ? '开始练习 ›' : '开始对战 ›';
   };
@@ -209,7 +209,7 @@ export function register({
           audioModule.initAudio();
         };
       });
-      for (const id of ['difficulty', 'opponent'])
+      for (const id of ['difficulty', 'opponent', 'lighting', 'matchRule', 'ringOption'])
         document.getElementById(id).addEventListener('change', uiModule.updateSelection);
       const back = matchModule.backToMenu;
       matchModule.backToMenu = function () {

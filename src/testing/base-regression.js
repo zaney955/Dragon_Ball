@@ -514,8 +514,8 @@ export function register({
           guardDamage: 30,
         }),
       );
-      assert(e.state === 'guardbreak' && e.stunTime === 0.8);
-      step(110);
+      assert(e.state === 'guardbreak' && e.stunTime === 0.9 && e.guard === 0 && e.guardBroken);
+      step(120);
       assert(!['guardbreak', 'hit'].includes(e.state));
     });
     test('P0', '投技突破格挡', () => {
@@ -955,10 +955,10 @@ export function register({
       assert(!b.active && worldModule.currentMap.senzuSpawnCount === 1);
       assert(worldModule.currentMap.senzuEvents.at(-1).type === 'expire');
     });
-    test('P1', '99秒及更长训练仅2次刷新，无堆积与无限补货', () => {
+    test('P1', '180秒及更长训练仅2次刷新，无堆积与无限补货', () => {
       fresh();
       let peak = 0;
-      for (let i = 0; i < 120 * 130; i++) {
+      for (let i = 0; i < 120 * 210; i++) {
         worldModule.updateSenzu(matchModule.STEP);
         peak = Math.max(peak, worldModule.currentMap.senzus.filter((x) => x.active).length);
       }
@@ -1269,7 +1269,7 @@ export function register({
       e.pos.x = 3;
       p.ki = 100;
       p.startUlt();
-      const blockedDamage = Math.round(p.attack.dmg * p.def.power * 0.06 * 10) / 10;
+      const blockedDamage = Math.round(p.attack.dmg * p.def.power * 0.2 * 10) / 10;
       for (let n = 0; n < 180; n++)
         step(
           1,
@@ -1407,10 +1407,10 @@ export function register({
       });
       assert(matchModule.player.vel.length() < 6.8 * matchModule.player.def.speed + 0.001);
     });
-    test('P2', '99秒与三局两胜初始化', () => {
+    test('P2', '180秒与三局两胜初始化', () => {
       fresh();
       assert(
-        matchModule.game.timeLeft === 99 &&
+        matchModule.game.timeLeft === 180 &&
           matchModule.game.wins[0] === 0 &&
           matchModule.game.wins[1] === 0,
       );
@@ -1883,7 +1883,7 @@ export function register({
         };
         matchModule.combatDiagnostics.enabled = true;
         matchModule.game.collectTestStats = true;
-        matchModule.game.simTime = 99;
+        matchModule.game.simTime = 180;
         worldModule.currentMap.senzuPickups = [
           {
             player: 1,
@@ -1896,7 +1896,7 @@ export function register({
         ];
         matchModule.endGame('TIME UP');
         const r = matchModule.combatDiagnostics.rounds.at(-1);
-        assert(r.duration === 99 && r.pickups === 2 && r.healed === 20 && r.reason === 'TIME UP');
+        assert(r.duration === 180 && r.pickups === 2 && r.healed === 20 && r.reason === 'TIME UP');
         matchModule.combatDiagnostics.rounds.splice(before);
         matchModule.combatDiagnostics.enabled = m.enabled;
         matchModule.game.collectTestStats = m.collect;

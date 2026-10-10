@@ -29,12 +29,12 @@ export function register({
     };
     document.getElementById('motionBtn').onclick = (e) => {
       matchModule.game.reducedShake = !matchModule.game.reducedShake;
-      e.target.textContent = matchModule.game.reducedShake ? '震屏：关' : '震屏：开';
+      e.target.textContent = matchModule.game.reducedShake ? '震动：关' : '震动：开';
       e.target.setAttribute('aria-pressed', !matchModule.game.reducedShake);
     };
     document.getElementById('soundBtn').onclick = (e) => {
       matchModule.game.muted = !matchModule.game.muted;
-      e.target.textContent = matchModule.game.muted ? '声音：关' : '声音：开';
+      e.target.textContent = matchModule.game.muted ? '音效：关' : '音效：开';
       e.target.setAttribute('aria-pressed', !matchModule.game.muted);
       if (audioModule.actx)
         matchModule.game.muted ? audioModule.actx.suspend() : audioModule.actx.resume();
