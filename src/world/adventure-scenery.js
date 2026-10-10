@@ -119,6 +119,8 @@ export function sceneryKit(characters) {
         rod(g, bark, [0, 0.65, 0], [Math.cos(a) * 0.9, 0.06, Math.sin(a) * 0.9], 0.09);
       }
     batchScenery(g, 'mountain-tree', !distant, false, true);
+    if (!distant)
+      g.userData.stageObject = { kind: 'wood', tree: true, hp: 28, radius: height * 0.048, height };
     return g;
   }
   function palm(root, x, z, height, seed) {
@@ -201,6 +203,8 @@ export function sceneryKit(characters) {
     }
     for (let i = 0; i < 3; i++) ball(g, bark, 0.5 + i * 0.22, height - 0.24, 0.1 + i * 0.11, 0.24);
     batchScenery(g, 'island-palm', true, false, true);
+    g.userData.stageObject = { kind: 'wood', tree: true, hp: 24, radius: 0.28, height };
+    return g;
   }
   function rock(root, x, y, z, size, seed = 1) {
     const o = mesh(root, boulder, mat([0x8d9585, 0xaaa994, 0xc3bba3][seed % 3]), x, y, z, [
@@ -209,6 +213,7 @@ export function sceneryKit(characters) {
       size * 0.88,
     ]);
     o.rotation.set(seed * 0.13, seed * 1.7, seed * 0.05);
+    if (size >= 0.7) o.userData.stageObject = { kind: 'rock', hp: 20 + size * 10 };
     return o;
   }
   return { mat, mesh, box, ball, post, rod, ribbon, tree, palm, rock };

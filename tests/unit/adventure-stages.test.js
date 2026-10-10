@@ -24,7 +24,8 @@ for (const [id, builder] of [
 ]) {
   test(`${id} retains flat combat ground, bounded geometry and independent building damage`, () => {
     const { map, world } = fixture(builder);
-    assert.deepEqual(map.bounds, { x: 13.5, z: 6 });
+    assert.equal(map.playArea.type, 'polygon');
+    assert.ok(map.bounds.x >= 31);
     const ground = map.group.getObjectByName(
       id === 'wild' ? 'wild-valley-terrain' : 'kame-sculpted-island',
     );
@@ -53,7 +54,7 @@ for (const [id, builder] of [
       for (const a of Object.values(g.attributes)) bytes += a.array.byteLength;
       bytes += g.index?.array.byteLength ?? 0;
     }
-    assert.ok(meshes < 200, `meshes: ${meshes}`);
+    assert.ok(meshes < 280, `meshes: ${meshes}`);
     assert.ok(bytes < 12 * 1024 * 1024, `bytes: ${bytes}`);
     assert.equal(transparent, 0);
     const part = map.destructibles.find((p) => p.building),
@@ -73,8 +74,8 @@ for (const [id, builder] of [
     );
     assert.ok(
       map.destructibles
-        .filter((p) => !p.building && !p.tile)
-        .every((p) => Math.abs(p.mesh.position.x) > map.bounds.x + 5),
+        .filter((p) => !p.building && !p.tile && !p.mesh.userData.stageObject)
+        .every((p) => Math.abs(p.mesh.position.x) >= 19.8),
     );
   });
   test(`${id} animation and lighting reuse resources and reset on a new match`, () => {

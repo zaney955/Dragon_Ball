@@ -34,6 +34,8 @@ export function batchScenery(root, name, shadows = true, blocker = true, instanc
     }
     return materials.get(key);
   }
+  const dynamic = root.children.filter((o) => o.userData.stageObject);
+  for (const o of dynamic) root.remove(o);
   root.traverse((o) => {
     if (!o.isMesh) return;
     meshes.push(o);
@@ -88,6 +90,7 @@ export function batchScenery(root, name, shadows = true, blocker = true, instanc
     buckets.get(material).push(geo);
   }
   root.clear();
+  for (const o of dynamic) root.add(o);
   for (const [material, pieces] of buckets) {
     const geometry = mergeGeometries(pieces);
     geometry.computeBoundingSphere();

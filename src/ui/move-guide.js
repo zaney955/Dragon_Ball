@@ -36,7 +36,7 @@ export function register({ characters, combat, match, training, ui }) {
     const flight = jumpAction(c.id);
     const remote =
       c.id === 'pilaf'
-        ? `按 ${k.remote} 发射，按 ${k.primary} 切换。导弹10能量、射程8米；喷火12能量、射程2.5米。`
+        ? `按 ${k.remote} 发射，按 ${k.primary} 切换。导弹10能量、射程8米；喷火12能量、射程2.5米，持续2秒，期间可移动和攻击。命中附加3秒灼烧，每秒5点伤害。`
         : r.range
           ? `点按发射；${r.cost}能量，射程约${r.range}米。`
           : '无远程攻击。';

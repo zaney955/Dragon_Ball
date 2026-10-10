@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { setupSpace } from './space.js';
+import { batchDestruction } from './destruction-batching.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const TAU = Math.PI * 2;
-export const KAMI_LAYOUT = Object.freeze({ radius: 28, templeZ: -18, bounds: { x: 13.5, z: 6 } });
+export const KAMI_LAYOUT = Object.freeze({ radius: 28, templeZ: -18, bounds: { x: 28, z: 28 } });
 
 // Clip paving at the true circular edge; no square slab extends into the sky.
 function clipTile(points, radius) {
@@ -31,6 +33,8 @@ function clipTile(points, radius) {
 // Keep indices and spatial buckets: the distant sky is neither a shadow caster
 // nor a camera obstacle. Separate breakable ornaments survive static batching.
 function batch(root, name, shadows = true) {
+  const dynamic = root.children.filter((o) => o.userData.stageObject);
+  for (const o of dynamic) root.remove(o);
   root.updateMatrixWorld(true);
   const inverse = root.matrixWorld.clone().invert(),
     buckets = new Map(),
@@ -45,6 +49,7 @@ function batch(root, name, shadows = true) {
     originals.add(mesh.geometry);
   });
   root.clear();
+  for (const o of dynamic) root.add(o);
   for (const [material, pieces] of buckets) {
     const mesh = new THREE.Mesh(mergeGeometries(pieces), material);
     mesh.name = name;
@@ -294,7 +299,12 @@ export function createKamiStage({ characters, world, render, lightPreset = 'day'
       dome(g, x, base + height + r * 0.6 + 1.9, z, r * 0.68, r * 0.48, 20);
     }
   }
-  function cypress(g, x, z, h = 7.4, base = 0) {
+  function cypress(parent, x, z, h = 7.4, base = 0) {
+    const g = new THREE.Group();
+    g.position.set(x, base, z);
+    parent.add(g);
+    x = z = base = 0;
+    g.userData.stageObject = { kind: 'wood', tree: true, hp: 26, radius: 0.23, height: h };
     cylinder(g, trim, 1.26, 0.46, base + 0.23, x, z);
     ring(g, stone, 1.22, 0.09, base + 0.5, x, z, 48);
     cylinder(g, soil, 1.07, 0.03, base + 0.47, x, z);
@@ -330,6 +340,7 @@ export function createKamiStage({ characters, world, render, lightPreset = 'day'
       );
       twig.rotation.z = Math.cos(a) * 0.2;
     }
+    batch(g, 'kami-cypress-tree');
   }
   // Substantial floating bowl, stepped cornices and a full ring of recessed windows.
   lathe(
@@ -445,28 +456,31 @@ export function createKamiStage({ characters, world, render, lightPreset = 'day'
     line.position.y = 0.022;
   }
   cylinder(masonry, gold, 0.93, 0.012, 0.025, 0, 0, 0.93, 64);
-  // Low curved parapets leave the playable rectangle and its camera apron open.
-  for (const [r, y, h, m] of [
-    [27.45, 0.42, 0.64, stone],
-    [27.49, 0.81, 0.15, trim],
-    [27.25, 0.23, 0.07, gold],
-  ]) {
-    const wall = lathe(
-      masonry,
-      m,
-      [
+  // Preserve the original 192-segment contour, but separate sixteen local
+  // parapet sections from the immutable floating platform.
+  for (let i = 0; i < 16; i++) {
+    const section = new THREE.Group();
+    const middle = ((i + 0.5) * TAU) / 16;
+    section.position.set(Math.sin(middle) * 27.45, 0, Math.cos(middle) * 27.45);
+    section.name = 'kami-breakable-parapet-' + i;
+    section.userData.stageObject = { kind: 'stone', hp: 22 };
+    masonry.add(section);
+    for (const [r, y, h, m] of [
+      [27.45, 0.42, 0.64, stone],
+      [27.49, 0.81, 0.15, trim],
+      [27.25, 0.23, 0.07, gold],
+    ]) {
+      const profile = [
         [r - 0.14, y - h / 2],
         [r + 0.14, y - h / 2],
         [r + 0.14, y + h / 2],
         [r - 0.14, y + h / 2],
         [r - 0.14, y - h / 2],
-      ],
-      0,
-      0,
-      0,
-      192,
-    );
-    wall.userData.cameraBlocker = false;
+      ].map(([x, y]) => new THREE.Vector2(x, y));
+      const geometry = new THREE.LatheGeometry(profile, 12, (i * TAU) / 16, TAU / 16);
+      geometry.translate(-section.position.x, 0, -section.position.z);
+      mesh(section, geometry, m);
+    }
   }
   const ornaments = [];
   for (let i = 0; i < 16; i++) {
@@ -503,7 +517,8 @@ export function createKamiStage({ characters, world, render, lightPreset = 'day'
       window(face, 0, 1.25, 0.535, 0.09, 0.48);
     }
     batch(pillar, 'kami-crowned-pillar');
-    // Only the gold cap can chip, keeping the floating platform structurally intact.
+    pillar.userData.stageObject = { kind: 'stone', hp: 35 };
+    // Crown and support remain separate damage sections.
     const cap = pillar.children.find((o) => o.material === gold);
     if (cap) {
       cap.userData.buildingPart = {
@@ -658,7 +673,8 @@ export function createKamiStage({ characters, world, render, lightPreset = 'day'
   masonry.traverse((o) => {
     o.userData.cameraBlocker = false;
   });
-  batch(palace, 'kami-palace-masonry');
+  world.prepareBuilding(palace, 'kami-palace', { roofY: 5, cellSize: 3.4 });
+  palace.name = 'kami-palace';
   batch(garden, 'kami-cypress-gardens');
   // LOD islands: real bowl, open white colonnade, gold dome and trees at each site.
   const islands = new THREE.Group();
@@ -818,8 +834,18 @@ export function createKamiStage({ characters, world, render, lightPreset = 'day'
   Object.defineProperty(map, 'applyLighting', { enumerable: false });
   world.enrichDestruction(map, 'kami');
   for (const tile of tiles)
-    map.destructibles.push({ mesh: tile, tile: true, kind: 'stone', hp: 1, broken: false });
+    map.destructibles.push({
+      mesh: tile,
+      tile: true,
+      kind: 'stone',
+      hp: 1,
+      maxHp: 1,
+      stage: 0,
+      broken: false,
+    });
   // Building bounds are collected by the shared destruction interface after transforms.
+  setupSpace(map, 'kami');
+  batchDestruction(map, world.stageCharacters);
   map.applyLighting(lightPreset);
   group.userData.kami = {
     radius: 28,

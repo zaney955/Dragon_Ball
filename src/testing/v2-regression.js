@@ -24,6 +24,8 @@ export function register({
     matchModule.game.showBoxes = false;
     matchModule.startFight();
     matchModule.game.ready = 0;
+    // Collision fixtures must not inherit the RNG advanced by an earlier AI test.
+    aiModule.setCombatSeed(0x31c9a27);
     matchModule.player.pos.set(0, 0, 0);
     matchModule.enemy.pos.set(dist, 0, 0);
     matchModule.player.previousPos.copy(matchModule.player.pos);

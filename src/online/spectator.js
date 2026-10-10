@@ -1,3 +1,5 @@
+import { rebuildSpace } from '../world/space.js';
+import { syncDestruction } from '../world/destruction-batching.js';
 import * as THREE from 'three';
 import {
   ATTACK_FIELDS,
@@ -77,7 +79,7 @@ export function createSpectator({ online, animation, combat, match, render, worl
       keys = GEOMETRY_ARGS[geometry.type];
     let spec;
     if (keys) spec = { type: geometry.type, args: keys.map((k) => geometry.parameters[k]) };
-    else if (geometry.type === 'BufferGeometry' && geometry.attributes.position.count <= 24)
+    else if (geometry.type === 'BufferGeometry' && geometry.attributes.position?.count <= 24)
       spec = { type: 'BufferGeometry', args: Array.from(geometry.attributes.position.array) };
     else return null;
     return {
@@ -121,7 +123,8 @@ export function createSpectator({ online, animation, combat, match, render, worl
       simTime: match.game.simTime,
       world: {
         senzuTime: map.senzuTime,
-        senzuNextSpawn: map.senzuNextSpawn,
+        // Infinity means no more spawns; spectators do not run the spawn scheduler.
+        senzuNextSpawn: Number.isFinite(map.senzuNextSpawn) ? map.senzuNextSpawn : 0,
         senzuSpawnCount: map.senzuSpawnCount,
         beans: (map.senzus ?? []).map((b) => ({
           active: b.active,
@@ -129,8 +132,21 @@ export function createSpectator({ online, animation, combat, match, render, worl
           z: b.z,
           expiresAt: Number.isFinite(b.expiresAt) ? b.expiresAt : 0,
         })),
+        damaged: (map.destructibles ?? []).flatMap((b, i) =>
+          (!b.broken && b.stage > 0) || (b.rubble && b.mesh.visible && !b.broken)
+            ? [[i, b.hp, b.stage, transform(b.mesh), b.mesh.material?.color?.getHex() ?? 0xffffff]]
+            : [],
+        ),
         broken: (map.destructibles ?? []).flatMap((b, i) =>
-          b.broken ? [[i, transform(b.mesh), b.mesh.material.color.getHex()]] : [],
+          b.broken
+            ? [
+                [
+                  i,
+                  b.tile ? transform(b.mesh) : [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0],
+                  b.mesh.material?.color?.getHex() ?? 0xffffff,
+                ],
+              ]
+            : [],
         ),
       },
       fighters: [actor(match.player), actor(match.enemy)],
@@ -230,18 +246,40 @@ export function createSpectator({ online, animation, combat, match, render, worl
       const item = map.senzus?.[i];
       if (!item) return;
       Object.assign(item, bean);
-      item.group.position.set(bean.x, 0, bean.z);
+      item.group.position.set(bean.x, world.groundHeight(bean.x, bean.z), bean.z);
       item.group.visible = bean.active;
     });
     for (const [index, data, color] of snapshot.world.broken) {
       const item = map.destructibles?.[index];
       if (!item) continue;
       item.broken = true;
+      item.hp = 0;
+      item.stage = 3;
       applyTransform(item.mesh, data);
-      item.mesh.material = item.mesh.material.clone();
-      item.mesh.material.color.setHex(color);
+      if (item.mesh.material && !item.mesh.userData.damageMaterial) {
+        item.mesh.material = item.mesh.material.clone();
+        item.mesh.userData.damageMaterial = true;
+      }
+      item.mesh.material?.color?.setHex(color);
       if (!item.tile) item.mesh.visible = false;
     }
+    for (const [index, hp, stage, data, color] of snapshot.world.damaged ?? []) {
+      const item = map.destructibles?.[index];
+      if (!item) continue;
+      item.hp = hp;
+      item.stage = stage;
+      item.broken = stage === 3;
+      applyTransform(item.mesh, data);
+      if (item.mesh.material && !item.mesh.userData.damageMaterial) {
+        item.mesh.material = item.mesh.material.clone();
+        item.mesh.userData.damageMaterial = true;
+      }
+      item.mesh.material?.color?.setHex(color);
+      item.fallen = item.tree && stage >= 2;
+      if (!item.tile && !item.broken) item.bounds.copy(new THREE.Box3().setFromObject(item.mesh));
+    }
+    syncDestruction(map);
+    rebuildSpace(map);
     // Host end-of-match state will remove the subscription and return viewers to the lobby.
     const ids = new Set();
     for (const item of snapshot.objects) {

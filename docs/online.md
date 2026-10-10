@@ -82,6 +82,10 @@ npm run deploy:online
 
 使用有 Workers Scripts 写权限的现有 Cloudflare 登录；只用于 Pages 的凭据权限不足。`cf` 用于资源与 Pages 设置，Wrangler 用于这个已配置的独立 Worker，不在未迁移的根目录调用 `cf build/deploy`。
 
+如果双方已经进入战斗，大厅仍显示“正在连接”且没有观战按钮，先检查联机 Worker 是否与前端同步发布。旧 Worker 会对 `playing` 指令返回“不支持的操作”，房间状态也不包含 `match.playing` 和 `spectators`；只发布 Pages 或推送前端不会更新这个独立后端。2026-10-10 已在正式入口复现此问题。后端发布后应实际确认开战状态、观战订阅和画面转发，而不只检查网页构建成功。观战快照同时需要将仙豆生成结束后的 `Infinity` 调度值转换成有限值，避免整帧被校验拒绝。
+
+本次更新已发布前端 `3d692bf7` 和联机 Worker `7dd3a700-4673-46b6-9a29-e97593440d6a`。74 项单元测试、仙豆耗尽及十四角色观战快照回归通过；正式站点两位选手、桌面和手机观众的中途加入、退出、重入与对局结束清理测试通过。前端发布包以当时正式源码 `47c9cb4` 加本次按钮与快照改动构建，未包含其他尚未提交的战斗和 HUD 修改。
+
 后端只接受正式 Pages 和本项目分支预览页面的 Origin，限制消息大小与每连接发送频率。测试容量压力仅针对隔离的本地服务；设置 `ONLINE_BASE_URL` 可验证线上两人对战、观战及手机入口。观战涉及前端和 Worker 协议变更，发布时需要同时更新两者；本地验收不表示线上已发布。
 
 参考：[WebSocket 休眠](https://developers.cloudflare.com/durable-objects/best-practices/websockets/)、[Durable Objects 定价](https://developers.cloudflare.com/durable-objects/platform/pricing/)、[Cloudflare STUN](https://developers.cloudflare.com/realtime/turn/)。

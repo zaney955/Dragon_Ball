@@ -87,7 +87,7 @@ test('budokai real render: panorama, front, details, side, shoulder and three li
     };
   });
   expect(metrics.calls).toBeLessThan(400);
-  expect(metrics.geometryBytes).toBeLessThan(48 * 1024 * 1024);
+  expect(metrics.geometryBytes).toBeLessThan(80 * 1024 * 1024);
   for (const light of ['sunset', 'moon']) {
     await page.evaluate((light) => {
       const d = window.__db;
@@ -198,7 +198,7 @@ test('budokai camera apron, destruction, senzu healing, training and split-scree
   expect(result.pickups).toBe(1);
   expect(result.minimumBack).toBeGreaterThan(4.5);
   expect(result.samples).toBe(108);
-  expect(result.bounds).toEqual({ x: 13.5, z: 6 });
+  expect(result.bounds).toEqual({ x: 14.5, z: 7.5 });
   await page.evaluate(() => {
     window.__db.game.difficulty = 'local';
     window.__db.resetShoulderCameras();

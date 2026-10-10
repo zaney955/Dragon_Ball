@@ -1,3 +1,5 @@
+import { routeDirection, segmentHit } from '../world/space.js';
+import * as THREE from 'three';
 export function register({
   ai: aiModule,
   combat: combatModule,
@@ -63,6 +65,7 @@ export function register({
         z: foe.pos.z,
         y: foe.pos.y,
         scale: foe.baseScale,
+        facingAngle: foe.facingAngle,
         state: foe.state,
         attack: foe.attack
           ? {
@@ -144,20 +147,21 @@ export function register({
         if (ai.attack.id === 'launcher' && ai.ki >= 12 && ai.pursuitCooldown <= 0) {
           input.pursuit = true;
           ai.airFollowUntil = ai.brainTime + 0.65;
-        } else if (ai.comboType === 'light' && !ai.attack.terminal) {
-          if (
-            ai.comboIdx === 0 &&
-            ['goku', 'piccolo'].includes(ai.def.id) &&
-            ai.ki >= 18 &&
-            roll < 0.28
-          ) {
-            input.heavy = true;
-            input.wantLauncher = true;
-          } else if (ai.def.id === 'taopaipai' && ai.comboIdx === 0 && ai.ki >= 40 && roll < 0.3)
+        } else {
+          const routes = ai.attack.cancelRules.hit;
+          if (ai.comboType && routes.includes(ai.comboType)) input[ai.comboType] = true;
+          else if (routes.includes('heavy')) input.heavy = true;
+          else if (
+            routes.includes('special') &&
+            combatModule.skillAvailability(ai, 0, { cancel: true }).available
+          )
             input.special = true;
-          else input.light = true;
-        } else if (ai.attack.terminal && ai.ki >= 30 && ai.def.id === 'taopaipai')
-          input.special = true;
+          else if (
+            routes.includes('ult') &&
+            combatModule.ultimateAvailability(ai, { cancel: true }).available
+          )
+            input.ult = true;
+        }
       }
       ai.aiIntent = 'attack';
       return finish();
@@ -197,7 +201,7 @@ export function register({
             op = Math.hypot(item.x - seen.x, item.z - seen.z);
           if (
             (item.expiresAt ?? Infinity) - worldModule.currentMap.senzuTime <
-            d / (6.8 * ai.def.speed) + 0.35
+            d / (6.8 * combatModule.mobilitySpeed(ai)) + 0.35
           )
             continue;
           const benefit =
@@ -256,26 +260,6 @@ export function register({
         input.light = true;
         ai.aiIntent = 'punish';
       } else if (
-        recovering &&
-        remaining > 0.28 &&
-        ai.def.id === 'goku' &&
-        ai.ki >= 30 &&
-        dist > 1.3 &&
-        dist < 2.65 &&
-        roll < accuracy
-      ) {
-        input.special = true;
-        ai.aiIntent = 'punish';
-      } else if (
-        ai.def.id === 'piccolo' &&
-        ai.ki >= 40 &&
-        dist < 1.15 &&
-        (seen.state === 'block' || memory.guard > 0.2) &&
-        roll < accuracy * 0.3
-      ) {
-        input.special = true;
-        ai.aiIntent = 'pressure';
-      } else if (
         (seen.state === 'block' || memory.guard > 0.45) &&
         dist < 1.12 &&
         roll < accuracy * 0.72
@@ -286,42 +270,14 @@ export function register({
         input.ult = true;
         ai.aiIntent = 'attack';
       } else if (seen.y > ai.pos.y + 0.8 && dist < 1.65 && roll < accuracy) {
-        if (ai.def.id === 'tien' && ai.ki >= 30) input.special = true;
-        else {
-          input.heavy = true;
-          input.wantLauncher = true;
-        }
+        input.heavy = true;
+        input.wantLauncher = true;
         ai.aiIntent = 'defend';
-      } else if (
-        !ai.attack &&
-        ai.def.id === 'goku' &&
-        ai.ki >= 40 &&
-        dist > 1.45 &&
-        dist < 2.6 &&
-        !seen.attack &&
-        roll < accuracy * 0.32
-      ) {
-        input.special = true;
-        ai.aiIntent = 'probe';
-      } else if (
-        !ai.attack &&
-        dist < near + 0.18 &&
-        roll < accuracy * (ai.def.id === 'piccolo' ? 0.24 : 0.12)
-      ) {
+      } else if (!ai.attack && dist < near + 0.18 && roll < accuracy * 0.12) {
         input.heavy = true;
         ai.aiIntent = 'pressure';
       } else if (!ai.attack && dist < near + 0.2 && roll < accuracy) {
         input.light = true;
-        ai.aiIntent = 'attack';
-      } else if (
-        !ai.attack &&
-        ai.def.id === 'taopaipai' &&
-        ai.ki >= 45 &&
-        dist > 1.1 &&
-        dist < 1.55 &&
-        roll < accuracy * 0.24
-      ) {
-        input.special = true;
         ai.aiIntent = 'attack';
       } else if (dist > 4 && dist <= 7 && ai.ki >= 36 && roll < accuracy * 0.2) {
         input.pursuit = true;
@@ -375,10 +331,50 @@ export function register({
         tx = dz * ai.aiStrafe;
         tz = -dx * ai.aiStrafe;
       }
+      if ((tx || tz) && worldModule.currentMap?.playArea) {
+        const map = worldModule.currentMap;
+        if (
+          !ai.navigation ||
+          ai.navigation.at + 0.3 < ai.brainTime ||
+          ai.navigation.revision !== map.spaceRevision
+        ) {
+          const goal = { x: ai.pos.x + tx, z: ai.pos.z + tz };
+          ai.navigation = {
+            ...routeDirection(map, ai.pos, goal, Math.max(0.4, 0.3 * ai.baseScale)),
+            at: ai.brainTime,
+            revision: map.spaceRevision,
+          };
+        }
+        tx = ai.navigation.x;
+        tz = ai.navigation.z;
+        if (!ai.stageProgress || ai.stageProgress.at + 0.6 < ai.brainTime) {
+          const moved = ai.stageProgress
+            ? Math.hypot(ai.pos.x - ai.stageProgress.x, ai.pos.z - ai.stageProgress.z)
+            : 1;
+          ai.stageStuck = moved < 0.15 ? (ai.stageStuck ?? 0) + 0.6 : 0;
+          ai.stageProgress = { x: ai.pos.x, z: ai.pos.z, at: ai.brainTime };
+        }
+        // A coarse navigation cell can miss a narrow opening. Reaching the
+        // nearest cell must not leave the AI idle: approach and break the cover.
+        if (dist > 3 && (Math.hypot(tx, tz) < 0.25 || ai.stageStuck > 1.2)) {
+          tx = dx;
+          tz = dz;
+        }
+        // Attack a nearby destructible cover when pursuit reaches its face.
+        const from = ai.pos
+          .clone()
+          .setY(ai.pos.y + worldModule.groundHeight(ai.pos.x, ai.pos.z) + 1);
+        const hit = segmentHit(map, from, new THREE.Vector3(seen.x, from.y, seen.z));
+        if (hit && hit.distance < 1.6 && (ai.aiDecision < 0.02 || ai.stageStuck > 1.2))
+          input.heavy = true;
+      }
       input.right = tx > 0.1;
       input.left = tx < -0.1;
       input.down = tz > 0.1;
       input.up = tz < -0.1;
+      // Expanded arenas need traversal between engagements. Keep the original
+      // near-range decisions and resource reserve, and dash along the path.
+      if (dist > 10 && ai.ki >= 35 && ai.dashCooldown <= 0 && (tx || tz)) input.dash = true;
       if (ai.chargeUntil > ai.brainTime && dist > 4.5) {
         input.charge = true;
         input.right = input.left = input.up = input.down = false;

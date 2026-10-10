@@ -107,17 +107,9 @@ export function register({
   };
   worldModule.validSenzuPosition = function validSenzuPosition(x, z) {
     const map = worldModule.currentMap;
-    if (!map || Math.abs(x) > map.bounds.x - 1.4 || Math.abs(z) > map.bounds.z - 1.2) return false;
-    for (const prop of map.destructibles ?? []) {
-      if (prop.tile || prop.broken) continue;
-      const at = prop.bounds
-        ? prop.bounds.getCenter(new THREE.Vector3())
-        : prop.mesh.getWorldPosition(new THREE.Vector3());
-      if (Math.hypot(x - at.x, z - at.z) < 1.35) return false;
-    }
-    for (const b of map.walkObstacles ?? [])
-      if (x > b.min.x - 0.7 && x < b.max.x + 0.7 && z > b.min.z - 0.7 && z < b.max.z + 0.7)
-        return false;
+    if (!map) return false;
+    if (map.playArea)
+      return worldModule.validPosition(x, z, 0.8, 1.2) && worldModule.groundHeight(x, z) > -0.25;
     return true;
   };
   worldModule.placeSenzu = function placeSenzu(item) {
@@ -130,6 +122,16 @@ export function register({
         [7, -1],
       ],
       offset = Math.floor(aiModule.combatRandom() * positions.length);
+    const map = worldModule.currentMap;
+    if (map.playArea) {
+      for (let x = -map.bounds.x + 3; x < map.bounds.x; x += 6)
+        for (let z = -map.bounds.z + 3; z < map.bounds.z; z += 6) positions.push([x, z]);
+      if (matchModule.player && matchModule.enemy)
+        positions.unshift([
+          (matchModule.player.pos.x + matchModule.enemy.pos.x) / 2,
+          (matchModule.player.pos.z + matchModule.enemy.pos.z) / 2,
+        ]);
+    }
     let chosen = null,
       best = -Infinity;
     for (let i = 0; i < positions.length; i++) {
@@ -160,7 +162,7 @@ export function register({
     if (!chosen) return false;
     item.x = chosen[0];
     item.z = chosen[1];
-    item.group.position.set(item.x, 0, item.z);
+    item.group.position.set(item.x, worldModule.groundHeight?.(item.x, item.z) ?? 0, item.z);
     return true;
   };
   worldModule.updateSenzu = function updateSenzu(dt) {

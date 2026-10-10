@@ -1,3 +1,4 @@
+import { updateHealthGauge } from './health-gauge.js';
 export function register({ match: matchModule, ui: uiModule }) {
   uiModule.updateHUD = function updateHUD() {
     if (!matchModule.player || !matchModule.enemy) return;
@@ -5,11 +6,7 @@ export function register({ match: matchModule, ui: uiModule }) {
       [matchModule.player, 'p1'],
       [matchModule.enemy, 'p2'],
     ]) {
-      const barHp = f.maxHp / 2;
-      uiModule.el[prefix + 'hp'].style.width =
-        Math.min(1, Math.max(0, (f.hp - barHp) / barHp)) * 100 + '%';
-      document.getElementById(prefix + 'reserve').style.width =
-        Math.min(1, Math.max(0, f.hp / barHp)) * 100 + '%';
+      updateHealthGauge(f, uiModule.el[prefix + 'hp'], document.getElementById(prefix + 'reserve'));
     }
     uiModule.el.p1ki.style.width = (matchModule.player.ki / matchModule.player.maxKi) * 100 + '%';
     uiModule.el.p2ki.style.width = (matchModule.enemy.ki / matchModule.enemy.maxKi) * 100 + '%';

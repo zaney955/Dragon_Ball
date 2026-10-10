@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import { setupSpace } from './space.js';
+import { batchDestruction } from './destruction-batching.js';
 import { batchScenery as batch } from './scenery-batching.js';
 
 const TAU = Math.PI * 2;
 export const BUDOKAI_LAYOUT = Object.freeze({
-  bounds: { x: 13.5, z: 6 },
+  bounds: { x: 14.5, z: 7.5 },
   arena: { x: 14.5, z: 7.5 },
   hallZ: -24,
   gateZ: -14.5,
@@ -847,7 +849,8 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
   // Sculpted front fence reads as the classic ring enclosure; it is low enough for fight cameras.
   for (let i = 0; i < 11; i++) {
     const x = -16.8 + i * 3.36;
-    box(stands, stone, x, -0.58, 14.8, 3.32, 1.5, 0.42);
+    const rail = box(stands, stone, x, -0.58, 14.8, 3.32, 1.5, 0.42);
+    rail.userData.stageObject = { kind: 'stone', hp: 24 };
     box(stands, red, x, -0.58, 15.04, 2.92, 1.15, 0.06);
     if (i % 2 === 1) guardian(stands, x, -0.6, 15.13, 0.58, grey, ivory);
     else rosette(stands, x, -0.58, 15.12, 0.42, redDark);
@@ -858,7 +861,8 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
     for (let j = 0; j < 2; j++) {
       const x = side * (17 + j * 2.5),
         z = -13.9 - j * 1.6;
-      cylinder(gardens, wood, x, 4.75, z, 0.07, 12.1, 0.09, 20);
+      const pole = cylinder(gardens, wood, x, 4.75, z, 0.07, 12.1, 0.09, 20);
+      pole.userData.stageObject = { kind: 'wood', hp: 18 };
       ball(gardens, goldLight, x, 10.88, z, 0.14);
       const shape = new THREE.Shape();
       shape.moveTo(0, 0);
@@ -875,6 +879,7 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
         z + 0.03,
       );
       o.name = 'budokai-tournament-banner';
+      o.userData.stageObject = { kind: 'wood', hp: 6, collidable: false, animated: true };
       o.userData.cameraBlocker = false;
       bannerMeshes.push(o);
       tube(
@@ -1175,8 +1180,10 @@ export function createBudokaiStage({ characters, world, render, lightPreset = 'd
       palm(distant, side * (36 + i * 7), -52 - (i % 3) * 13, 9 + (i % 4) * 2);
   // Static spatial buckets distinguish camera obstacles from scenery too distant to intersect combat.
   batch(arena, 'budokai-arena-masonry', true, false);
-  batch(hall, 'budokai-hall-detail');
-  batch(gate, 'budokai-gate-relief');
+  world.prepareBuilding(hall, 'budokai-hall', { roofY: 7, cellSize: 3.4 });
+  hall.name = 'budokai-hall';
+  world.prepareBuilding(gate, 'budokai-gate', { roofY: 5, cellSize: 3.4 });
+  gate.name = 'budokai-gate';
   // Spatially separate both sides and the rear. A single garden bucket spans
   // the playable origin and defeats even a finite camera-ray broad phase.
   gardens.updateMatrixWorld(true);
@@ -1366,10 +1373,14 @@ function finishStage(group, world, render, lightPreset) {
   // Reuse the twelve existing breakable props, but set them in the ring-side service lane.
   // Their health, debris types and shared destruction behavior are unchanged.
   let propIndex = 0;
-  for (const prop of map.destructibles.filter((p) => !p.tile && !p.building)) {
+  for (const prop of map.destructibles.filter(
+    (p) => !p.tile && !p.building && !p.mesh.userData.stageObject,
+  )) {
     const i = propIndex++;
     prop.mesh.position.set((i % 2 ? 1 : -1) * 16.2, -0.96, -5.3 + Math.floor(i / 2) * 2.05);
   }
+  setupSpace(map, 'budokai');
+  batchDestruction(map, world.stageCharacters);
   map.applyLighting(lightPreset);
   return map;
 }

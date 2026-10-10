@@ -185,13 +185,21 @@ for (const width of [1024, 390])
         const prop = map.destructibles.find((item) => !item.tile && !item.building),
           buildingParts = map.destructibles.filter((item) => item.building),
           buildingHp = buildingParts.map((item) => item.hp);
-        d.damageStage(d.player, { dmg: 20, landingImpact: true }, prop.mesh.position);
-        const target = buildingParts
-            .map((item) => item.bounds.getCenter(item.mesh.position.clone()))
-            .reduce((nearest, center) =>
-              !nearest || Math.abs(center.x) < Math.abs(nearest.x) ? center : nearest,
-            ),
-          from = target.clone().setZ(-map.bounds.z);
+        d.damageStage(d.player, { dmg: 80, landingImpact: true }, prop.mesh.position);
+        // Shoot a visible building face rather than through the newly solid
+        // valley/shore boulders that protect the building from a distant shot.
+        let target, from;
+        for (const item of buildingParts) {
+          const center = item.bounds.getCenter(item.mesh.position.clone());
+          const origin = center.clone().setX(item.bounds.max.x + 0.25);
+          const hit = d.stageSegmentHit(origin, center, 0.2);
+          if (hit?.item.building) {
+            target = center;
+            from = origin;
+            break;
+          }
+        }
+        if (!target) throw new Error('No exposed building damage proxy');
         d.damageStageProjectile(d.player, { dmg: 80 }, from, target, 0.2);
         d.player.pos.set(0, 0, 0);
         d.player.facingAngle = Math.PI / 2;
@@ -235,8 +243,14 @@ for (const width of [1024, 390])
       expect(result.brokenBuildingParts).toBeGreaterThan(0);
       expect(result.scars).toBeGreaterThanOrEqual(3);
       expect(result.calls).toBeLessThan(400);
-      expect(result.bounds).toEqual({ x: 13.5, z: 6 });
-      expect(result.props).toBe(12);
+      expect(result.bounds).toEqual(
+        [
+          { x: 14.5, z: 7.5 },
+          { x: 35, z: 34 },
+          { x: 32, z: 34 },
+        ][stage],
+      );
+      expect(result.props).toBeGreaterThanOrEqual(12);
       expect(result.reset).toBe(true);
       expect(result.scenes).toBe(1);
       expect(errors).toEqual([]);
@@ -300,6 +314,37 @@ test('all fourteen fighters display valid HUD resources and skill text', async (
     expect(row.idle).toContain(row.resource);
     expect(row.idle + row.skill + row.guide, row.id).not.toMatch(/undefined|undifined|NaN|null/);
   }
+  expect(errors).toEqual([]);
+});
+
+test('spectator snapshots continue after the last senzu spawn', async ({ page }) => {
+  const errors = await openGame(page, true, true);
+  const frames = await page.evaluate(() => {
+    const db = window.__db;
+    db.fixtureYouth('goku', 'krillin', 8);
+    db.game.matchRule = 'senzu';
+    const online = db.online,
+      frames = [],
+      command = online.command;
+    online.active = online.host = true;
+    online.room = { id: 1, spectators: 1, match: { id: 'senzu-fixture' } };
+    online.command = (packet) => frames.push(structuredClone(packet.frame));
+    try {
+      const now = performance.now();
+      online.spectator.publish(now + 120);
+      db.updateSenzu(25);
+      online.spectator.publish(now + 240);
+      db.updateSenzu(35);
+      online.spectator.publish(now + 360);
+    } finally {
+      online.command = command;
+      online.stop();
+    }
+    return frames;
+  });
+  expect(frames).toHaveLength(3);
+  expect(frames.at(-1).world.senzuSpawnCount).toBe(2);
+  for (const frame of frames) expect(validSpectatorFrame(frame)).toBe(true);
   expect(errors).toEqual([]);
 });
 

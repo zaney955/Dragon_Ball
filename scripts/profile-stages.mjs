@@ -1,6 +1,44 @@
 import { chromium } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 
+const destructionStress = async () => {
+  const d = window.__db;
+  d.player.root.visible = d.enemy.root.visible = true;
+  d.player.shadow.visible = d.enemy.shadow.visible = true;
+  d.resetShoulderCameras();
+  const targets = d.map.destructibles.filter((p) => !p.tile && !p.rubble),
+    frames = [],
+    damage = [];
+  let last,
+    maxCalls = 0;
+  for (let i = 0; i < 180; i++) {
+    const now = await new Promise(window.profileRAF ?? window.requestAnimationFrame.bind(window));
+    if (last !== undefined) frames.push(now - last);
+    last = now;
+    if (i % 3 === 0 && targets[i / 3]) {
+      const before = performance.now();
+      d.damageStageObject(targets[i / 3], { dmg: 200 });
+      damage.push(performance.now() - before);
+    }
+    d.updateEffects(1 / 60);
+    d.map.update(1 / 60);
+    d.updateFightCamera(1 / 60, true);
+    d.renderGameViews();
+    maxCalls = Math.max(maxCalls, d.renderer.info.render.calls);
+  }
+  frames.sort((a, b) => a - b);
+  return {
+    median: frames[Math.floor(frames.length / 2)],
+    p95: frames[Math.floor(frames.length * 0.95)],
+    maxFrameMs: Math.max(...frames),
+    maxDamageMs: Math.max(...damage),
+    maxCalls,
+    broken: d.map.destructibles.filter((p) => p.broken).length,
+    effects: d.getEffects().length,
+    memory: { ...d.renderer.info.memory },
+  };
+};
+
 const label = process.argv[2] || 'current';
 const output = `performance/maps/${label}`;
 await mkdir(output, { recursive: true });
@@ -138,8 +176,10 @@ for (const [index, id] of ['budokai', 'wild', 'kame', 'kami'].entries()) {
     .locator('style')
     .last()
     .evaluate((e) => e.remove());
-  results.push({ id, ...stats });
+  const destruction = await page.evaluate(destructionStress);
+  results.push({ id, ...stats, destruction });
   console.log(id, JSON.stringify(stats));
+  console.log('DESTRUCTION', id, JSON.stringify(destruction));
 }
 const live = [];
 for (const viewport of [
@@ -153,7 +193,7 @@ for (const viewport of [
   fight.on('pageerror', (e) => errors.push(e.message));
   await fight.goto(process.env.DB_PREVIEW_URL || 'http://127.0.0.1:5173/?test=1');
   await fight.waitForFunction(() => window.__db?.artStageBuilders?.kame);
-  for (const [index, id] of ['budokai', 'wild', 'kame'].entries()) {
+  for (const [index, id] of ['budokai', 'wild', 'kame', 'kami'].entries()) {
     const stats = await fight.evaluate(async (index) => {
       const d = window.__db;
       Object.assign(d.game, {
@@ -185,6 +225,10 @@ for (const viewport of [
     live.push({ id, viewport, ...stats });
     console.log('LIVE', id, viewport.width, JSON.stringify(stats));
     await fight.screenshot({ path: `${output}/${id}-live-${viewport.width}.png` });
+    if (viewport.width < 500) {
+      live[live.length - 1].destruction = await fight.evaluate(destructionStress);
+      console.log('MOBILE DESTRUCTION', id, JSON.stringify(live[live.length - 1].destruction));
+    }
   }
   await fight.close();
 }

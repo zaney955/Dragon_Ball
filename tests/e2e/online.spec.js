@@ -491,6 +491,11 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
     await guest.locator('[data-room="3"]').click();
     await expect.poll(() => host.evaluate(() => window.__db.online.room.players.length)).toBe(2);
     await host.locator('#charList .char-card').nth(4).click();
+    // Wait for the shared selection revision before preparing over a real network.
+    for (const page of [host, guest])
+      await expect
+        .poll(() => page.evaluate(() => window.__db.online.room.players[0].character))
+        .toBe(4);
     await expect(viewer.locator('[data-watch-room]')).toHaveCount(0);
     await host.locator('#startBtn').click();
     await guest.locator('#startBtn').click();
@@ -929,7 +934,7 @@ test('mismatched combat versions return both players to the room before simulati
   }
 });
 
-async function startDeliveryPair(browser, relay = false) {
+async function startDeliveryPair(browser, relay = false, map = 0) {
   const contexts = await Promise.all(
     [0, 1].map(() =>
       browser.newContext({
@@ -955,6 +960,13 @@ async function startDeliveryPair(browser, relay = false) {
         await page.waitForFunction(
           () => window.__db.online.transport.channel?.readyState === 'open',
         );
+    if (map !== 0) {
+      await host.locator('#mapList .map-card').nth(map).click();
+      await expect(guest.locator('#mapList .map-card').nth(map)).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+    }
     await host.locator('#startBtn').click();
     await guest.locator('#startBtn').click();
     await guest.waitForFunction(() => window.__db.online.active && window.__db.game.ready <= 0);
@@ -963,6 +975,58 @@ async function startDeliveryPair(browser, relay = false) {
     await Promise.all(contexts.map((context) => context.close()));
     throw error;
   }
+}
+
+for (const [map, id] of ['budokai', 'wild', 'kame', 'kami'].entries()) {
+  test(`${id} graded map destruction recovers through a real relay peer with matching collision state`, async ({
+    browser,
+  }) => {
+    const pair = await startDeliveryPair(browser, true, map);
+    try {
+      const damaged = await pair.host.evaluate(() => {
+        const d = window.__db;
+        const items = [
+          d.map.destructibles.find((p) => p.building),
+          d.map.destructibles.find((p) => p.tree),
+          d.map.destructibles.find((p) => p.kind === 'rock'),
+        ].filter(Boolean);
+        items.forEach((p, i) => {
+          d.damageStageObject(p, { dmg: p.maxHp * (i === 0 ? 2 : 0.2) });
+          if (i === 1) d.damageStageObject(p, { dmg: p.maxHp * 0.7 });
+        });
+        return items.map((p) => [p.id, p.hp, p.stage, p.broken]);
+      });
+      await pair.guest.waitForFunction(
+        (rows) =>
+          rows.every(([id, hp, stage, broken]) => {
+            const p = window.__db.map?.destructibles[id];
+            return p && p.hp === hp && p.stage === stage && p.broken === broken;
+          }),
+        damaged,
+        { timeout: 30000 },
+      );
+      for (const page of [pair.host, pair.guest]) {
+        expect(
+          await page.evaluate(
+            () => window.__db.online.active && !window.__db.online.recovery.paused,
+          ),
+        ).toBe(true);
+        const before = await page.evaluate(() => window.__db.enemy.pos.toArray());
+        await pair.guest.keyboard.down('KeyW');
+        await page.waitForFunction(
+          (before) =>
+            Math.hypot(window.__db.enemy.pos.x - before[0], window.__db.enemy.pos.z - before[2]) >
+            0.4,
+          before,
+        );
+        await pair.guest.keyboard.up('KeyW');
+      }
+      console.log('MAP RECOVERY', JSON.stringify({ id, damaged }));
+      expect(pair.errors.flat()).toEqual([]);
+    } finally {
+      await pair.close();
+    }
+  });
 }
 
 test('new host simulation is flushed in the same frame before the next input phase', async ({
@@ -1073,7 +1137,29 @@ test('30 Hz relay and live spectator frames stay within the real Worker message 
   try {
     const viewerErrors = await lobby(viewer);
     await viewer.locator('[data-watch-room="2"]').click();
-    await viewer.waitForFunction(() => window.__db.online.spectator.stats.received >= 2);
+    await viewer
+      .waitForFunction(() => window.__db.online.spectator.stats.received >= 2, null, {
+        timeout: 30000,
+      })
+      .catch(async (error) => {
+        console.log(
+          'SPECTATOR DIAGNOSTIC',
+          JSON.stringify(
+            await Promise.all(
+              [pair.host, pair.guest, viewer].map((page) =>
+                page.evaluate(() => ({
+                  active: window.__db.online.active,
+                  room: window.__db.online.room,
+                  spectator: window.__db.online.spectator.stats,
+                  recovery: window.__db.online.recovery,
+                })),
+              ),
+            ),
+          ),
+          [...pair.errors.flat(), ...viewerErrors],
+        );
+        throw error;
+      });
     const sample = await pair.host.evaluate(async () => {
       const o = window.__db.online,
         from = o.sequence,

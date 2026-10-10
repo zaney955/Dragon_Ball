@@ -30,6 +30,8 @@ export function register({
       matchModule.player,
       accept ? enemyProvider() : combatModule.NEUTRAL_INPUT,
     );
+    matchModule.player?.clampPos();
+    matchModule.enemy?.clampPos();
     combatModule.resolveOverlap();
     if (accept) {
       if (

@@ -1,3 +1,65 @@
+// Skills are chosen from the current roster and delayed observations.
+export function selectYouthSkill(f, seen, availability) {
+  const distance = Math.hypot(seen.x - f.pos.x, seen.z - f.pos.z);
+  const recovering = seen.attack && seen.attack.phase >= seen.attack.hitT + seen.attack.active;
+  const threat = seen.attack && !recovering;
+  for (const variant of [1, 0]) {
+    const info = availability(f, variant);
+    if (!info.available || info.reverting) continue;
+    const s = info.skill;
+    let useful;
+    switch (s.ability) {
+      case 'heal':
+        useful = f.hp / f.maxHp < 0.7 && distance > 3 && !threat;
+        break;
+      case 'muscle':
+      case 'fourArms':
+      case 'armor':
+      case 'mode':
+        useful = distance > 3 && !threat;
+        break;
+      case 'counter':
+      case 'sidestep':
+      case 'catStep':
+      case 'floatRetreat':
+        useful = !!threat && distance < Math.min(2.5, seen.attack.range + 0.2);
+        break;
+      case 'bat':
+        useful = !!threat && distance < 2;
+        break;
+      case 'ogre':
+        useful = distance < 3 && !seen.attack && !['block', 'blockstun'].includes(seen.state);
+        break;
+      case 'demon':
+        useful = distance > 2 && distance < 6 && !threat;
+        break;
+      case 'capsule':
+        useful = distance > 2 && distance < 8 && !threat;
+        break;
+      case 'weapon':
+        useful = !threat && (f.youth.weapon === 'flame' ? distance > 3 : distance < 2.5);
+        break;
+      case 'solar': {
+        const dx = f.pos.x - seen.x,
+          dz = f.pos.z - seen.z;
+        useful =
+          distance <= s.range &&
+          !['block', 'blockstun'].includes(seen.state) &&
+          Math.sin(seen.facingAngle) * dx + Math.cos(seen.facingAngle) * dz > distance * 0.3;
+        break;
+      }
+      default:
+        useful =
+          distance <= s.range &&
+          (s.shape !== 'ground' || seen.y < 0.35) &&
+          (!threat || recovering) &&
+          (s.shape !== 'beam' || s.control > 0 || distance > 2);
+    }
+    if (useful) return { type: 'special', variant, down: variant === 1 };
+  }
+  return null;
+}
+
 export function register({ ai, combat, match }) {
   return function initialize() {
     ai.V2_TACTICS = {};
@@ -12,41 +74,42 @@ export function register({ ai, combat, match }) {
       if (!seen) return input;
       if (combat.inYouthSmoke(f) || combat.inYouthSmoke(foe))
         f.v2.shotTarget = { x: seen.x, z: seen.z, time: f.brainTime };
-      if (f.lastDecision?.decisionTime !== before && !f.attack && !input.block) {
-        const dist = Math.hypot(seen.x - f.pos.x, seen.z - f.pos.z),
-          id = f.def.id;
-        let variant = null;
-        if (
-          (id === 'goku' && dist < 1.8) ||
-          (id === 'korin' && f.hp / f.maxHp < 0.7 && dist > 3 && !seen.attack) ||
-          (['roshi', 'tien'].includes(id) && dist > 3 && !seen.attack)
+      // Keep confirmed combos, punishes, throws and escape decisions intact.
+      if (
+        f.lastDecision?.decisionTime !== before &&
+        !f.attack &&
+        !input.block &&
+        !input.charge &&
+        !input.actions?.length &&
+        !['hit', 'knockdown', 'grabbed', 'guardbreak', 'blockstun', 'landing', 'dead'].includes(
+          f.state,
         )
-          variant = 1;
-        else if (id === 'oolong') variant = seen.attack && dist < 2 ? 1 : 0;
-        else if (id === 'bulma') variant = seen.attack && dist < 3 ? 1 : 0;
-        else if (['yamcha', 'chiaotzu'].includes(id) && seen.attack && dist < 2) variant = 1;
-        else if (id === 'pilaf') variant = seen.attack && dist < 2 ? 1 : 0;
-        else if (id === 'piccolo') variant = dist < 2 ? 1 : 0;
-        else if (id === 'krillin' && dist > 2 && dist < 6) variant = 1;
-        else if (id === 'gyumao') variant = seen.y < 0.3 && dist > 2 ? 1 : 0;
-        else if (dist < f.def.skills[0].range + 0.2) variant = 0;
-        if (
-          variant != null &&
-          combat.skillAvailability(f, variant).available &&
-          ai.combatRandom() < 0.45
-        )
-          input.actions = [{ type: 'special', variant, down: variant === 1 }];
+      ) {
+        const action = selectYouthSkill(f, seen, combat.skillAvailability);
+        if (action && ai.combatRandom() < 0.45) input.actions = [action];
       }
-      input.actions = (input.actions ?? []).filter(
-        (a) =>
-          a.type !== 'special' ||
-          combat.skillAvailability(f, a.variant ?? (a.down ? 1 : 0), { cancel: !!f.attack })
-            .available,
-      );
-      input.actions = input.actions.filter((a) => {
+      if (f.attack) {
+        const followup =
+          f.attack.ability === 'wolf' &&
+          f.youth.wolfUntil > match.game.simTime &&
+          match.game.simTime - (f.lastContactTime ?? Infinity) >= 0.065
+            ? { type: 'special', down: false }
+            : f.attack.ability === 'catStep' &&
+                f.youth.catUntil > match.game.simTime &&
+                f.stateTimer >= f.attack.hitT + 0.065
+              ? { type: 'light' }
+              : null;
+        if (followup && !f.queue.some((q) => q.type === followup.type)) input.actions = [followup];
+      }
+      input.actions = (input.actions ?? []).filter((a) => {
+        if (a.type === 'special')
+          return combat.skillAvailability(f, a.variant ?? (a.down ? 1 : 0), { cancel: !!f.attack })
+            .available;
+        if (a.type === 'ult')
+          return combat.ultimateAvailability(f, { cancel: !!f.attack }).available;
         if (
-          (f.youth.form === 'bat' && ['blast', 'ult', 'throw'].includes(a.type)) ||
-          (f.youth.form === 'ape' && ['blast', 'throw'].includes(a.type))
+          (f.youth.form === 'bat' && ['light', 'heavy', 'blast', 'throw'].includes(a.type)) ||
+          (['ape', 'combined'].includes(f.youth.form) && ['blast', 'throw'].includes(a.type))
         )
           return false;
         return a.type !== 'blast' || !['gyumao', 'oolong', 'korin'].includes(f.def.id);

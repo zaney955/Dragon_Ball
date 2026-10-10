@@ -160,10 +160,14 @@ export function register({
             ? INPUT_LABELS.touch
             : INPUT_LABELS.one,
         ) +
-        (matchModule.player.attack?.armor
+        (matchModule.player.attack?.superArmor ||
+        matchModule.player.attack?.limitedArmor ||
+        matchModule.player.attack?.armor
           ? '\n霸体 ' +
             (aiModule.armorWindow(matchModule.player)
-              ? '窗口内 · 可承受一次'
+              ? matchModule.player.attack.superArmor
+                ? '窗口内 · 承伤60%'
+                : '窗口内 · 可承受一次'
               : matchModule.player.armorSpent
                 ? '已承伤 · 不再保护'
                 : '窗口结束')

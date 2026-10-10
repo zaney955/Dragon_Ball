@@ -1,3 +1,5 @@
+import { rebuildSpace } from '../world/space.js';
+import { syncDestruction } from '../world/destruction-batching.js';
 import * as THREE from 'three';
 import { stateCodec } from './state-codec.js';
 import { BATTLE_RULESET } from '../online/battle-version.js';
@@ -54,19 +56,40 @@ const COLLECTIONS = [
 ];
 const pick = (value, omit) =>
   Object.fromEntries(Object.entries(value).filter(([key]) => !omit(key)));
-const transform = (node) => ({
-  position: node.position.toArray(),
-  quaternion: node.quaternion.toArray(),
-  scale: node.scale.toArray(),
-  visible: node.visible,
-  color: node.material?.color?.getHex(),
-});
+const transform = (node) => {
+  const colors = [];
+  node.traverse((child) => {
+    if (child.material?.color) colors.push(child.material.color.toArray());
+  });
+  return {
+    position: node.position.toArray(),
+    quaternion: node.quaternion.toArray(),
+    scale: node.scale.toArray(),
+    visible: node.visible,
+    color: node.material?.color?.getHex(),
+    colors,
+  };
+};
 function applyTransform(node, data) {
   node.position.fromArray(data.position);
   node.quaternion.fromArray(data.quaternion);
   node.scale.fromArray(data.scale);
   node.visible = data.visible;
-  if (data.color !== undefined && node.material?.color) node.material.color.setHex(data.color);
+  let index = 0;
+  node.traverse((child) => {
+    if (!child.material?.color) return;
+    const color = data.colors?.[index++];
+    if (color || (child === node && data.color !== undefined)) {
+      // Fresh building sections share materials; a restored tint must remain
+      // local to its damaged section rather than recolor the whole building.
+      if (!child.userData.damageMaterial) {
+        child.material = child.material.clone();
+        child.userData.damageMaterial = true;
+      }
+      if (color) child.material.color.fromArray(color);
+      else child.material.color.setHex(data.color);
+    }
+  });
 }
 export function battleStateDigest(snapshot) {
   let hash = 2166136261;
@@ -140,6 +163,7 @@ export function register({ ai, animation, characters, combat, input, match, rend
       },
       mapTransforms: map.destructibles.map((p) => transform(p.mesh)),
       visuals: roots.map((root) => root.toJSON()),
+      stageVisuals: map.scars.map((root) => root.toJSON()),
       state: stateCodec(registry(roots)).encode(payload),
     };
   };
@@ -151,6 +175,8 @@ export function register({ ai, animation, characters, combat, input, match, rend
       snapshot.actors.length !== 2 ||
       !Array.isArray(snapshot.visuals) ||
       snapshot.visuals.length > 128 ||
+      (snapshot.stageVisuals !== undefined &&
+        (!Array.isArray(snapshot.stageVisuals) || snapshot.stageVisuals.length > 24)) ||
       JSON.stringify(snapshot).length > 2000000
     )
       throw new Error('完整战斗存档无效或版本不同');
@@ -159,7 +185,7 @@ export function register({ ai, animation, characters, combat, input, match, rend
     );
     if (indices.includes(-1) || ![0, 1, 2, 3].includes(snapshot.configuration?.map))
       throw new Error('存档角色或地图无效');
-    for (const visual of snapshot.visuals) {
+    for (const visual of [...snapshot.visuals, ...(snapshot.stageVisuals ?? [])]) {
       if (
         (visual.images ?? []).some(
           (image) => typeof image.url === 'string' && !image.url.startsWith('data:'),
@@ -212,11 +238,18 @@ export function register({ ai, animation, characters, combat, input, match, rend
     Object.assign(world.currentMap, payload.map);
     for (const bean of world.currentMap.senzus ?? []) {
       bean.group.visible = bean.active;
-      bean.group.position.set(bean.x, 0, bean.z);
+      bean.group.position.set(bean.x, world.groundHeight(bean.x, bean.z), bean.z);
     }
     snapshot.mapTransforms.forEach((state, i) =>
       applyTransform(world.currentMap.destructibles[i].mesh, state),
     );
+    for (const json of snapshot.stageVisuals ?? []) {
+      const scar = loader.parse(json);
+      world.currentMap.group.add(scar);
+      world.currentMap.scars.push(scar);
+    }
+    syncDestruction(world.currentMap);
+    rebuildSpace(world.currentMap);
     render.scene.updateMatrixWorld(true);
     render.resetShoulderCameras();
     for (const record of combat.youthEntities)

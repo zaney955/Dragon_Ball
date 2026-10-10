@@ -4,8 +4,8 @@ const movable = new Set(['idle', 'walk', 'crouch', 'block', 'charge', 'blastChar
 
 /** Predict display positions only. Authoritative fighter state is never changed. */
 export class GuestPresentation {
-  constructor({ fighters, mobility, bounds }) {
-    Object.assign(this, { fighters, mobility, bounds });
+  constructor({ fighters, mobility, bounds, constrain }) {
+    Object.assign(this, { fighters, mobility, bounds, constrain });
     this.history = [{ at: -Infinity, input: {} }];
     this.delay = 0.03;
     this.anchorAt = performance.now();
@@ -56,12 +56,15 @@ export class GuestPresentation {
             response = 1 - Math.exp(-(length ? 40 : 46) * step);
           velocity.x += (vx - velocity.x) * response;
           velocity.z += (vz - velocity.z) * response;
+          const previous = position.clone();
           position.addScaledVector(velocity, step);
+          this.constrain?.(previous, position, fighter);
           walking = !!length && !blocked;
         }
       } else if (enabled && !['dead', 'knockdown'].includes(fighter.state)) {
         position.addScaledVector(velocity, Math.min(elapsed, 0.1));
       }
+      this.constrain?.(fighter.pos, position, fighter);
       position.x = Math.max(-bounds.x, Math.min(bounds.x, position.x));
       position.z = Math.max(-bounds.z, Math.min(bounds.z, position.z));
       position.y = Math.max(0, position.y);

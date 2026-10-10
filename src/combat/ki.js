@@ -84,7 +84,7 @@ export function register({
       foe = f === matchModule.player ? matchModule.enemy : matchModule.player;
     const distance = Math.max(0.25, foe ? Math.hypot(foe.pos.x - f.pos.x, foe.pos.z - f.pos.z) : 5),
       target = f.pos.clone().addScaledVector(forward, distance);
-    target.y = a.targetHeight;
+    target.y = a.targetHeight + (worldModule.groundHeight?.(target.x, target.z) ?? 0);
     const direction = target.sub(pos).normalize();
     const mesh = new THREE.Group(),
       color = combatModule.kiColor(f),
@@ -140,11 +140,19 @@ export function register({
       b.life -= dt;
       b.mesh.position.copy(b.pos);
       b.halo.scale.setScalar(1 + Math.sin(b.distance * 8) * 0.07);
-      if (foe && foe.hp > 0 && foe.invulnerable <= 0 && !matchModule.game.over) {
+      const cover = worldModule.stageSegmentHit?.(b.previous, b.pos, b.attack.width ?? 0.15);
+      if (
+        b.life > 0 &&
+        (!cover || cover.distance > 0.001) &&
+        foe &&
+        foe.hp > 0 &&
+        foe.invulnerable <= 0 &&
+        !matchModule.game.over
+      ) {
         const rig = combatModule.sampleCombatRig(foe),
           sweep = {
             a: b.previous.clone().add(foe.pos).sub(foe.previousPos),
-            b: b.pos,
+            b: cover?.point ?? b.pos,
             r: b.attack.width,
           };
         if (
@@ -169,16 +177,14 @@ export function register({
           b.life = 0;
         }
       }
-      if (
-        b.life > 0 &&
+      if (b.life > 0 && cover) {
         worldModule.damageStageProjectile?.(
           b.owner,
           b.attack,
           b.previous,
           b.pos,
           b.attack.width ?? 0.15,
-        )
-      ) {
+        );
         b.hit = true;
         b.life = 0;
       }
@@ -269,8 +275,34 @@ export function register({
   }
   function ensureKiVisual(f) {
     if (f.kiVisual) return f.kiVisual;
+    // Measure the body before adding the aura, so the effect cannot inflate its own bounds.
+    f.root.updateMatrixWorld(true);
+    const size = new THREE.Box3().setFromObject(f.root).getSize(new THREE.Vector3());
+    const scale = f.root.getWorldScale(new THREE.Vector3());
+    const height = Math.max(0.8, size.y / scale.y);
+    const radius = f.anatomy
+      ? Math.max(0.48, f.anatomy.torsoR * 1.75 + 0.16)
+      : Math.max(0.5, Math.min(height * 0.45, Math.max(size.x / scale.x, size.z / scale.z) * 0.55));
+    const chargeColors = {
+      goku: 0xffde78,
+      roshi: 0xa3eaff,
+      taopaipai: 0xff9cc8,
+      piccolo: 0xb7ff91,
+      tien: 0xffefa6,
+      krillin: 0xffdc89,
+      yamcha: 0x79e9ff,
+      gyumao: 0xffb969,
+      chichi: 0xffb8e1,
+      bulma: 0x73e8ff,
+      oolong: 0xffd4b8,
+      korin: 0xc0fff0,
+      pilaf: 0x7df5df,
+      chiaotzu: 0xd5bbff,
+    };
     const aura = new THREE.Group(),
-      color = new THREE.Color(combatModule.kiColor(f));
+      auraColor = chargeColors[f.def.id] ?? combatModule.kiColor(f),
+      color = new THREE.Color(auraColor);
+    aura.name = 'charging-aura';
     aura.visible = false;
     f.root.add(aura);
     const shell = new THREE.Mesh(
@@ -293,20 +325,20 @@ export function register({
           },
         },
         vertexShader: `uniform float time;varying vec3 n;varying vec3 v;varying float height;void main(){vec3 p=position;float h=(p.y+1.)*.5;float wave=sin(uv.x*37.+time*8.-h*9.)*.045+sin(uv.x*71.-time*6.+h*16.)*.024;p.xz*=1.+wave*h;p.y+=sin(uv.x*49.+time*11.)*.08*h*h;vec4 mv=modelViewMatrix*vec4(p,1.);n=normalize(normalMatrix*normal);v=normalize(-mv.xyz);height=h;gl_Position=projectionMatrix*mv;}`,
-        fragmentShader: `uniform float time;uniform float strength;uniform vec3 color;varying vec3 n;varying vec3 v;varying float height;void main(){float edge=pow(1.-abs(dot(normalize(n),normalize(v))),1.7);float flow=.75+.25*sin(height*26.-time*9.);gl_FragColor=vec4(color,(.035+edge*.32)*flow*strength);}`,
+        fragmentShader: `uniform float time;uniform float strength;uniform vec3 color;varying vec3 n;varying vec3 v;varying float height;void main(){float edge=pow(1.-abs(dot(normalize(n),normalize(v))),1.35);float flow=.8+.2*sin(height*26.-time*9.);gl_FragColor=vec4(mix(color,vec3(1.),edge*.35),(.09+edge*.55)*flow*strength);}`,
       }),
     );
-    shell.position.y = 1.25;
-    shell.scale.set(0.83, 1.55, 0.74);
+    shell.position.y = height * 0.5;
+    shell.scale.set(radius * 1.18, height * 0.61, radius * 1.08);
     aura.add(shell);
     const rings = [];
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 3; i++) {
       const ring = new THREE.Mesh(
-        new THREE.TorusGeometry(0.9, 0.016, 4, 40),
-        renderModule.energyMat(combatModule.kiColor(f), 0.4),
+        new THREE.TorusGeometry(1, i ? 0.025 : 0.035, 4, 40),
+        renderModule.energyMat(i ? auraColor : 0xfff7df, 0.7),
       );
       ring.rotation.x = Math.PI / 2;
-      ring.position.y = 0.05;
+      ring.position.y = 0.06 / scale.y;
       ring.material.toneMapped = false;
       aura.add(ring);
       rings.push(ring);
@@ -315,24 +347,28 @@ export function register({
     for (let i = 0; i < 8; i++) {
       const angle = (i * Math.PI) / 4,
         flame = new THREE.Mesh(
-          new THREE.ConeGeometry(0.15, 2.3, 3, 1, true),
-          renderModule.energyMat(combatModule.kiColor(f), 0.12),
+          new THREE.ConeGeometry(radius * 0.22, height * 0.95, 3, 1, true),
+          renderModule.energyMat(auraColor, 0.3),
         );
       flame.material.side = THREE.DoubleSide;
       flame.material.toneMapped = false;
-      flame.position.set(Math.sin(angle) * 0.63, 1.25, Math.cos(angle) * 0.58);
+      flame.position.set(
+        Math.sin(angle) * radius * 0.86,
+        height * 0.52,
+        Math.cos(angle) * radius * 0.86,
+      );
       flame.rotation.set(Math.cos(angle) * 0.09, angle, -Math.sin(angle) * 0.09);
       aura.add(flame);
       flames.push(flame);
     }
     const particleGeo = new THREE.BufferGeometry(),
-      positions = new Float32Array(28 * 3);
+      positions = new Float32Array(40 * 3);
     particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const particles = new THREE.Points(
       particleGeo,
       new THREE.PointsMaterial({
-        color: combatModule.kiColor(f),
-        size: 0.04,
+        color: 0xfff6df,
+        size: THREE.MathUtils.clamp(size.y * 0.032, 0.07, 0.14),
         transparent: true,
         opacity: 0.8,
         blending: THREE.AdditiveBlending,
@@ -341,6 +377,16 @@ export function register({
       }),
     );
     aura.add(particles);
+    const streaks = [];
+    for (let i = 0; i < 8; i++) {
+      const streak = new THREE.Mesh(
+        new THREE.ConeGeometry(radius * 0.026, height * 0.15, 3),
+        renderModule.energyMat(i % 2 ? auraColor : 0xffffff, 0.8),
+      );
+      streak.material.toneMapped = false;
+      aura.add(streak);
+      streaks.push(streak);
+    }
     const hand = new THREE.Group();
     hand.visible = false;
     f.parts.handR.add(hand);
@@ -360,6 +406,9 @@ export function register({
       flames,
       particles,
       positions,
+      streaks,
+      height,
+      radius,
       hand,
       glow,
       intensity: 0,
@@ -380,8 +429,8 @@ export function register({
     const v = ensureKiVisual(f),
       time = matchModule.game.simTime,
       ramp = Math.min(1, (f.chargeHeld ?? 0) / 0.8),
-      target = active ? 0.4 + ramp * 0.55 : 0;
-    v.intensity = THREE.MathUtils.lerp(v.intensity, target, 1 - Math.exp(-dt * (active ? 12 : 22)));
+      target = active ? 0.8 + ramp * 0.2 : 0;
+    v.intensity = THREE.MathUtils.lerp(v.intensity, target, 1 - Math.exp(-dt * (active ? 28 : 22)));
     if (f.hp <= 0 || ['hit', 'grabbed', 'dead', 'guardbreak', 'knockdown'].includes(f.state))
       v.intensity = 0;
     v.aura.visible = v.intensity > 0.015;
@@ -392,24 +441,34 @@ export function register({
     v.aura.scale.setScalar(1 + Math.sin(time * 13) * 0.025 + full * 0.18);
     for (let i = 0; i < v.rings.length; i++) {
       const phase = (time * 1.3 + i * 0.5) % 1;
-      v.rings[i].scale.setScalar(0.7 + phase * 0.9);
-      v.rings[i].material.opacity = (1 - phase) * v.intensity * 0.48;
+      v.rings[i].scale.setScalar(v.radius * (i ? 1 + phase * 0.7 : 1 + Math.sin(time * 10) * 0.04));
+      v.rings[i].material.opacity = v.intensity * (i ? (1 - phase) * 0.8 : 0.72);
     }
     for (let i = 0; i < v.flames.length; i++) {
       const flame = v.flames[i];
       flame.scale.set(1, 0.85 + Math.sin(time * 11 + i * 2) * 0.16, 1);
-      flame.material.opacity = v.intensity * (0.09 + Math.sin(time * 8 + i) * 0.035);
+      flame.material.opacity = v.intensity * (0.24 + Math.sin(time * 8 + i) * 0.08);
     }
-    for (let i = 0; i < 28; i++) {
-      const h = (time * (0.65 + (i % 4) * 0.13) + i / 28) % 1,
+    for (let i = 0; i < 40; i++) {
+      const h = (time * (0.9 + (i % 4) * 0.16) + i / 40) % 1,
         angle = i * 2.4 + time * 0.4,
-        r = 0.65 + Math.sin(i * 3.1) * 0.13;
+        r = v.radius * (0.9 + Math.sin(i * 3.1) * 0.16);
       v.positions[i * 3] = Math.sin(angle) * r;
-      v.positions[i * 3 + 1] = 0.1 + h * 2.8;
+      v.positions[i * 3 + 1] = 0.08 + h * v.height * 1.12;
       v.positions[i * 3 + 2] = Math.cos(angle) * r;
     }
     v.particles.geometry.attributes.position.needsUpdate = true;
-    v.particles.material.opacity = v.intensity * 0.8;
+    v.particles.material.opacity = v.intensity;
+    v.streaks.forEach((streak, i) => {
+      const h = (time * 1.55 + i / v.streaks.length) % 1;
+      const angle = i * 2.399 + time * 0.35;
+      streak.position.set(
+        Math.sin(angle) * v.radius,
+        0.12 + h * v.height,
+        Math.cos(angle) * v.radius,
+      );
+      streak.material.opacity = v.intensity * Math.sin(h * Math.PI) * 0.85;
+    });
     v.hand.visible = handActive;
     if (handActive) {
       const power =

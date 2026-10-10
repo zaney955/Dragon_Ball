@@ -1,3 +1,5 @@
+import { register as registerWorldSpace } from '../world/space.js';
+import { register as registerWorldFeedback } from '../world/feedback.js';
 import { register as registerMusic } from '../audio/music.js';
 import { register as registerBattleState } from '../combat/battle-state.js';
 import { register as registerOnlineSession } from '../online/session.js';
@@ -363,4 +365,6 @@ export const modulePlan = [
   { id: 'combat/battle-state', register: registerBattleState },
   { id: 'online/session', register: registerOnlineSession },
   { id: 'online/lobby-ui', register: registerOnlineLobby },
+  { id: 'world/space', register: registerWorldSpace },
+  { id: 'world/feedback', register: registerWorldFeedback },
 ];

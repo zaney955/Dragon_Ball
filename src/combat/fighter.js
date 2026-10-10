@@ -176,6 +176,7 @@ export function register({
           context: {
             up: !!input.up,
             down: !!input.down,
+            ...(input.variant == null ? {} : { variant: input.variant }),
           },
           life: ['evasion', 'throw'].includes(type) ? 0.18 : 0.34,
           enteredAt: matchModule.game.simTime,
@@ -223,6 +224,7 @@ export function register({
       }
       update(dt, foe, input = combatModule.NEUTRAL_INPUT) {
         this.previousPos.copy(this.pos);
+        this.spacePosition = this.pos.clone();
         this.stateTimer += dt;
         if (this.launchFlight) this.launchElapsed += dt;
         this.flash = Math.max(0, this.flash - dt * 5.5);
@@ -451,7 +453,7 @@ export function register({
           return;
         }
         if (this.pull('pursuit')) {
-          if (input.down && !input.up) {
+          if (!this.isAI && input.down && !input.up) {
             this.backflip(foe);
             return;
           }
@@ -621,13 +623,12 @@ export function register({
         this.clampPos();
       }
       clampPos() {
-        const b = worldModule.currentMap?.bounds ?? {
-            x: 13.5,
-            z: 6,
-          },
-          extra = matchModule.game.ringOut && matchModule.game.selectedMap === 0 ? 2.5 : 0;
-        this.pos.x = THREE.MathUtils.clamp(this.pos.x, -b.x - extra, b.x + extra);
-        this.pos.z = THREE.MathUtils.clamp(this.pos.z, -b.z - extra, b.z + extra);
+        if (worldModule.currentMap?.playArea) worldModule.resolveStageMovement(this);
+        else {
+          const b = worldModule.currentMap?.bounds ?? { x: 13.5, z: 6 };
+          this.pos.x = THREE.MathUtils.clamp(this.pos.x, -b.x, b.x);
+          this.pos.z = THREE.MathUtils.clamp(this.pos.z, -b.z, b.z);
+        }
         this.pos.y = Math.max(0, this.pos.y);
       }
       startAttack(type, input = {}) {
@@ -813,6 +814,8 @@ export function register({
         if (!a.activeFired && this.stateTimer + 1e-9 >= a.hitT) {
           a.activeFired = true;
           combatModule.emitCombatEvent('active', this, null, a);
+          if (!a.isUlt && !a.isKiBlast && !a.isThrow && ['light', 'heavy'].includes(a.chainType))
+            worldModule.damageStage(this, a);
         }
         if (
           !a.isKiBlast &&
@@ -878,7 +881,7 @@ export function register({
             ) {
               this.pull(q.type);
               this.attack = null;
-              if ((q.context.down && !q.context.up) || (input.down && !input.up))
+              if (!this.isAI && ((q.context.down && !q.context.up) || (input.down && !input.up)))
                 this.backflip(foe);
               else this.pursue(foe);
               return;
@@ -895,7 +898,7 @@ export function register({
               this.startUlt();
               return;
             }
-            if (q.type === 'special' && this.ki >= 30) {
+            if (q.type === 'special' && (this.youth || this.ki >= 30)) {
               this.pull(q.type);
               this.startSpecial(q.context);
               return;
@@ -988,6 +991,7 @@ export function register({
         this.pos.copy(foe.pos).addScaledVector(foe.forward(), -1.25);
         this.clampPos();
         this.previousPos.copy(this.pos);
+        this.spacePosition = this.pos.clone();
         this.facingAngle = Math.atan2(foe.pos.x - this.pos.x, foe.pos.z - this.pos.z);
         this.vel.set(0, 0, 0);
         this.dashTime = 0.16;
@@ -1137,7 +1141,7 @@ export function register({
           a.dmg *
           (a.damagePower ?? attacker.def.power) *
           (blocking && !guardBreak ? blockDamageScale(a) : scaling) *
-          (counter ? 1.14 : 1) *
+          (!blocking && (counter || punish) ? 2 : 1) *
           (superArmored ? 0.6 : 1);
         dmg = Math.round(dmg * 10) / 10;
         const hpBefore = this.hp;
@@ -1273,6 +1277,8 @@ export function register({
       render(dt = 1 / 60, alpha = 1) {
         const p = this.parts;
         this.root.position.lerpVectors(this.previousPos, this.pos, alpha);
+        this.root.position.y +=
+          worldModule.groundHeight?.(this.root.position.x, this.root.position.z) ?? 0;
         const delta = renderModule.angleDelta(this.facingAngle, this.visualAngle);
         this.visualAngle += delta * (1 - Math.exp(-30 * dt));
         this.root.rotation.set(0, this.visualAngle, 0);
@@ -1295,7 +1301,10 @@ export function register({
         } else if (['dead', 'knockdown'].includes(this.state)) {
           const k = THREE.MathUtils.clamp(this.stateTimer / 0.28, 0, 1);
           this.root.rotation.z = -k * 1.3;
-          this.root.position.y = Math.max(0, this.pos.y) - 0.28 * k;
+          this.root.position.y =
+            (worldModule.groundHeight?.(this.pos.x, this.pos.z) ?? 0) +
+            Math.max(0, this.pos.y) -
+            0.28 * k;
         } else if (this.attack) this.root.position.y += pose.ry ?? 0;
         if (!['dead', 'knockdown', 'charge', 'blastCharge'].includes(this.state) && !this.attack) {
           const view = Math.atan2(
@@ -1356,7 +1365,11 @@ export function register({
             this.baseScale * (1 + Math.sin(renderModule.clock.elapsedTime * 4) * 0.015),
           );
         }
-        this.shadow.position.set(this.pos.x, 0.018, this.pos.z);
+        this.shadow.position.set(
+          this.pos.x,
+          (worldModule.groundHeight?.(this.pos.x, this.pos.z) ?? 0) + 0.018,
+          this.pos.z,
+        );
         this.shadow.material.opacity = 0.42 / (1 + this.pos.y * 0.9);
         this.shadow.scale.setScalar(1 + this.pos.y * 0.12);
         combatModule.updateKiVisual(this, dt);

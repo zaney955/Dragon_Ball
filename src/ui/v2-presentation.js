@@ -94,10 +94,13 @@ export function register({
         key: keys.ultimate,
         name: f.youth.form === 'ape' ? '巨猿震地' : f.def.ultName,
         cost: 100,
-        reason:
-          f.def.id === 'piccolo' && f.youth.regenerated
-            ? '再生后无法使用'
-            : actionAvailability(f, 100, g),
+        reason: g.over
+          ? '回合结束'
+          : g.paused
+            ? '已暂停'
+            : g.ready > 0
+              ? '开场准备'
+              : skillReason(combatModule.ultimateAvailability(f), f),
       },
     ];
   }

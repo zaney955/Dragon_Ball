@@ -12,7 +12,6 @@ export function register({
     v1TakeHit,
     v1Evade,
     v1Dispose,
-    v1Flight,
     v1Blast,
     v2ReleaseBase,
     v1Render;
@@ -27,6 +26,7 @@ export function register({
       return;
     }
     for (const b of [...combatModule.v2Projectiles]) {
+      const bounds = worldModule.currentMap?.bounds ?? { x: 13.5, z: 6 };
       if (b.delay > 0) {
         b.delay -= dt;
         b.mesh.visible = false;
@@ -43,8 +43,10 @@ export function register({
         const target = b.owner.pos
           .clone()
           .add(new THREE.Vector3(0, combatModule.stature(b.owner), 0));
-        b.direction.copy(target.sub(b.pos)).normalize();
-        if (b.pos.distanceTo(target) < 0.25) {
+        target.y += worldModule.groundHeight?.(target.x, target.z) ?? 0;
+        const distance = b.pos.distanceTo(target);
+        b.direction.copy(target).sub(b.pos).normalize();
+        if (distance <= Math.max(0.25, b.speed * dt)) {
           combatModule.removeAbility(combatModule.v2Projectiles, b);
           continue;
         }
@@ -61,11 +63,21 @@ export function register({
           b.hits.clear();
         } else b.life = 0;
       }
-      if (b.life > 0 && foe && !b.hits.has(foe) && foe.invulnerable <= 0 && foe.hp > 0) {
+      // Clip the hurt sweep at the first wall so a fast projectile can hit an
+      // opponent in front of cover but never the protected opponent behind it.
+      const cover = worldModule.stageSegmentHit?.(b.previous, b.pos, b.r);
+      if (
+        b.life > 0 &&
+        (!cover || cover.distance > 0.001) &&
+        foe &&
+        !b.hits.has(foe) &&
+        foe.invulnerable <= 0 &&
+        foe.hp > 0
+      ) {
         const body = combatModule.sampleCombatRig(foe),
           sweep = {
             a: b.previous.clone().add(foe.pos).sub(foe.previousPos),
-            b: b.pos,
+            b: cover?.point ?? b.pos,
             r: b.r,
           };
         if (
@@ -90,10 +102,8 @@ export function register({
           if (b.kind !== 'blade') b.life = 0;
         }
       }
-      if (
-        b.life > 0 &&
-        worldModule.damageStageProjectile?.(b.owner, b.attack, b.previous, b.pos, b.r)
-      ) {
+      if (b.life > 0 && cover) {
+        worldModule.damageStageProjectile?.(b.owner, b.attack, b.previous, b.pos, b.r);
         if (b.kind === 'blade') {
           b.returning = true;
           b.hits.clear();
@@ -102,8 +112,8 @@ export function register({
       if (
         b.life <= 0 ||
         (b.kind !== 'blade' && Number.isFinite(b.attack.range) && b.distance >= b.attack.range) ||
-        Math.abs(b.pos.x) > 16 ||
-        Math.abs(b.pos.z) > 10
+        Math.abs(b.pos.x) > bounds.x + 2.5 ||
+        Math.abs(b.pos.z) > bounds.z + 4
       )
         combatModule.removeAbility(combatModule.v2Projectiles, b);
     }
@@ -224,6 +234,7 @@ export function register({
       const a = this.attack;
       if (!a) return;
       if (
+        !a.isYouth &&
         this.anatomy &&
         a.control > 0 &&
         this.hitResult === 'hit' &&
@@ -240,7 +251,13 @@ export function register({
         return;
       }
       // New ultimate fire stage uses physical equipment, not the V1 energy-beam presenter.
-      if (this.anatomy && a.isUlt && this.stateTimer + 1e-9 >= a.hitT && !this.stageFired) {
+      if (
+        !a.isYouth &&
+        this.anatomy &&
+        a.isUlt &&
+        this.stateTimer + 1e-9 >= a.hitT &&
+        !this.stageFired
+      ) {
         this.stageFired = true;
       }
       v1UpdateAttack.call(this, dt, foe, input);
@@ -326,37 +343,6 @@ export function register({
     combatModule.Fighter.prototype.dispose = function () {
       combatModule.cleanupAbilities(this);
       v1Dispose.call(this);
-    };
-    v1Flight = combatModule.flightPhysics;
-    combatModule.flightPhysics = function (f, dt, input) {
-      if (!f.anatomy) return v1Flight(f, dt, input);
-      if (f.def.id !== 'chiaotzu') return false;
-      if (['hit', 'knockdown', 'guardbreak', 'grabbed', 'blockstun', 'dead'].includes(f.state)) {
-        f.flightMode = false;
-        return false;
-      }
-      if (input.flight && f.ki > 0 && !f.airLocked) {
-        f.flightMode = true;
-        f.airTime = (f.airTime ?? 0) + dt;
-        f.ki = Math.max(0, f.ki - 10 * dt);
-        f.jumpVel = 2.1;
-        if (f.pull('jump')) f.jumpVel = 2.4;
-        if (f.airTime >= 2.0) f.airLocked = true;
-      } else if (f.flightMode) f.airLocked = true;
-      if (!f.flightMode) return false;
-      if (f.airLocked) f.jumpVel = -2.8;
-      f.pos.y = THREE.MathUtils.clamp(f.pos.y + f.jumpVel * dt, 0, 2);
-      if (f.pos.y === 0) {
-        f.flightMode = false;
-        f.airLocked = false;
-        f.airTime = 0;
-        f.jumpVel = 0;
-        f.state = 'landing';
-        f.stunTime = 0.12;
-        f.stateTimer = 0;
-        combatModule.emitCombatEvent('landing', f, null, null);
-      }
-      return true;
     };
     v1Blast = combatModule.Fighter.prototype.startKiBlast;
     combatModule.Fighter.prototype.startKiBlast = function (held = 0) {

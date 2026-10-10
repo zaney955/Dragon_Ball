@@ -185,6 +185,7 @@ export function register({ app, characters, match, ui, world }) {
           : '空房间';
         const button = document.createElement('button');
         button.dataset.room = String(room.id);
+        button.className = room.players.length ? 'onlineJoin' : 'onlineCreate';
         button.textContent = room.players.length
           ? room.players.length === 2
             ? '房间已满'

@@ -161,6 +161,7 @@ export function register({ ai, combat, characters, animation, match, render, wor
       catUntil: 0,
       armorSpent: false,
       weapon: 'missile',
+      burn: null,
       normalBody: null,
     };
   };
@@ -174,6 +175,8 @@ export function register({ ai, combat, characters, animation, match, render, wor
       (s.ability === v.form || (s.ability === 'ogre' && v.form === 'ogre'));
     if (f.hp <= 0 || blockedStates.includes(f.state) || (!cancel && f.attack))
       reason = '等待行动恢复';
+    else if (f.def.id === 'yamcha' && variant === 0 && v.wolfUntil > match.game.simTime)
+      return { available: true, reason: '可发动', cost: 0, skill: s, followup: true };
     else if (
       v.form?.startsWith('mimic:') ||
       v.form === 'combined' ||
@@ -206,8 +209,19 @@ export function register({ ai, combat, characters, animation, match, render, wor
       reason = '掩体已在场';
     return { available: !reason, reason: reason || '可发动', cost: s.kiCost, skill: s };
   };
+  combat.ultimateAvailability = function (f, { cancel = false } = {}) {
+    let reason = '';
+    if (f.hp <= 0 || blockedStates.includes(f.state) || (!cancel && f.attack))
+      reason = '等待行动恢复';
+    else if (['bat', 'combined'].includes(f.youth.form) || f.youth.form?.startsWith('mimic:'))
+      reason = '当前形态不可用';
+    else if (f.def.id === 'piccolo' && f.youth.regenerated) reason = '再生后无法使用';
+    else if (f.ki < 100) reason = '资源不足';
+    return { available: !reason, reason: reason || '可发动', cost: 100 };
+  };
   combat.setYouthBody = function (f, form) {
     const v = f.youth;
+    const smokeHeight = f.def.id === 'oolong' && (form || v.form) ? combat.stature(f) : 0;
     if (!form) {
       if (v.normalBody) {
         render.scene.remove(f.root);
@@ -220,6 +234,7 @@ export function register({ ai, combat, characters, animation, match, render, wor
       v.formTime = 0;
       f.combatRig = null;
       f.kiVisual = null;
+      if (smokeHeight) render.spawnTransformSmoke(f, smokeHeight);
       return;
     }
     if (v.normalBody) combat.setYouthBody(f, null);
@@ -280,6 +295,7 @@ export function register({ ai, combat, characters, animation, match, render, wor
     v.form = form;
     f.flightMode = false;
     f.jumpVel = 0;
+    if (smokeHeight) render.spawnTransformSmoke(f, smokeHeight);
   };
   combat.endYouthForm = function (f, recovery = true) {
     const v = f.youth,
@@ -446,7 +462,8 @@ export function register({ ai, combat, characters, animation, match, render, wor
   };
   combat.startYouthSpecial = function (f, context = {}) {
     const variant = context.down || context.variant === 1 ? 1 : 0;
-    if (f.def.id === 'yamcha' && variant === 0 && f.youth.wolfUntil > match.game.simTime) {
+    const info = combat.skillAvailability(f, variant, { cancel: !!f.attack });
+    if (info.followup) {
       f.youth.wolfUntil = 0;
       const a = {
         ...f.def.skills[0],
@@ -463,7 +480,6 @@ export function register({ ai, combat, characters, animation, match, render, wor
       a.anim = animation.authorYouthMove(f.def, a);
       return launch(f, a);
     }
-    const info = combat.skillAvailability(f, variant, { cancel: !!f.attack });
     if (!info.available) {
       if (!f.isAI && !match.game.manualTest)
         match.notify(
@@ -510,15 +526,7 @@ export function register({ ai, combat, characters, animation, match, render, wor
     return true;
   };
   combat.startYouthUlt = function (f) {
-    if (
-      f.hp <= 0 ||
-      blockedStates.includes(f.state) ||
-      f.ki < 100 ||
-      ['bat', 'combined'].includes(f.youth.form) ||
-      f.youth.form?.startsWith('mimic:') ||
-      (f.def.id === 'piccolo' && f.youth.regenerated)
-    )
-      return false;
+    if (!combat.ultimateAvailability(f, { cancel: !!f.attack }).available) return false;
     f.ki -= 100;
     const a = { ...(f.youth.form === 'ape' ? apeMove(0, true) : f.def.ult), costCommitted: true };
     if (a.lifeCost) f.hp = Math.max(0, f.hp - f.maxHp * a.lifeCost);
@@ -650,11 +658,26 @@ export function register({ ai, combat, characters, animation, match, render, wor
     if (!kind) return;
     if (kind === 'equipment') {
       const k = a.equipment;
-      combat.newProjectile(f, a, k, {
-        speed: k === 'missile' ? 10 : k === 'flame' ? 7 : 18,
-        life: k === 'flame' ? 0.36 : Math.max(0.6, a.range / (k === 'missile' ? 10 : 18) + 0.02),
-        radius: k === 'flame' ? 0.3 : k === 'missile' ? 0.13 : 0.075,
-      });
+      if (k === 'flame') {
+        const mesh = new THREE.Group();
+        // The stream follows its owner independently of the current attack animation.
+        for (let i = 0; i < 24; i++) {
+          const particle = new THREE.Mesh(
+            new THREE.SphereGeometry(1, 6, 4),
+            render.energyMat(i % 3 ? 0xff8426 : 0xffe49b, 0.8),
+          );
+          particle.material.depthWrite = false;
+          mesh.add(particle);
+        }
+        const stream = entity(f, 'flameStream', 2, 0, mesh, f.pos);
+        stream.attack = combat.finalizeMove({ ...a, projectile: true, fireDamage: true });
+        stream.elapsed = 0;
+      } else
+        combat.newProjectile(f, a, k, {
+          speed: k === 'missile' ? 10 : k === 'flame' ? 7 : 18,
+          life: k === 'flame' ? 0.36 : Math.max(0.6, a.range / (k === 'missile' ? 10 : 18) + 0.02),
+          radius: k === 'flame' ? 0.3 : k === 'missile' ? 0.13 : 0.075,
+        });
     }
     if (kind === 'capsule') releaseCapsule(f, a);
     if (kind === 'ape') {
@@ -840,6 +863,7 @@ export function register({ ai, combat, characters, animation, match, render, wor
   combat.coverBlocks = function (from, to) {
     const segment = to.clone().sub(from),
       len = segment.lengthSq();
+    if (world.stageSegmentHit?.(from, to, 0.08)) return true;
     return combat.youthEntities.some((e) => {
       if (e.kind !== 'cover' || e.hp <= 0) return false;
       const k = Math.max(
@@ -909,6 +933,35 @@ export function register({ ai, combat, characters, animation, match, render, wor
   combat.tickYouthFighter = function (f, dt) {
     const v = f.youth;
     if (!v) return;
+    if (v.burn) {
+      const burn = v.burn;
+      const elapsed = Math.min(dt, burn.remaining);
+      burn.remaining = Math.max(0, burn.remaining - elapsed);
+      burn.tick += elapsed;
+      while (burn.tick >= 1 - 1e-9 && f.hp > 0) {
+        burn.tick = Math.max(0, burn.tick - 1);
+        const hp = f.hp;
+        f.hp = Math.max(match.game.difficulty === 'training' ? 1 : 0, f.hp - 5);
+        regenerate(f, f.ki, burn.owner);
+        combat.emitCombatEvent('burn', burn.owner, f, burn.attack, {
+          damage: Math.max(0, hp - f.hp),
+        });
+      }
+      if (burn.remaining <= 1e-9 || f.hp <= 0) v.burn = null;
+      else {
+        burn.visualTime = (burn.visualTime ?? 0) - dt;
+        if (burn.visualTime <= 0) {
+          burn.visualTime = 0.12;
+          render.spawnDust(f.pos.clone().add(new THREE.Vector3(0, 0.6, 0)), 3, {
+            color: 0xff8528,
+            opacity: 0.8,
+            life: 0.35,
+            power: 0.65,
+            radius: 0.3,
+          });
+        }
+      }
+    }
     const reversing = v.reversedTime > 0;
     v.reversedTime = Math.max(0, v.reversedTime - dt);
     v.controlBaseRemaining = Math.max(0, v.controlBaseRemaining - dt);
@@ -1008,8 +1061,60 @@ export function register({ ai, combat, characters, animation, match, render, wor
   };
   combat.updateYouthEntities = function (dt) {
     for (const e of [...combat.youthEntities]) {
+      const activeDt = Math.min(dt, Math.max(0, e.life));
       e.life -= dt;
       const foe = foeOf(e.owner);
+      if (e.kind === 'flameStream') {
+        e.elapsed += activeDt;
+        e.pos.copy(e.owner.pos);
+        const height = e.owner.anatomy
+          ? e.owner.anatomy.hip + e.owner.anatomy.armY
+          : 1.3 * e.owner.baseScale;
+        e.mesh.position.copy(e.pos).y += height + (world.groundHeight?.(e.pos.x, e.pos.z) ?? 0);
+        e.mesh.rotation.y = e.owner.facingAngle;
+        e.mesh.children.forEach((particle, i) => {
+          const t = (e.elapsed * 2.8 + i / 24) % 1;
+          const angle = i * 2.399;
+          const radius = 0.06 + t * 0.3;
+          particle.position.set(
+            Math.cos(angle) * radius,
+            Math.sin(angle) * radius,
+            0.35 + t * 2.15,
+          );
+          particle.scale.setScalar(0.07 + t * 0.2);
+          particle.material.opacity = (1 - t) * 0.9;
+        });
+        if (e.owner.hp <= 0) e.life = 0;
+        if (activeDt > 0 && e.owner.hp > 0 && foe?.hp > 0 && foe.def.id !== 'gyumao') {
+          const origin = e.pos
+            .clone()
+            .setY(e.pos.y + height + (world.groundHeight?.(e.pos.x, e.pos.z) ?? 0));
+          const tip = origin.clone().addScaledVector(e.owner.forward(), e.attack.range);
+          const stream = { a: origin, b: tip, r: 0.3 };
+          if ((e.stageDamageAt ?? -10) + 0.25 <= match.game.simTime) {
+            e.stageDamageAt = match.game.simTime;
+            world.damageStageProjectile?.(e.owner, { dmg: 4 }, origin, tip, 0.2);
+          }
+          const contact =
+            !combat.coverBlocks(origin, tip) &&
+            combat
+              .sampleCombatRig(foe)
+              .hurt.some(
+                (h) => h.enabled && combat.capsuleDistanceSq(stream, h) <= (stream.r + h.r) ** 2,
+              );
+          if (contact && foe.invulnerable <= 0) {
+            if (!e.hits.has(foe)) {
+              const hp = foe.hp;
+              foe.takeHit(e.owner, e.attack);
+              if (foe.hp < hp || foe.lastHitText === '完美格挡') e.hits.add(foe);
+              if (foe.hp < hp && !['格挡', '完美格挡'].includes(foe.lastHitText)) {
+                foe.youth.burn = { owner: e.owner, attack: e.attack, remaining: 3, tick: 0 };
+              }
+            } else if (foe.youth.burn && !['block', 'blockstun'].includes(foe.state))
+              foe.youth.burn.remaining = 3;
+          }
+        }
+      }
       if (e.launchVelocity) {
         e.launchVelocity.multiplyScalar(Math.exp(-dt * 0.85));
         e.pos.addScaledVector(e.launchVelocity, dt);
@@ -1252,17 +1357,6 @@ export function register({ ai, combat, characters, animation, match, render, wor
       }
       updateAttack.call(this, dt, foe, input);
     };
-    const flight = combat.flightPhysics;
-    combat.flightPhysics = function (f, dt, input) {
-      if (
-        !['goku', 'tien', 'chiaotzu', 'piccolo'].includes(f.def.id) ||
-        ['ape', 'bat'].includes(f.youth.form)
-      ) {
-        f.flightMode = false;
-        return false;
-      }
-      return flight(f, dt, input);
-    };
     proto.startKiBlast = function () {
       if (
         this.attack ||
@@ -1286,6 +1380,11 @@ export function register({ ai, combat, characters, animation, match, render, wor
                 ? 'psychic'
                 : 'ki';
       const cost = kind === 'flame' ? 12 : kind === 'missile' ? 10 : kind === 'helmet' ? 8 : 5;
+      if (
+        kind === 'flame' &&
+        combat.youthEntities.some((e) => e.kind === 'flameStream' && e.owner === this)
+      )
+        return false;
       if (this.ki < cost) {
         combat.warnKi(this, cost);
         return false;
@@ -1303,8 +1402,8 @@ export function register({ ai, combat, characters, animation, match, render, wor
         }[kind],
         motion: kind === 'ki' ? 'kamehameha' : 'capsuleCast',
         startup: 0.17,
-        active: 0.08,
-        recovery: 0.25,
+        active: kind === 'flame' ? 0.01 : 0.08,
+        recovery: kind === 'flame' ? 0 : 0.25,
         dmg: kind === 'missile' ? 9 : kind === 'flame' ? 12 : kind === 'psychic' ? 6 : 4,
         range: kind === 'flame' ? 2.5 : 8,
         ki: 0,
@@ -1469,7 +1568,14 @@ export function register({ ai, combat, characters, animation, match, render, wor
           hit.a.add(other).multiplyScalar(0.5);
         }
         const direction = f.forward();
-        direction.y = (a.targetY - hit.a.y) / Math.max(0.5, a.targetDistance ?? a.range);
+        direction.y =
+          (a.targetY +
+            (world.groundHeight?.(
+              f.pos.x + direction.x * (a.targetDistance ?? a.range),
+              f.pos.z + direction.z * (a.targetDistance ?? a.range),
+            ) ?? 0) -
+            hit.a.y) /
+          Math.max(0.5, a.targetDistance ?? a.range);
         direction.normalize();
         hit.b.copy(hit.a).addScaledVector(direction, a.range);
         hit.r = a.width ?? 0.18;
@@ -1745,6 +1851,7 @@ export function register({ ai, combat, characters, animation, match, render, wor
       if (window.__db)
         Object.assign(window.__db, {
           skillAvailability: combat.skillAvailability,
+          ultimateAvailability: combat.ultimateAvailability,
           applyControl: combat.applyControl,
           youthEntities: combat.youthEntities,
           setYouthBody: combat.setYouthBody,

@@ -1,4 +1,5 @@
 import { INPUT_LABELS } from '../ui/character-help.js';
+import { updateHealthGauge } from '../ui/health-gauge.js';
 import * as THREE from 'three';
 export function cameraObstacle(mesh) {
   if (!mesh.isMesh || mesh.userData.cameraBlocker === false) return false;
@@ -29,6 +30,25 @@ export function register({
   const obstacleBounds = new WeakMap(),
     hitPoint = new THREE.Vector3();
   function nearestCameraHit(raycaster) {
+    const map = worldModule.currentMap;
+    if (map?.playArea) {
+      const to = raycaster.ray.at(raycaster.far, new THREE.Vector3());
+      const hit = worldModule.stageCameraHit(raycaster.ray.origin, to);
+      let distance = hit?.distance ?? Infinity;
+      for (const mesh of renderModule.cameraObstacles) {
+        let belongs = false;
+        for (let node = mesh; node; node = node.parent)
+          if (node === map.group) {
+            belongs = true;
+            break;
+          }
+        if (belongs || !visibleObstacle(mesh)) continue;
+        const bounds = new THREE.Box3().setFromObject(mesh);
+        if (raycaster.ray.intersectBox(bounds, hitPoint))
+          distance = Math.min(distance, hitPoint.distanceTo(raycaster.ray.origin));
+      }
+      return distance <= raycaster.far ? { distance } : null;
+    }
     const hits = [];
     for (const mesh of renderModule.cameraObstacles) {
       const bounds = obstacleBounds.get(mesh);
@@ -48,15 +68,16 @@ export function register({
   renderModule.resetShoulderCameras = function resetShoulderCameras() {
     renderModule.cameraObstacles.length = 0;
     renderModule.scene.updateMatrixWorld(true);
-    worldModule.currentMap?.group.traverse((o) => {
-      if (cameraObstacle(o)) {
-        renderModule.cameraObstacles.push(o);
-        if (o.isInstancedMesh) o.computeBoundingBox();
-        else o.geometry.computeBoundingBox();
-        const bounds = o.isInstancedMesh ? o.boundingBox : o.geometry.boundingBox;
-        obstacleBounds.set(o, bounds.clone().applyMatrix4(o.matrixWorld));
-      }
-    });
+    if (!worldModule.currentMap?.playArea)
+      worldModule.currentMap?.group.traverse((o) => {
+        if (cameraObstacle(o)) {
+          renderModule.cameraObstacles.push(o);
+          if (o.isInstancedMesh) o.computeBoundingBox();
+          else o.geometry.computeBoundingBox();
+          const bounds = o.isInstancedMesh ? o.boundingBox : o.geometry.boundingBox;
+          obstacleBounds.set(o, bounds.clone().applyMatrix4(o.matrixWorld));
+        }
+      });
     renderModule.scene.updateMatrixWorld(true);
     for (let i = 0; i < 2; i++) {
       const f = i ? matchModule.enemy : matchModule.player,
@@ -67,9 +88,11 @@ export function register({
     renderModule.updateFightCamera(1, true);
   };
   function updateShoulderView(cam, f, foe, s, dt, snap = false) {
-    const position = f.onlineVisualPosition ?? f.pos,
-      foePosition = foe.onlineVisualPosition ?? foe.pos,
-      delta = foePosition.clone().sub(position),
+    const position = (f.onlineVisualPosition ?? f.pos).clone(),
+      foePosition = (foe.onlineVisualPosition ?? foe.pos).clone();
+    position.y += worldModule.groundHeight?.(position.x, position.z) ?? 0;
+    foePosition.y += worldModule.groundHeight?.(foePosition.x, foePosition.z) ?? 0;
+    const delta = foePosition.clone().sub(position),
       dist = Math.hypot(delta.x, delta.z),
       wanted = dist > 0.2 ? Math.atan2(delta.x, delta.z) : f.facingAngle;
     s.yaw += snap
@@ -87,7 +110,7 @@ export function register({
     const ownHeight = stature(f),
       foeHeight = stature(foe);
     const split = matchModule.game.difficulty === 'local' && !matchModule.game.online,
-      back = (split ? 4.9 : 4.8) + Math.min(1.8, dist * 0.07 + Math.abs(delta.y) * 0.2),
+      back = (split ? 4.9 : 4.8) + Math.min(4, dist * 0.12 + Math.abs(delta.y) * 0.2),
       shoulder =
         (split ? 1.3 : 1.45) +
         Math.max(0, 1 - dist / 5) * 2 +
@@ -96,11 +119,35 @@ export function register({
     const origin = position.clone().add(new THREE.Vector3(0, 1.65 * f.baseScale, 0));
     const desired = position.clone().addScaledVector(front, -back).addScaledVector(right, shoulder);
     desired.y += 2.65 + Math.max(0, f.baseScale - 1) * 1.6 + Math.min(2, Math.abs(delta.y) * 0.3);
-    const dir = desired.clone().sub(origin),
-      length = dir.length();
+    const dir = desired.clone().sub(origin);
+    let length = dir.length();
     renderModule.cameraRay.set(origin, dir.normalize());
     renderModule.cameraRay.far = length;
-    const hit = nearestCameraHit(renderModule.cameraRay);
+    let hit = nearestCameraHit(renderModule.cameraRay);
+    if (hit && hit.distance < 2.5) {
+      let bestClearance = hit.distance;
+      for (const side of [-1, 1]) {
+        const alternative = position
+          .clone()
+          .addScaledVector(front, -back)
+          .addScaledVector(right, side * 3);
+        alternative.y = desired.y + 1.2;
+        const direction = alternative.clone().sub(origin),
+          distance = direction.length();
+        renderModule.cameraRay.set(origin, direction.normalize());
+        renderModule.cameraRay.far = distance;
+        const obstacle = nearestCameraHit(renderModule.cameraRay),
+          clearance = obstacle?.distance ?? distance;
+        if (clearance > bestClearance + 0.2) {
+          desired.copy(alternative);
+          hit = obstacle;
+          bestClearance = clearance;
+        }
+      }
+      dir.copy(desired).sub(origin);
+      length = dir.length();
+      dir.normalize();
+    }
     if (hit && hit.distance < length) {
       desired.copy(origin).addScaledVector(dir, Math.max(0.35, hit.distance - 0.3));
       desired.y = Math.max(desired.y, 0.45);
@@ -232,11 +279,11 @@ export function register({
         [matchModule.enemy, matchModule.player, 'view2', renderModule.camera2],
       ]) {
         document.getElementById(prefix + 'Name').textContent = own.def.name;
-        const barHp = own.maxHp / 2;
-        document.getElementById(prefix + 'HP').style.width =
-          Math.min(1, Math.max(0, (own.hp - barHp) / barHp)) * 100 + '%';
-        document.getElementById(prefix + 'Reserve').style.width =
-          Math.min(1, Math.max(0, own.hp / barHp)) * 100 + '%';
+        updateHealthGauge(
+          own,
+          document.getElementById(prefix + 'HP'),
+          document.getElementById(prefix + 'Reserve'),
+        );
         document.getElementById(prefix + 'Ki').style.width = own.ki + '%';
         uiModule.updateDefenseHUD(own, prefix);
         document

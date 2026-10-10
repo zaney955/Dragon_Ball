@@ -93,11 +93,41 @@
 .onlineRoomCard button {
   width: 100%;
 }
-.onlineRoomCard .onlineWatch {
-  margin-top: 10px;
+.onlineRoomCard .onlineCreate {
   background: #efa43a;
+  border-color: #efa43a;
   color: #241807;
   font-weight: 700;
+}
+.onlineRoomCard .onlineCreate:hover:enabled {
+  background: #ffc462;
+  border-color: #ffc462;
+}
+.onlineRoomCard .onlineJoin {
+  background: #72c99b;
+  border-color: #72c99b;
+  color: #102b1d;
+  font-weight: 700;
+}
+.onlineRoomCard .onlineJoin:hover:enabled {
+  background: #95dfb7;
+  border-color: #95dfb7;
+}
+.onlineRoomCard .onlineWatch {
+  margin-top: 10px;
+  background: #80baff;
+  border-color: #80baff;
+  color: #102743;
+  font-weight: 700;
+}
+.onlineRoomCard .onlineWatch:hover:enabled {
+  background: #a4cfff;
+  border-color: #a4cfff;
+}
+.onlineRoomCard button:disabled {
+  background: #28313d;
+  border-color: #d9aa6655;
+  color: #fff0dc;
 }
 .spectating #touch,
 .spectating .actionReadout,

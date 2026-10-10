@@ -88,6 +88,10 @@ export function register({
   const checkpoint = () => [
     ai.tacticalSeed >>> 0,
     match.game.timeLeft,
+    (world.currentMap?.destructibles ?? []).reduce(
+      (hash, p) => (Math.imul(hash ^ Math.round(p.hp * 100), 16777619) ^ (p.stage ?? 0)) >>> 0,
+      2166136261,
+    ),
     ...[match.player, match.enemy].flatMap((f) => [
       f.hp,
       f.ki,
@@ -333,6 +337,7 @@ export function register({
     online.presentation = new GuestPresentation({
       fighters,
       mobility: combat.mobilitySpeed,
+      constrain: (from, to, fighter) => world.constrainVisual(from, to, fighter),
       bounds: () => {
         const bounds = world.currentMap?.bounds ?? { x: 13.5, z: 6 };
         const extra = match.game.ringOut && match.game.selectedMap === 0 ? 2.5 : 0;
@@ -345,6 +350,9 @@ export function register({
         this.onlineBaseRender(dt, 1);
         if (!this.onlineVisualPosition) return;
         const offset = this.onlineVisualPosition.clone().sub(this.pos);
+        offset.y +=
+          world.groundHeight(this.onlineVisualPosition.x, this.onlineVisualPosition.z) -
+          world.groundHeight(this.pos.x, this.pos.z);
         this.root.position.add(offset);
         this.shadow.position.x += offset.x;
         this.shadow.position.z += offset.z;

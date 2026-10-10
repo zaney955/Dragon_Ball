@@ -1,5 +1,14 @@
+import { superArmorActive } from '../combat/attack-rules.js';
 export function register({ ai: aiModule }) {
   aiModule.armorWindow = function armorWindow(f) {
+    if (superArmorActive(f)) return true;
+    if (f.attack?.limitedArmor)
+      return (
+        f.hp > 0 &&
+        !f.armorSpent &&
+        f.stateTimer >= f.attack.hitT * (f.attack.limitedArmor === 'ordinary' ? 0.5 : 1) &&
+        f.stateTimer < f.attack.hitT + f.attack.active
+      );
     return !!f.attack?.armor && f.stateTimer < f.attack.hitT && !f.armorSpent;
   };
   aiModule.cpuDistance = function cpuDistance(ai, seen) {

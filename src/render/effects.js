@@ -30,12 +30,12 @@ export function register({ render: renderModule }) {
             color: options.color ?? 0xcab697,
             map: dustTexture,
             transparent: true,
-            opacity: 0.4,
+            opacity: options.opacity ?? 0.4,
             depthWrite: false,
             side: THREE.DoubleSide,
           }),
         ),
-        life = 0.65 + power * 0.3 + Math.random() * 0.2;
+        life = options.life ?? 0.65 + power * 0.3 + Math.random() * 0.2;
       mesh.position.set(
         pos.x + Math.cos(angle) * radius,
         Math.max(0.08, pos.y + 0.08),
@@ -46,6 +46,8 @@ export function register({ render: renderModule }) {
       renderModule.effects.push({
         mesh,
         type: 'dust',
+        kind: options.kind,
+        opacity: options.opacity ?? 0.4,
         stageEffect: !!options.stageEffect,
         billboard: true,
         life,
@@ -57,6 +59,21 @@ export function register({ render: renderModule }) {
         ),
       });
     }
+  };
+  renderModule.spawnTransformSmoke = function (f, previousHeight = 0) {
+    const height = Math.max(
+      previousHeight,
+      f.anatomy ? f.anatomy.hip + f.anatomy.neck : 2.1 * f.baseScale,
+    );
+    for (const fraction of [0.15, 0.45, 0.75])
+      renderModule.spawnDust(f.pos.clone().add(new THREE.Vector3(0, height * fraction, 0)), 9, {
+        color: 0xffffff,
+        power: 1.6,
+        radius: 0.3,
+        opacity: 1,
+        life: 0.75,
+        kind: 'transformSmoke',
+      });
   };
   renderModule.spawnSpark = function spawnSpark(pos, color, count, power = 1) {
     count = Math.min(count, Math.max(0, 180 - renderModule.effects.length));
@@ -145,7 +162,7 @@ export function register({ render: renderModule }) {
         if (e.billboard && renderModule.camera)
           e.mesh.quaternion.copy(renderModule.camera.quaternion);
         e.mesh.scale.setScalar(1 + t * 2.8);
-        e.mesh.material.opacity = (1 - t) * 0.4;
+        e.mesh.material.opacity = (1 - t) * (e.opacity ?? 0.4);
       } else if (e.type === 'boundAura') {
         e.mesh.position.copy(e.owner.pos).add(e.offset);
         e.mesh.rotation.y += dt * 3;

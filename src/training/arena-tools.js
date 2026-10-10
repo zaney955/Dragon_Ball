@@ -224,7 +224,8 @@ export function register({
     )
       return;
     for (const f of [matchModule.player, matchModule.enemy]) {
-      const outside = Math.abs(f.pos.x) > 14 || Math.abs(f.pos.z) > 7;
+      const area = worldModule.currentMap.playArea;
+      const outside = Math.abs(f.pos.x) > (area?.x ?? 14.5) || Math.abs(f.pos.z) > (area?.z ?? 7.5);
       f.outsideTime = outside ? (f.outsideTime ?? 0) + dt : 0;
     }
     const out = (f) => f.outsideTime > (f.pos.y > 0.15 ? 1.1 : 0.15);

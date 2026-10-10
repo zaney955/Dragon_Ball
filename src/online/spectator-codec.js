@@ -6,6 +6,9 @@ export const FIGHTER_FIELDS = [
   'guardDelay',
   'state',
   'stateTimer',
+  'chargeHeld',
+  'chargeFull',
+  'chargeFullTime',
   'walkPhase',
   'flightMode',
   'launchFlight',
@@ -129,19 +132,36 @@ export function validSpectatorFrame(frame) {
         b && typeof b.active === 'boolean' && finite(b.x) && finite(b.z) && finite(b.expiresAt),
     ) &&
     Array.isArray(frame.world.broken) &&
-    frame.world.broken.length <= 512 &&
+    frame.world.broken.length <= 2048 &&
     frame.world.broken.every(
       (b) =>
         Array.isArray(b) &&
         b.length === 3 &&
         Number.isInteger(b[0]) &&
         b[0] >= 0 &&
-        b[0] < 512 &&
+        b[0] < 2048 &&
         validTransform(b[1]) &&
         Number.isInteger(b[2]) &&
         b[2] >= 0 &&
         b[2] <= 0xffffff,
     ) &&
+    (frame.world.damaged === undefined ||
+      (Array.isArray(frame.world.damaged) &&
+        frame.world.damaged.length <= 2048 &&
+        frame.world.damaged.every(
+          (d) =>
+            Array.isArray(d) &&
+            d.length === 5 &&
+            Number.isInteger(d[0]) &&
+            d[0] >= 0 &&
+            d[0] < 2048 &&
+            finite(d[1]) &&
+            [0, 1, 2, 3].includes(d[2]) &&
+            validTransform(d[3]) &&
+            Number.isInteger(d[4]) &&
+            d[4] >= 0 &&
+            d[4] <= 0xffffff,
+        ))) &&
     Array.isArray(frame.fighters) &&
     frame.fighters.length === 2 &&
     frame.fighters.every(

@@ -1,11 +1,13 @@
 import * as THREE from 'three';
+import { setupSpace } from './space.js';
+import { batchDestruction } from './destruction-batching.js';
 import { batchScenery } from './scenery-batching.js';
 import { sceneryKit, skyAndClouds, adventureHouse, TAU, seeded } from './adventure-scenery.js';
 
 export const ADVENTURE_LAYOUT = Object.freeze({
   bounds: { x: 13.5, z: 6 },
   cameraApron: { x: 21, z: 14 },
-  wild: { house: [13, -27], waterfall: [-8, -38] },
+  wild: { house: [15, -21], waterfall: [-8, -38] },
   kame: { house: [-4, -24], radius: [31, 27], centerZ: -7, dock: [27, -9] },
 });
 
@@ -315,7 +317,7 @@ function finishStage(group, id, world, render, sky, water, waterfall, preset) {
   world.enrichDestruction(map, id);
   // Small breakable props sit in the perimeter service lane, never among fighters.
   map.destructibles
-    .filter((p) => !p.building && !p.tile)
+    .filter((p) => !p.building && !p.tile && !p.mesh.userData.stageObject)
     .forEach((p, i) => {
       p.mesh.position.set(
         (i % 2 ? 1 : -1) * (19.8 + (i % 3) * 0.35),
@@ -324,6 +326,8 @@ function finishStage(group, id, world, render, sky, water, waterfall, preset) {
       );
       p.mesh.userData.cameraBlocker = false;
     });
+  setupSpace(map, id);
+  batchDestruction(map, world.stageCharacters);
   map.applyLighting(preset);
   group.userData.adventure = {
     id,
@@ -393,18 +397,13 @@ export function createWildStage({ characters, world, render, lightPreset = 'day'
     if (Math.abs(x) < 21 && z > -14 && z < 14) continue;
     kit.rock(rocks, x, 0.12 + seeded(i) * 0.4, z, 0.7 + seeded(i + 13) * 1.1, i);
   }
-  // Stone edging is low and irregular; it cannot obstruct a shoulder camera.
-  for (let i = 0; i < 76; i++) {
-    const a = (i / 76) * TAU;
-    const o = kit.rock(
-      rocks,
-      Math.cos(a) * (19 + seeded(i) * 0.9),
-      -0.13,
-      Math.sin(a) * (10.9 + seeded(i) * 0.5),
-      0.42 + seeded(i + 36) * 0.24,
-      i,
-    );
-    o.scale.y *= 0.25;
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * TAU;
+    const x = Math.cos(a) * 36,
+      z = -3 + Math.sin(a) * 34;
+    if (z < -30 && x > -18 && x < 4) continue;
+    const boulder = kit.rock(rocks, x, 2.5, z, 4.2 + seeded(i) * 1.2, i);
+    boulder.userData.stageObject.hp = 65;
   }
   const [hx, hz] = ADVENTURE_LAYOUT.wild.house;
   kit.ball(stone, kit.mat(0x9d9e86), hx, 0.3, hz, 8, [1.05, 0.16, 0.76]);
@@ -549,8 +548,10 @@ export function createKameStage({ characters, world, render, lightPreset = 'day'
   const wood = kit.mat(0xae8654),
     dark = kit.mat(0x836440),
     trim = kit.mat(0xd4b480);
-  for (let i = 0; i < 27; i++)
-    kit.box(dock, i % 3 ? wood : trim, 23.6 + i * 0.52, 0.35, -9, 0.5, 0.19, 3.2);
+  for (let i = 0; i < 27; i++) {
+    const plank = kit.box(dock, i % 3 ? wood : trim, 23.6 + i * 0.52, 0.35, -9, 0.5, 0.19, 3.2);
+    plank.userData.stageObject = { kind: 'wood', hp: 12, collidable: false };
+  }
   for (const z of [-10.1, -7.9]) {
     kit.box(dock, dark, 30.2, 0.08, z, 14.2, 0.24, 0.15);
     for (let i = 0; i < 5; i++) {
@@ -580,7 +581,7 @@ export function createKameStage({ characters, world, render, lightPreset = 'day'
   plants(vegetation, kit, true);
   batchScenery(coast, 'kame-shore-boulders', false, false, true);
   batchScenery(dock, 'kame-pier-planks', true, false, true);
-  batchScenery(furniture, 'kame-house-life-details', true, false, true);
+  world.prepareBuilding(furniture, 'kame-facilities', { kind: 'wood', cellSize: 1.5, roofY: 100 });
   const atmosphere = new THREE.Group();
   atmosphere.name = 'stage-atmosphere-kame';
   group.add(atmosphere);

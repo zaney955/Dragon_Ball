@@ -228,7 +228,9 @@
       "ui.showCombo",
       "world.currentMap",
       "world.damageStage",
-      "world.disposeGroup"
+      "world.disposeGroup",
+      "world.groundHeight",
+      "world.resolveStageMovement"
     ]
   },
   {
@@ -246,6 +248,7 @@
       "render.spawnShockRing",
       "render.spawnSolarFlare",
       "render.spawnSpark",
+      "render.spawnTransformSmoke",
       "render.updateEffects"
     ],
     "requires": [
@@ -254,6 +257,7 @@
       "render.ringGeo",
       "render.scene",
       "render.sparkGeo",
+      "render.spawnDust",
       "render.spawnSpark"
     ]
   },
@@ -588,10 +592,14 @@
       "ai.cpuDistance",
       "ai.tacticalSeed",
       "combat.inYouthSmoke",
+      "combat.mobilitySpeed",
+      "combat.skillAvailability",
+      "combat.ultimateAvailability",
       "match.game",
       "training.drillInput",
       "world.SENZU_RULES",
-      "world.currentMap"
+      "world.currentMap",
+      "world.groundHeight"
     ]
   },
   {
@@ -626,7 +634,9 @@
       "training.senzuHint",
       "ui.fighterStatus",
       "ui.updateDefenseHUD",
-      "world.currentMap"
+      "world.currentMap",
+      "world.groundHeight",
+      "world.stageCameraHit"
     ]
   },
   {
@@ -818,11 +828,14 @@
     "testing": false,
     "provides": [
       "world.damageStage",
+      "world.damageStageObject",
       "world.damageStageProjectile",
       "world.enrichDestruction",
-      "world.prepareBuilding"
+      "world.prepareBuilding",
+      "world.stageCharacters"
     ],
     "requires": [
+      "audio.stageSound",
       "characters.M",
       "characters.ball",
       "characters.box",
@@ -837,8 +850,10 @@
       "render.ultimateVisuals",
       "world.currentMap",
       "world.damageStage",
+      "world.damageStageObject",
       "world.damageStageProjectile",
-      "world.disposeGroup"
+      "world.disposeGroup",
+      "world.leaveStageRubble"
     ]
   },
   {
@@ -885,7 +900,9 @@
       "world.SENZU_RULES",
       "world.currentMap",
       "world.disposeGroup",
+      "world.groundHeight",
       "world.placeSenzu",
+      "world.validPosition",
       "world.validSenzuPosition"
     ]
   },
@@ -980,13 +997,17 @@
       "combat.moveFront",
       "combat.neutralCombatPose",
       "combat.sampleCombatRig",
+      "combat.skillAvailability",
       "combat.sweptCapsule",
+      "combat.ultimateAvailability",
       "match.enemy",
       "match.game",
       "match.notify",
       "match.pendingHits",
       "match.player",
-      "render.CONTACT_PHASE"
+      "render.CONTACT_PHASE",
+      "world.groundHeight",
+      "world.stageSegmentHit"
     ]
   },
   {
@@ -1225,7 +1246,9 @@
       "render.scene",
       "render.spawnSpark",
       "world.damageStageProjectile",
-      "world.disposeGroup"
+      "world.disposeGroup",
+      "world.groundHeight",
+      "world.stageSegmentHit"
     ]
   },
   {
@@ -1663,7 +1686,9 @@
       "render.ultTone",
       "ui.popDamage",
       "world.currentMap",
-      "world.disposeGroup"
+      "world.disposeGroup",
+      "world.groundHeight",
+      "world.validPosition"
     ]
   },
   {
@@ -1671,7 +1696,6 @@
     "domain": "combat",
     "testing": false,
     "provides": [
-      "combat.flightPhysics",
       "combat.releaseV2Ability",
       "combat.updateV2Abilities"
     ],
@@ -1687,7 +1711,6 @@
       "combat.cleanupAbilities",
       "combat.combatPose",
       "combat.emitCombatEvent",
-      "combat.flightPhysics",
       "combat.initV2Fighter",
       "combat.newProjectile",
       "combat.projectileHitsCover",
@@ -1706,7 +1729,10 @@
       "match.notify",
       "match.player",
       "render.spawnShockRing",
-      "world.damageStageProjectile"
+      "world.currentMap",
+      "world.damageStageProjectile",
+      "world.groundHeight",
+      "world.stageSegmentHit"
     ]
   },
   {
@@ -1722,6 +1748,7 @@
       "ai.combatRandom",
       "combat.inYouthSmoke",
       "combat.skillAvailability",
+      "combat.ultimateAvailability",
       "match.game"
     ]
   },
@@ -1747,7 +1774,6 @@
     "testing": false,
     "provides": [
       "combat.combatIntersects",
-      "combat.updateKiVisual",
       "match.endGame"
     ],
     "requires": [
@@ -1755,9 +1781,7 @@
       "combat.cleanupAbilities",
       "combat.combatIntersects",
       "combat.finalizeMove",
-      "combat.stopChargeSound",
       "combat.switchForm",
-      "combat.updateKiVisual",
       "match.endGame",
       "match.enemy",
       "match.game",
@@ -1791,6 +1815,7 @@
       "combat.resolveOverlap",
       "combat.sampleCombatRig",
       "combat.skillAvailability",
+      "combat.ultimateAvailability",
       "combat.youthEntities",
       "match.endGame",
       "match.enemy",
@@ -2091,7 +2116,6 @@
       "combat.counterActive",
       "combat.coverBlocks",
       "combat.endYouthForm",
-      "combat.flightPhysics",
       "combat.inYouthSmoke",
       "combat.initYouthFighter",
       "combat.mobilitySpeed",
@@ -2107,6 +2131,7 @@
       "combat.startYouthSpecial",
       "combat.startYouthUlt",
       "combat.tickYouthFighter",
+      "combat.ultimateAvailability",
       "combat.updateYouthEntities",
       "combat.youthEntities"
     ],
@@ -2143,7 +2168,6 @@
       "combat.emitCombatEvent",
       "combat.endYouthForm",
       "combat.finalizeMove",
-      "combat.flightPhysics",
       "combat.inYouthSmoke",
       "combat.kiColor",
       "combat.launchKnockback",
@@ -2162,6 +2186,7 @@
       "combat.stature",
       "combat.stopChargeSound",
       "combat.tickYouthFighter",
+      "combat.ultimateAvailability",
       "combat.v2Projectiles",
       "combat.warnKi",
       "combat.youthEntities",
@@ -2179,15 +2204,20 @@
       "render.scene",
       "render.sfxUlt",
       "render.spawnBoundAura",
+      "render.spawnDust",
       "render.spawnShockRing",
       "render.spawnSolarFlare",
       "render.spawnSpark",
+      "render.spawnTransformSmoke",
       "render.stopUltSound",
       "ui.popDamage",
       "world.SENZU_RULES",
       "world.currentMap",
       "world.damageStage",
-      "world.disposeGroup"
+      "world.damageStageProjectile",
+      "world.disposeGroup",
+      "world.groundHeight",
+      "world.stageSegmentHit"
     ]
   },
   {
@@ -2419,7 +2449,8 @@
       "render.cameraObstacles",
       "render.resetShoulderCameras",
       "render.scene",
-      "world.currentMap"
+      "world.currentMap",
+      "world.groundHeight"
     ]
   },
   {
@@ -2457,7 +2488,9 @@
       "match.player",
       "match.setPaused",
       "match.startFight",
-      "world.currentMap"
+      "world.constrainVisual",
+      "world.currentMap",
+      "world.groundHeight"
     ]
   },
   {
@@ -2473,6 +2506,58 @@
       "ui.updateSelection",
       "world.MAPS",
       "world.daylight"
+    ]
+  },
+  {
+    "module": "world/space",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "world.constrainVisual",
+      "world.groundHeight",
+      "world.querySpace",
+      "world.rebuildSpace",
+      "world.resolveStageMovement",
+      "world.setupSpace",
+      "world.stageCameraHit",
+      "world.stageSegmentHit",
+      "world.validPosition"
+    ],
+    "requires": [
+      "audio.stageSound",
+      "combat.stature",
+      "match.game",
+      "match.notify",
+      "render.spawnDust",
+      "world.currentMap",
+      "world.damageStage",
+      "world.damageStageObject",
+      "world.groundHeight",
+      "world.stageSegmentHit"
+    ]
+  },
+  {
+    "module": "world/feedback",
+    "domain": "world",
+    "testing": false,
+    "provides": [
+      "audio.stageSound",
+      "world.attachStageFeedback",
+      "world.leaveStageRubble"
+    ],
+    "requires": [
+      "audio.actx",
+      "audio.audioBus",
+      "match.enemy",
+      "match.game",
+      "match.player",
+      "render.effects",
+      "render.spawnDust",
+      "world.MAPS",
+      "world.attachStageFeedback",
+      "world.damageStageObject",
+      "world.groundHeight",
+      "world.stageCharacters"
     ]
   }
 ]

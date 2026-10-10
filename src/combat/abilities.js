@@ -37,6 +37,7 @@ export function register({
           )
           .addScaledVector(forward, 0.35),
       mesh = new THREE.Group();
+    if (!options.pos) pos.y += worldModule.groundHeight?.(pos.x, pos.z) ?? 0;
     const material = charactersModule.M(
       kind === 'blade'
         ? 0xe1e5dc
@@ -88,7 +89,14 @@ export function register({
           ? forward
               .clone()
               .multiplyScalar(a.targetDistance ?? Math.max(0.75, a.range * 0.5))
-              .setY(a.targetY - pos.y)
+              .setY(
+                a.targetY +
+                  (worldModule.groundHeight?.(
+                    pos.x + forward.x * (a.targetDistance ?? a.range),
+                    pos.z + forward.z * (a.targetDistance ?? a.range),
+                  ) ?? 0) -
+                  pos.y,
+              )
               .normalize()
           : forward.clone().normalize(),
       speed: options.speed ?? 12,
@@ -147,6 +155,9 @@ export function register({
     if (owned.length >= 2) return false;
     const pos = f.pos.clone().addScaledVector(f.forward(), offset);
     pos.y = 0;
+    if (worldModule.currentMap.playArea) {
+      if (!worldModule.validPosition(pos.x, pos.z, 0.6, 0.4)) return false;
+    }
     const b = worldModule.currentMap.bounds;
     pos.x = THREE.MathUtils.clamp(pos.x, -b.x + 0.4, b.x - 0.4);
     pos.z = THREE.MathUtils.clamp(pos.z, -b.z + 0.4, b.z - 0.4);

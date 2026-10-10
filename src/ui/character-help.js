@@ -1,4 +1,5 @@
 // Player-facing explanations. Costs and cooldowns come from the live roster.
+import { FLIGHT_RULES } from '../combat/flight.js';
 export const CHARACTER_HELP = {
   goku: {
     summary: '用如意棒控制距离，命中后追击；濒危时可在满月夜变身。主动残像每回合3次。',
@@ -177,7 +178,8 @@ export const CHARACTER_HELP = {
     ],
   },
   pilaf: {
-    summary: '导弹打远处，喷火打近身；切换武装后另按发射。始终每秒恢复3能量。',
+    summary:
+      '导弹打远处，喷火打近身；喷火持续2秒，期间可以移动和攻击。灼烧持续3秒，每秒5点伤害。始终每秒恢复3能量。',
     tip: 'R 切换武装，F 发射；能量不足时按住 I 聚气。',
     skills: [
       '切换导弹与喷火，武装保持到下次切换。动作结束后按 F 发射。',
@@ -284,7 +286,7 @@ export function remoteAction(id, weapon = 'missile') {
 }
 
 export function jumpAction(id) {
-  return id === 'goku' ? '筋斗云' : ['tien', 'chiaotzu', 'piccolo'].includes(id) ? '舞空' : '跳跃';
+  return FLIGHT_RULES[id]?.name ?? '跳跃';
 }
 
 export function skillReason(info, fighter) {

@@ -5,6 +5,7 @@ export function register({
   combat: combatModule,
   match: matchModule,
   render: renderModule,
+  world: worldModule,
 }) {
   let collisionScratch;
   function capsule() {
@@ -355,6 +356,7 @@ export function register({
       p = r.parts,
       pose = combatModule.combatPose(f);
     r.root.position.copy(f.pos);
+    r.root.position.y += worldModule.groundHeight?.(f.pos.x, f.pos.z) ?? 0;
     r.root.position.y += f.attack ? (pose.ry ?? 0) : 0;
     r.root.rotation.set(0, f.facingAngle, 0);
     combatModule.applyBackflipTransform(f, r.root);
@@ -408,7 +410,11 @@ export function register({
     if (f.state === 'knockdown' || f.state === 'dead') {
       for (const h of r.hurt) h.enabled = false;
       r.hurt[1].enabled = true;
-      r.hurt[1].a.set(f.pos.x, f.pos.y + 0.2, f.pos.z);
+      r.hurt[1].a.set(
+        f.pos.x,
+        f.pos.y + (worldModule.groundHeight?.(f.pos.x, f.pos.z) ?? 0) + 0.2,
+        f.pos.z,
+      );
       r.hurt[1].b
         .copy(r.hurt[1].a)
         .addScaledVector(
@@ -418,7 +424,8 @@ export function register({
       r.hurt[1].r = 0.23 * s;
     }
     r.push.a.copy(f.pos);
-    r.push.b.copy(f.pos);
+    r.push.a.y += worldModule.groundHeight?.(f.pos.x, f.pos.z) ?? 0;
+    r.push.b.copy(r.push.a);
     r.push.b.y += 2.35 * s;
     r.push.r = 0.3 * s;
     for (const c of r.hit) c.enabled = false;
@@ -429,6 +436,7 @@ export function register({
     c.enabled = true;
     if (a.shape === 'beam') {
       c.a.copy(f.pos);
+      c.a.y += worldModule.groundHeight?.(f.pos.x, f.pos.z) ?? 0;
       c.a.y += a.beamHeight ?? 1.45 * s;
       c.b
         .copy(c.a)
@@ -439,11 +447,13 @@ export function register({
       c.r = a.width ?? 0.3;
     } else if (a.shape === 'burst') {
       c.a.copy(f.pos);
+      c.a.y += worldModule.groundHeight?.(f.pos.x, f.pos.z) ?? 0;
       c.a.y += 1.2 * s;
       c.b.copy(c.a);
       c.r = a.range;
     } else if (a.isThrow) {
       c.a.copy(f.pos);
+      c.a.y += worldModule.groundHeight?.(f.pos.x, f.pos.z) ?? 0;
       c.a.y += 1.0 * s;
       c.b
         .copy(c.a)
@@ -524,6 +534,13 @@ export function register({
         ['hit', 'knockdown', 'grabbed', 'guardbreak'].includes(foe.state))
     )
       return false;
+    const from = f.pos
+      .clone()
+      .setY(f.pos.y + (worldModule.groundHeight?.(f.pos.x, f.pos.z) ?? 0) + f.baseScale);
+    const to = foe.pos
+      .clone()
+      .setY(foe.pos.y + (worldModule.groundHeight?.(foe.pos.x, foe.pos.z) ?? 0) + foe.baseScale);
+    if (worldModule.stageSegmentHit?.(from, to, Math.min(0.15, a.width ?? 0.1))) return false;
     if (a.level === 'high' && foe.crouching) return false;
     const target = foe.launchFlight
       ? foe.combatRig.hurt[1].a.clone().add(foe.combatRig.hurt[1].b).multiplyScalar(0.5)
@@ -596,6 +613,12 @@ export function register({
     }
   };
   combatModule.legalCancel = function legalCancel(f, a, q) {
+    if (f.youth && q.type === 'special')
+      return combatModule.skillAvailability(f, q.context.variant ?? (q.context.down ? 1 : 0), {
+        cancel: true,
+      }).available;
+    if (f.youth && q.type === 'ult')
+      return combatModule.ultimateAvailability(f, { cancel: true }).available;
     if (a.terminal && ['light', 'heavy'].includes(q.type)) return false;
     if (q.type === 'light' && f.comboType === 'heavy') return false;
     if (q.type === 'light' && a.terminal) return false;

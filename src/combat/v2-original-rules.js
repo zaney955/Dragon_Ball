@@ -1,5 +1,5 @@
 export function register({ combat: combatModule, match: matchModule }) {
-  let v2SpecialBase, v2TakeBase, v2IntersectsBase, v2EndBase, v1KiVisual;
+  let v2SpecialBase, v2TakeBase, v2IntersectsBase, v2EndBase;
   return function initialize() {
     v2SpecialBase = combatModule.Fighter.prototype.startSpecial;
     combatModule.Fighter.prototype.startSpecial = function (context = {}) {
@@ -68,15 +68,6 @@ export function register({ combat: combatModule, match: matchModule }) {
             f.v2.cooldown = 0;
             f.v2.bladeOut = false;
           }
-      }
-    };
-    v1KiVisual = combatModule.updateKiVisual;
-    combatModule.updateKiVisual = function (f, dt) {
-      if (!f.anatomy) return v1KiVisual(f, dt);
-      combatModule.stopChargeSound(f);
-      if (f.kiVisual) {
-        f.kiVisual.aura.visible = false;
-        f.kiVisual.hand.visible = false;
       }
     };
   };

@@ -1,11 +1,16 @@
 import * as THREE from 'three';
+import { mergeVertices } from 'three/addons/utils/BufferGeometryUtils.js';
+import { querySpace, segmentHit, rebuildSpace, insideArea } from './space.js';
+import { syncDestruction } from './destruction-batching.js';
 export function register({
   characters: charactersModule,
   combat: combatModule,
   input: inputModule,
   render: renderModule,
   world: worldModule,
+  audio: audioModule,
 }) {
+  worldModule.stageCharacters = charactersModule;
   const surfaces = {
     budokai: { dust: 0xd2c7ac, rubble: 0xb6a68b, soil: 0x66594a, rim: 0xa28d6f, y: 0.012 },
     wild: { dust: 0xc0ac7d, rubble: 0x9e9878, soil: 0x716044, rim: 0x9c875e, y: 0.024 },
@@ -19,19 +24,11 @@ export function register({
     const inverse = root.matrixWorld.clone().invert(),
       size = options.cellSize ?? 3.4,
       cells = new Map(),
-      textures = [],
       originals = new Set();
     root.traverse((mesh) => {
       if (!mesh.isMesh || Array.isArray(mesh.material)) return;
       const matrix = inverse.clone().multiply(mesh.matrixWorld);
       originals.add(mesh.geometry);
-      if (mesh.material.map) {
-        textures.push({
-          geometry: mesh.geometry.clone().applyMatrix4(matrix),
-          material: mesh.material,
-        });
-        return;
-      }
       const p = mesh.geometry.parameters;
       let geometry =
         mesh.geometry.type === 'BoxGeometry'
@@ -52,20 +49,35 @@ export function register({
       }
       const positions = geometry.attributes.position,
         normals = geometry.attributes.normal,
+        uv = geometry.attributes.uv,
         color = mesh.material.color ?? new THREE.Color(0xffffff);
       for (let i = 0; i < positions.count; i += 3) {
         const x = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3,
           y = (positions.getY(i) + positions.getY(i + 1) + positions.getY(i + 2)) / 3,
+          depth = Math.floor(
+            (positions.getZ(i) + positions.getZ(i + 1) + positions.getZ(i + 2)) / (3 * size),
+          ),
           column = Math.floor(x / size),
           row = Math.floor(y / 3),
-          key = column + ':' + row;
+          key =
+            column + ':' + depth + ':' + row + (mesh.material.map ? ':' + mesh.material.uuid : '');
         if (!cells.has(key))
-          cells.set(key, { positions: [], normals: [], colors: [], column, row });
+          cells.set(key, {
+            positions: [],
+            normals: [],
+            colors: [],
+            uv: [],
+            material: mesh.material.map ? mesh.material : null,
+            column,
+            depth,
+            row,
+          });
         const cell = cells.get(key);
         for (let j = i; j < i + 3; j++) {
           cell.positions.push(positions.getX(j), positions.getY(j), positions.getZ(j));
           cell.normals.push(normals.getX(j), normals.getY(j), normals.getZ(j));
           cell.colors.push(color.r, color.g, color.b);
+          if (cell.material) cell.uv.push(uv?.getX(j) ?? 0, uv?.getY(j) ?? 0);
         }
       }
       geometry.dispose();
@@ -77,20 +89,37 @@ export function register({
     material.side = THREE.DoubleSide;
     const parts = [];
     for (const [key, cell] of cells) {
-      const geometry = new THREE.BufferGeometry();
+      let geometry = new THREE.BufferGeometry();
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(cell.positions, 3));
       geometry.setAttribute('normal', new THREE.Float32BufferAttribute(cell.normals, 3));
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(cell.colors, 3));
+      if (cell.material) geometry.setAttribute('uv', new THREE.Float32BufferAttribute(cell.uv, 2));
+      const unwelded = geometry;
+      geometry = mergeVertices(geometry, 0.00001);
+      unwelded.dispose();
       geometry.computeBoundingBox();
       const center = geometry.boundingBox.getCenter(new THREE.Vector3()),
         roof = cell.row * 3 >= (options.roofY ?? 3) - 0.5;
       geometry.translate(-center.x, -center.y, -center.z);
-      const mesh = charactersModule.meshTo(root, geometry, material, center.x, center.y, center.z),
+      const partMaterial = cell.material ? cell.material.clone() : material;
+      if (cell.material) {
+        partMaterial.vertexColors = true;
+        partMaterial.color.set(0xffffff);
+      }
+      const mesh = charactersModule.meshTo(
+          root,
+          geometry,
+          partMaterial,
+          center.x,
+          center.y,
+          center.z,
+        ),
         color = new THREE.Color(cell.colors[0], cell.colors[1], cell.colors[2]);
       mesh.name = id + '-section-' + key;
       mesh.userData.buildingPart = {
         building: id,
         column: cell.column,
+        depth: cell.depth,
         kind: roof ? 'roof' : (options.kind ?? 'stone'),
         hp: roof ? 12 : 18,
         debrisColor: color.getHex(),
@@ -98,25 +127,11 @@ export function register({
       };
       parts.push(mesh);
     }
-    for (const texture of textures) {
-      texture.geometry.computeBoundingBox();
-      const center = texture.geometry.boundingBox.getCenter(new THREE.Vector3()),
-        part = parts.reduce(
-          (nearest, mesh) =>
-            !nearest ||
-            mesh.position.distanceToSquared(center) < nearest.position.distanceToSquared(center)
-              ? mesh
-              : nearest,
-          null,
-        );
-      if (!part) continue;
-      texture.geometry.translate(-part.position.x, -part.position.y, -part.position.z);
-      charactersModule.meshTo(part, texture.geometry, texture.material);
-    }
     return root;
   };
   worldModule.enrichDestruction = function enrichDestruction(map, id) {
     map.damageEvents = 0;
+    map.spaceRevision = 0;
     map.brokenTiles = 0;
     map.destroyedProps = 0;
     map.brokenBuildingParts = 0;
@@ -127,7 +142,7 @@ export function register({
     if (id === 'budokai')
       map.group.traverse((o) => {
         if (o.name === 'breakable-arena-slab')
-          map.destructibles.push({ mesh: o, tile: true, kind: 'stone', hp: 1, broken: false });
+          map.destructibles.push({ mesh: o, tile: true, kind: 'stone', hp: 3, broken: false });
       });
     const materials = {
       stone: charactersModule.M(map.surface.rubble),
@@ -217,6 +232,24 @@ export function register({
           bounds: new THREE.Box3().setFromObject(mesh),
           broken: false,
         });
+    });
+    map.group.traverse((mesh) => {
+      const spec = mesh.userData.stageObject;
+      if (!spec) return;
+      const bounds = new THREE.Box3().setFromObject(mesh);
+      if (spec.tree) {
+        const at = mesh.getWorldPosition(new THREE.Vector3());
+        bounds.set(
+          new THREE.Vector3(at.x - spec.radius, at.y, at.z - spec.radius),
+          new THREE.Vector3(at.x + spec.radius + 0.6, at.y + spec.height, at.z + spec.radius + 0.2),
+        );
+      }
+      map.destructibles.push({ ...spec, mesh, bounds, hp: spec.hp ?? 24, broken: false });
+    });
+    map.destructibles.forEach((item, id) => {
+      item.id = id;
+      item.maxHp = item.hp;
+      item.stage = 0;
     });
     return map;
   };
@@ -347,6 +380,7 @@ export function register({
     pile.receiveShadow = true;
     mark.add(pile);
     mark.position.copy(center);
+    mark.position.y = (map.groundHeight?.(center.x, center.z) ?? map.surface.y) + 0.015;
     if (beam) mark.rotation.y = Math.atan2(dir.x, dir.z);
     map.group.add(mark);
     map.scars.push(mark);
@@ -385,10 +419,13 @@ export function register({
     if (item.broken) return;
     item.broken = true;
     item.mesh.visible = false;
+    item.stage = 3;
+    changed(map, item);
     map.brokenBuildingParts++;
     const pos = item.bounds.getCenter(new THREE.Vector3()),
       dimensions = item.bounds.getSize(new THREE.Vector3());
     stageDebris(pos, item.debrisColor, 10, item.debrisKind, 1.1, dir);
+    worldModule.leaveStageRubble?.(map, pos, item.debrisColor);
     if (renderModule.effects.length < 175) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(
@@ -430,12 +467,23 @@ export function register({
   }
   function damageBuildingPart(map, item, a, dir) {
     if (item.broken || !(a.dmg > 0)) return;
-    item.hp -= Math.max(2, Math.min(40, a.dmg * 0.7));
+    audioModule?.stageSound?.(item.debrisKind ?? 'stone', a.dmg >= 20 ? 1 : 0.5);
+    map.reaction = Math.min(1, (map.reaction ?? 0) + 0.4);
+    item.hp -= Math.max(2, Math.min(60, a.dmg * 0.7));
+    if (item.hp <= item.maxHp * 0.45 && item.hp > 0 && item.stage < 2) {
+      item.stage = 2;
+      item.mesh.scale.multiplyScalar(0.72);
+      item.mesh.updateMatrixWorld(true);
+      item.bounds.copy(new THREE.Box3().setFromObject(item.mesh));
+      changed(map, item);
+    }
     if (item.hp > 0) {
       if (!item.damaged) {
         item.mesh.material = item.mesh.material.clone();
         item.mesh.material.color.multiplyScalar(0.82);
         item.damaged = true;
+        item.stage = Math.max(1, item.stage);
+        changed(map, item);
       }
       renderModule.spawnDust(item.bounds.getCenter(new THREE.Vector3()), 3, {
         color: map.surface.dust,
@@ -451,10 +499,72 @@ export function register({
           !above.broken &&
           above.buildingId === item.buildingId &&
           above.column === item.column &&
+          above.depth === item.depth &&
           above.bounds.min.y >= item.bounds.max.y - 0.05
         )
           breakBuildingPart(map, above, dir);
   }
+  function changed(map, item) {
+    map.spaceRevision = (map.spaceRevision ?? 0) + 1;
+    syncDestruction(map, item);
+    rebuildSpace(map);
+  }
+  worldModule.damageStageObject = function damageStageObject(
+    item,
+    a,
+    dir = new THREE.Vector3(0, 0, 1),
+  ) {
+    const map = worldModule.currentMap;
+    if (!map || item.broken || !(a.dmg > 0)) return;
+    item.maxHp ??= item.hp;
+    if (item.building) {
+      damageBuildingPart(map, item, a, dir);
+      return;
+    }
+    audioModule?.stageSound?.(item.kind === 'rock' ? 'stone' : item.kind, a.dmg >= 20 ? 1 : 0.5);
+    const oldStage = item.stage;
+    item.hp -= Math.max(1, a.dmg * 0.7);
+    item.stage = item.hp <= 0 ? 3 : item.hp <= item.maxHp * 0.45 ? 2 : 1;
+    const pos =
+      item.bounds?.getCenter(new THREE.Vector3()) ??
+      item.mesh.getWorldPosition(new THREE.Vector3());
+    const color = item.kind === 'wood' ? 0x96744c : map.surface.rubble;
+    if (item.stage !== oldStage) {
+      if (item.tree && item.stage >= 2 && !item.fallen) {
+        item.fallen = true;
+        item.mesh.rotation.x = 1.42;
+        // A fallen trunk is a low obstruction; its crown does not become an invisible wall.
+        const at = item.mesh.getWorldPosition(new THREE.Vector3());
+        item.bounds.set(
+          new THREE.Vector3(at.x - item.radius, at.y, at.z),
+          new THREE.Vector3(at.x + item.radius + 0.6, at.y + item.radius * 2, at.z + item.height),
+        );
+        groundScar(map, at, 0.7, true, false, dir);
+      } else if (!item.tree && item.stage === 2) {
+        item.mesh.scale.multiplyScalar(0.62);
+        item.mesh.updateMatrixWorld(true);
+        item.bounds.copy(new THREE.Box3().setFromObject(item.mesh));
+      }
+      if (item.stage === 3) {
+        item.broken = true;
+        item.mesh.visible = false;
+        map.destroyedProps++;
+        if (!item.rubble && !item.tree) worldModule.leaveStageRubble?.(map, pos, color);
+      }
+      item.mesh.traverse((node) => {
+        if (!node.material?.color) return;
+        if (!node.userData.damageMaterial) {
+          node.material = node.material.clone();
+          node.userData.damageMaterial = true;
+        }
+        node.material.color.multiplyScalar(0.88);
+      });
+      changed(map, item);
+      stageDebris(pos, color, item.stage === 3 ? 10 : 4, item.kind, 0.8, dir);
+    }
+    renderModule.spawnDust(pos, 3, { color: map.surface.dust, stageEffect: true });
+    map.reaction = Math.min(1, (map.reaction ?? 0) + 0.25);
+  };
   function attackBuildings(f, a, impact) {
     const map = worldModule.currentMap;
     if (!(a.dmg > 0)) return;
@@ -462,17 +572,27 @@ export function register({
       from = f.pos.clone().add(new THREE.Vector3(0, (f.baseScale ?? 1) * 1.05, 0)),
       width = Math.max(0.15, a.width ?? (a.shape === 'beam' ? 0.3 : 0.55)),
       point = new THREE.Vector3();
+    from.y += map.groundHeight?.(from.x, from.z) ?? 0;
     let length = 0,
       ray = null;
     if (!impact) {
       const to = from.clone().addScaledVector(direction, a.range ?? 1.5);
-      if (Number.isFinite(a.targetY)) to.y = a.targetY;
+      if (Number.isFinite(a.targetY)) to.y = a.targetY + (map.groundHeight?.(to.x, to.z) ?? 0);
       length = from.distanceTo(to);
       if (length < 1e-6) return;
       ray = new THREE.Ray(from, to.clone().sub(from).normalize());
     }
-    for (const item of map.destructibles) {
+    const end = impact ?? ray.at(length, new THREE.Vector3());
+    const firstCover = !impact ? segmentHit(map, from, end, width) : null;
+    for (const item of querySpace(
+      map,
+      Math.min(from.x, end.x) - 1.5,
+      Math.min(from.z, end.z) - 1.5,
+      Math.max(from.x, end.x) + 1.5,
+      Math.max(from.z, end.z) + 1.5,
+    )) {
       if (!item.building || item.broken) continue;
+      if (firstCover && firstCover.item !== item) continue;
       const box = item.bounds.clone().expandByScalar(width);
       const hit = impact
         ? box.distanceToPoint(impact) <= (a.landingImpact ? 1.35 : 0.5)
@@ -489,44 +609,20 @@ export function register({
   ) {
     const map = worldModule.currentMap;
     if (!map?.destructibles || !(a.dmg > 0)) return false;
-    const delta = to.clone().sub(from),
-      length = delta.length();
-    if (length < 1e-6) return false;
-    const direction = delta.multiplyScalar(1 / length),
-      ray = new THREE.Ray(from, direction),
-      point = new THREE.Vector3();
-    let closest = null,
-      distance = Infinity;
-    for (const item of map.destructibles) {
-      if (item.tile || item.broken) continue;
-      item.bounds ??= new THREE.Box3().setFromObject(item.mesh);
-      const box = item.bounds.clone().expandByScalar(radius),
-        inside = box.containsPoint(from);
-      if (!inside && !ray.intersectBox(box, point)) continue;
-      const hitDistance = inside ? 0 : point.distanceTo(from);
-      if (hitDistance <= length && hitDistance < distance) {
-        closest = item;
-        distance = hitDistance;
-      }
-    }
-    if (!closest) return false;
-    if (closest.building) damageBuildingPart(map, closest, a, direction);
-    else
-      worldModule.damageStage(
-        f,
-        { ...a, isUlt: false, landingImpact: true },
-        closest.mesh.getWorldPosition(new THREE.Vector3()),
-      );
+    const hit = segmentHit(map, from, to, radius);
+    if (!hit) return false;
+    worldModule.damageStageObject(hit.item, a, to.clone().sub(from).normalize());
     return true;
   };
   worldModule.damageStage = function damageStage(f, a, impact = null) {
     const map = worldModule.currentMap;
     if (!map?.destructibles) return;
     map.damageEvents++;
+    map.reaction = Math.min(1, (map.reaction ?? 0) + (a.isUlt ? 1 : a.dmg >= 10 ? 0.55 : 0.1));
     attackBuildings(f, a, impact);
     const dir = f.forward(),
       origin = f.pos.clone().setY(0),
-      range = a.isUlt ? a.range : 0,
+      range = a.range ?? 0,
       heavy = a.isUlt || a.landingImpact,
       beam = a.isUlt && a.shape === 'beam' && range >= 3,
       center = impact ? impact.clone() : origin.clone().addScaledVector(dir, range * 0.6);
@@ -541,38 +637,41 @@ export function register({
           ? 0.65
           : 0.28;
     for (const item of map.destructibles) {
-      if (item.broken || item.building) continue;
-      const delta = item.mesh.position.clone().sub(origin).setY(0),
+      if (item.broken || item.building || !item.mesh.visible) continue;
+      const delta = item.mesh.getWorldPosition(new THREE.Vector3()).sub(origin).setY(0),
         along = delta.dot(dir),
         side = Math.abs(delta.x * dir.z - delta.z * dir.x),
-        near = a.isUlt
-          ? along >= 0.1 && along <= range + 0.6 && side < radius
-          : item.mesh.position.clone().setY(0).distanceTo(center.clone().setY(0)) < radius;
+        near =
+          a.isUlt && !impact
+            ? along >= 0.1 && along <= range + 0.6 && side < radius
+            : (item.bounds
+                ? item.bounds
+                    .clone()
+                    .set(
+                      new THREE.Vector3(item.bounds.min.x, 0, item.bounds.min.z),
+                      new THREE.Vector3(item.bounds.max.x, 0, item.bounds.max.z),
+                    )
+                    .distanceToPoint(center.clone().setY(0))
+                : item.mesh.position.clone().setY(0).distanceTo(center.clone().setY(0))) < radius;
       if (!near) continue;
-      item.hp -= heavy ? 2 : 1;
-      if (item.hp > 0) continue;
-      item.broken = true;
       if (item.tile) {
-        map.brokenTiles++;
-        item.mesh.position.y -= heavy ? 0.085 : 0.055;
-        item.mesh.rotation.x = (Math.random() - 0.5) * 0.09;
-        item.mesh.rotation.z = (Math.random() - 0.5) * 0.12;
-        item.mesh.material = item.mesh.material.clone();
-        item.mesh.material.color.multiplyScalar(0.65);
-      } else {
-        map.destroyedProps++;
-        item.mesh.visible = false;
-      }
-      const location = item.mesh.position.clone().setY(map.surface.y + 0.08);
-      stageDebris(
-        location,
-        item.mesh.material.color,
-        heavy ? 10 : 5,
-        item.kind,
-        heavy ? 1.15 : 0.7,
-        beam ? dir : null,
-      );
-      if (!item.tile) groundScar(map, location.clone().setY(map.surface.y), 0.5, false, false, dir);
+        item.hp -= heavy ? 3 : 1;
+        item.stage = item.hp <= 0 ? 3 : item.hp <= 1 ? 2 : 1;
+        if (!item.damaged) {
+          item.mesh.material = item.mesh.material.clone();
+          item.damaged = true;
+        }
+        item.mesh.material.color.multiplyScalar(item.stage === 3 ? 0.7 : 0.9);
+        if (item.stage === 2) item.mesh.position.y -= 0.025;
+        if (item.stage === 3) {
+          item.broken = true;
+          map.brokenTiles++;
+          item.mesh.position.y -= heavy ? 0.085 : 0.055;
+          // Deterministic transforms allow independent peers to agree on ground height.
+          item.mesh.rotation.x = Math.sin(item.id * 7.13) * 0.045;
+          item.mesh.rotation.z = Math.cos(item.id * 4.21) * 0.06;
+        }
+      } else worldModule.damageStageObject(item, a, dir);
     }
     // Persistent ground scars are bounded and reset with the selected arena.
     if (beam && !impact) {
@@ -582,7 +681,7 @@ export function register({
           .clone()
           .addScaledVector(dir, 0.75 + ((range - 0.75) * i) / (count - 1));
         location.y = map.surface.y;
-        if (Math.abs(location.x) <= map.bounds.x + 1 && Math.abs(location.z) <= map.bounds.z + 1)
+        if (!map.playArea || insideArea(map.playArea, location.x, location.z))
           groundScar(map, location, radius * 0.75, true, true, dir);
       }
     } else groundScar(map, center, radius, heavy, false, dir);

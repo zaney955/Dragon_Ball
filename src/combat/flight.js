@@ -1,4 +1,10 @@
 import * as THREE from 'three';
+export const FLIGHT_RULES = Object.freeze({
+  goku: { name: '筋斗云', duration: 2, cost: 7, rise: 3.3, height: 4.5 },
+  tien: { name: '舞空', duration: 2, cost: 15, rise: 2.9, height: 4 },
+  piccolo: { name: '舞空', duration: 2, cost: 15, rise: 2.9, height: 4 },
+  chiaotzu: { name: '舞空', duration: 2, cost: 10, rise: 2.1, height: 2 },
+});
 export function register({
   characters: charactersModule,
   combat: combatModule,
@@ -37,7 +43,10 @@ export function register({
     return g;
   };
   combatModule.flightPhysics = function flightPhysics(f, dt, input) {
+    const profile = FLIGHT_RULES[f.def.id];
     if (
+      !profile ||
+      ['ape', 'bat'].includes(f.youth?.form) ||
       ['dead', 'hit', 'knockdown', 'guardbreak', 'grabbed', 'blockstun', 'landing'].includes(
         f.state,
       )
@@ -49,9 +58,7 @@ export function register({
       f.airTime = 0;
       f.airLocked = false;
     }
-    const cloud = f.def.id === 'goku',
-      limit = cloud ? 4.3 : f.def.id === 'piccolo' || f.def.id === 'tien' ? 3.2 : 2.3,
-      cost = cloud ? 7 : 15;
+    const { duration: limit, cost, rise, height: max } = profile;
     if (
       input.flight &&
       f.state !== 'charge' &&
@@ -63,14 +70,13 @@ export function register({
       f.flightMode = true;
       f.airTime = (f.airTime ?? 0) + dt;
       f.ki = Math.max(0, f.ki - cost * dt);
-      f.jumpVel = THREE.MathUtils.lerp(f.jumpVel, cloud ? 3.3 : 2.9, 1 - Math.exp(-5 * dt));
+      f.jumpVel = THREE.MathUtils.lerp(f.jumpVel, rise, 1 - Math.exp(-5 * dt));
       if (f.pull('jump')) f.jumpVel = Math.min(5, Math.max(3, f.jumpVel) + 1);
       f.pos.y = Math.max(0.015, f.pos.y);
       if (f.airTime >= limit || f.ki <= 0.1) f.airLocked = true;
     } else if (f.flightMode) f.airLocked = true;
     if (!f.flightMode) return false;
     if (f.airLocked) f.jumpVel = THREE.MathUtils.lerp(f.jumpVel, -3.8, 1 - Math.exp(-8 * dt));
-    const max = cloud ? 4.5 : f.def.id === 'piccolo' || f.def.id === 'tien' ? 4 : 3;
     f.pos.y = THREE.MathUtils.clamp(f.pos.y + f.jumpVel * dt, 0, max);
     if (f.pos.y >= max) f.jumpVel = Math.min(0, f.jumpVel);
     if (f.pos.y <= 0) {

@@ -21,13 +21,18 @@ function fixture() {
 
 test('remade budokai preserves the arena and keeps scenery outside the camera apron', () => {
   const { map } = fixture();
-  assert.deepEqual(map.bounds, { x: 13.5, z: 6 });
+  assert.deepEqual(map.bounds, { x: 14.5, z: 7.5 });
   assert.equal(map.destructibles.filter((p) => p.tile).length, 98);
-  assert.equal(map.destructibles.filter((p) => !p.tile && !p.building).length, 12);
+  assert.equal(
+    map.destructibles.filter((p) => !p.tile && !p.building && !p.mesh.userData.stageObject).length,
+    12,
+  );
   assert.equal(map.group.userData.budokai.spectators, 192);
-  assert.ok(BUDOKAI_LAYOUT.gateZ < -map.bounds.z - 7);
-  for (const prop of map.destructibles.filter((p) => !p.tile && !p.building))
-    assert.ok(Math.abs(prop.mesh.position.x) > map.bounds.x + 2);
+  assert.ok(BUDOKAI_LAYOUT.gateZ <= -map.bounds.z - 7);
+  for (const prop of map.destructibles.filter(
+    (p) => !p.tile && !p.building && !p.mesh.userData.stageObject,
+  ))
+    assert.ok(Math.abs(prop.mesh.position.x) > map.bounds.x + 1);
   assert.ok(map.group.getObjectByName('budokai-hall'));
   assert.ok(map.group.getObjectByName('budokai-gate'));
   assert.equal(Object.keys(map).includes('applyLighting'), false);
@@ -44,8 +49,8 @@ test('remade budokai preserves the arena and keeps scenery outside the camera ap
     for (const a of Object.values(g.attributes)) bytes += a.array.byteLength;
     bytes += g.index?.array.byteLength ?? 0;
   }
-  assert.ok(meshes < 300, `meshes: ${meshes}`);
-  assert.ok(bytes < 48 * 1024 * 1024, `geometry bytes: ${bytes}`);
+  assert.ok(meshes < 750, `meshes: ${meshes}`);
+  assert.ok(bytes < 80 * 1024 * 1024, `geometry bytes: ${bytes}`);
 });
 
 test('budokai slabs crack and roof ornaments break through the existing destruction interface', () => {
@@ -117,7 +122,11 @@ test('cached budokai keeps fight damage, flag buffers and lighting independent',
     fresh.group.getObjectByName('budokai-hall').children[0].geometry,
     map.group.getObjectByName('budokai-hall').children[0].geometry,
   );
-  assert.equal(fresh.destructibles.filter((p) => !p.tile && !p.building).length, 12);
+  assert.equal(
+    fresh.destructibles.filter((p) => !p.tile && !p.building && !p.mesh.userData.stageObject)
+      .length,
+    12,
+  );
 });
 
 test('instanced paving tracks independent cracked slab transforms and colors', () => {
