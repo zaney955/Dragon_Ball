@@ -20,7 +20,7 @@ export const YOUTH_PROFILES = {
       skill('如意延伸', 'staffThrust', 30, 3, { dmg: 14, range: 2.8 }),
       skill('大猩猩', 'transform', 50, 0, { ability: 'ape', startup: 1 }),
     ],
-    ult: ultimate('龟派气功波', 'kamehameha', 36, 8, { shape: 'beam', width: 0.3 }),
+    ult: ultimate('龟派气功波', 'kamehameha', 120, 12, { shape: 'beam', width: 0.6 }),
   },
   roshi: {
     stance: 'relaxed',
@@ -42,7 +42,7 @@ export const YOUTH_PROFILES = {
         active: 0.36,
         recovery: 0.45,
       }),
-      skill('肌肉强化', 'transform', 40, 12, { ability: 'muscle', startup: 0.6 }),
+      skill('肌肉强化', 'transform', 100, 12, { ability: 'muscle', startup: 0.6 }),
     ],
     ult: ultimate('魔封波', 'mafuba', 32, 6, {
       shape: 'beam',
@@ -69,7 +69,7 @@ export const YOUTH_PROFILES = {
       skill('洞洞波', 'dodonpa', 30, 3, { dmg: 12, range: 8, shape: 'beam', width: 0.12 }),
       skill('杀手后撤掌', 'palmStrike', 30, 4, { dmg: 10, range: 1.4, ability: 'retreat' }),
     ],
-    ult: ultimate('蓄力洞洞波', 'dodonpa', 32, 10, { shape: 'beam', width: 0.12, startup: 0.7 }),
+    ult: ultimate('蓄力洞洞波', 'dodonpa', 150, 10, { shape: 'beam', width: 0.12, startup: 0.7 }),
   },
   piccolo: {
     stance: 'tyrant',
@@ -89,7 +89,7 @@ export const YOUTH_PROFILES = {
       skill('魔族吐卵', 'spawnEgg', 30, 10, { ability: 'demon', startup: 0.8 }),
       skill('魔王震掌', 'doublePalm', 40, 5, { dmg: 18, range: 2.2, limitedArmor: 'light' }),
     ],
-    ult: ultimate('爆力魔波', 'bakuriki', 40, 7, { shape: 'beam', width: 0.8 }),
+    ult: ultimate('爆力魔波', 'bakuriki', 120, 7, { shape: 'beam', width: 0.8 }),
   },
   tien: {
     stance: 'crane',
@@ -110,7 +110,7 @@ export const YOUTH_PROFILES = {
       skill('太阳拳', 'solarFlare', 30, 8, { ability: 'solar', range: 3, control: 0.45 }),
       skill('四妖拳', 'transform', 40, 12, { ability: 'fourArms', startup: 0.6 }),
     ],
-    ult: ultimate('气功炮', 'kikoho', 44, 7, { shape: 'beam', width: 0.65, lifeCost: 0.06 }),
+    ult: ultimate('气功炮', 'kikoho', 120, 9, { shape: 'beam', width: 0.65, lifeCost: 0.06 }),
   },
   krillin: {
     stance: 'low',
@@ -137,7 +137,7 @@ export const YOUTH_PROFILES = {
         startup: 0.6,
       }),
     ],
-    ult: ultimate('龟派气功', 'kamehameha', 32, 8, { shape: 'beam', width: 0.28 }),
+    ult: ultimate('龟派气功', 'kamehameha', 150, 8, { shape: 'beam', width: 0.28 }),
   },
   yamcha: {
     stance: 'wolf',
@@ -165,7 +165,7 @@ export const YOUTH_PROFILES = {
       }),
       skill('狼牙侧步', 'catStep', 30, 5, { ability: 'sidestep' }),
     ],
-    ult: ultimate('狼牙风风拳', 'claw', 8, 1.8, {
+    ult: ultimate('狼牙风风拳', 'claw', 180, 1.8, {
       hits: [0, 0.12, 0.24, 0.36],
       active: 0.46,
       shape: 'wolf',
@@ -195,7 +195,7 @@ export const YOUTH_PROFILES = {
       }),
       skill('巨斧震地', 'axeChop', 40, 6, { dmg: 20, range: 3.4, shape: 'ground', startup: 0.6 }),
     ],
-    ult: ultimate('巨斧连环破', 'axeSweep', 20, 3.5, { hits: [0, 0.35], active: 0.45 }),
+    ult: ultimate('巨斧连环破', 'axeSweep', 160, 3.5, { hits: [0, 0.35], active: 0.45 }),
   },
   chichi: {
     stance: 'kicker',
@@ -216,7 +216,7 @@ export const YOUTH_PROFILES = {
       skill('头盔飞刃', 'bladeCast', 30, 3, { ability: 'blade', range: 5, dmg: 7 }),
       skill('疾步踢', 'girlKick', 30, 4, { dmg: 10, range: 1.5, ability: 'retreat' }),
     ],
-    ult: ultimate('头盔光束连击', 'girlKick', 6, 1.6, {
+    ult: ultimate('头盔光束连击', 'girlKick', 130, 8, {
       ability: 'helmetCombo',
       active: 0.18,
       recovery: 1,
@@ -240,7 +240,7 @@ export const YOUTH_PROFILES = {
       skill('胶囊掩体', 'capsuleCast', 30, 6, { ability: 'cover', startup: 0.6 }),
       skill('烟幕胶囊', 'capsuleCast', 30, 8, { ability: 'smoke' }),
     ],
-    ult: ultimate('胶囊武装齐射', 'capsuleCast', 0, 8, {
+    ult: ultimate('胶囊武装齐射', 'capsuleCast', 120, 8, {
       ability: 'barrage',
       shape: 'ability',
       active: 0.46,
@@ -261,7 +261,7 @@ export const YOUTH_PROFILES = {
     directions: ['念力上托', '低位念力扫击', '念力短距抛出'],
     directionalMotions: ['psychicLift', 'psychicPush', 'psychicPush'],
     skills: [
-      skill('念力束缚', 'psychicPush', 30, 6, {
+      skill('念力束缚', 'psychicPush', 130, 6, {
         dmg: 2,
         range: 4.2,
         shape: 'beam',
@@ -273,7 +273,7 @@ export const YOUTH_PROFILES = {
       }),
       skill('悬浮退避', 'catStep', 30, 5, { ability: 'floatRetreat', startup: 0.15, active: 0.5 }),
     ],
-    ult: ultimate('念力洞洞波连击', 'psychicPush', 4, 4, {
+    ult: ultimate('念力洞洞波连击', 'psychicPush', 110, 4, {
       shape: 'beam',
       width: 0.25,
       control: 0.3,
@@ -300,7 +300,7 @@ export const YOUTH_PROFILES = {
       skill('巨鬼变化', 'transform', 30, 0, { ability: 'ogre', startup: 0.32 }),
       skill('蝙蝠变化', 'transform', 30, 0, { ability: 'bat', startup: 0.32 }),
     ],
-    ult: ultimate('变化奇袭', 'pigBelly', 8, 1.7, {
+    ult: ultimate('变化奇袭', 'pigBelly', 140, 1.7, {
       hits: [0, 0.35, 0.7],
       active: 0.8,
       ability: 'shapeRush',
@@ -325,7 +325,7 @@ export const YOUTH_PROFILES = {
       skill('卡林残像步', 'catStep', 30, 4, { ability: 'catStep', startup: 0.12 }),
       skill('仙豆储备', 'beanEat', 30, 0, { ability: 'heal', startup: 0.95, recovery: 0.4 }),
     ],
-    ult: ultimate('夺水试炼', 'caneTap', 7, 1.65, {
+    ult: ultimate('夺水试炼', 'caneTap', 140, 1.65, {
       hits: [0, 0.12, 0.24, 0.36],
       active: 0.46,
       drive: 8,
@@ -350,7 +350,7 @@ export const YOUTH_PROFILES = {
       skill('机甲武装切换', 'mechArm', 30, 5, { ability: 'weapon', startup: 0.4 }),
       skill('装甲架势', 'mechArm', 40, 8, { ability: 'armor', startup: 0.35 }),
     ],
-    ult: ultimate('三机合体突击', 'mechRam', 20, 2.7, {
+    ult: ultimate('三机合体突击', 'mechRam', 130, 2.7, {
       ability: 'combine',
       startup: 0.65,
       active: 1.55,
