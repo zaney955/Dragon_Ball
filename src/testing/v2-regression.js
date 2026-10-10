@@ -210,7 +210,8 @@ export function register({
         assert(p.ki <= 100);
       });
       test('必杀生效扣气一次和状态恢复 ' + def.id, () => {
-        const [p] = v2Fixture(index, 0, 1.2);
+        const [p, e] = v2Fixture(index, 0, 1.2);
+        e.hp = e.maxHp = 10000;
         p.startUlt();
         const a = p.attack;
         assert(a && p.ki === 0 && a.costCommitted);
@@ -417,6 +418,7 @@ export function register({
         });
         test('三机实际接合、限时冲撞与恢复', () => {
           const [p, e] = v2Fixture(index, 0, 4);
+          e.hp = e.maxHp = 10000;
           p.startUlt();
           v2TestTicks(118);
           assert(p.youth.form === 'combined' && p.parts.combinedMechs.length === 2);

@@ -42,7 +42,7 @@ export const YOUTH_PROFILES = {
         active: 0.36,
         recovery: 0.45,
       }),
-      skill('肌肉强化', 'transform', 100, 12, { ability: 'muscle', startup: 0.6 }),
+      skill('肌肉强化', 'transform', 40, 12, { ability: 'muscle', startup: 0.6 }),
     ],
     ult: ultimate('魔封波', 'mafuba', 32, 6, {
       shape: 'beam',
@@ -261,7 +261,7 @@ export const YOUTH_PROFILES = {
     directions: ['念力上托', '低位念力扫击', '念力短距抛出'],
     directionalMotions: ['psychicLift', 'psychicPush', 'psychicPush'],
     skills: [
-      skill('念力束缚', 'psychicPush', 130, 6, {
+      skill('念力束缚', 'psychicPush', 30, 6, {
         dmg: 2,
         range: 4.2,
         shape: 'beam',

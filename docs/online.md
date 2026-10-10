@@ -34,7 +34,7 @@ npm run build
 npm run test:online  # 真实 workerd + 直连/中继/容量/手机/四浏览器观战
 ```
 
-GitHub Actions使用SwiftShader软件渲染。联机功能测试等待角色实际移动到位后出拳，房间布局检查等待界面可见，避免把固定墙钟等待误当作已执行的战斗帧。150毫秒延迟测试在短测量窗口内使用Playwright浏览器时钟推进真实的游戏回调：50毫秒内检查显示位移，40毫秒内检查普攻预显示及权威攻击状态；窗口外恢复正常时钟。WebSocket、WebRTC、Worker与房主权威模拟仍使用实际实现。
+GitHub Actions使用SwiftShader软件渲染。联机功能测试等待角色实际移动到位后出拳，冷启动加载允许30秒完成，房间布局检查等待界面可见，避免把固定墙钟等待误当作已执行的战斗帧。150毫秒延迟测试在短测量窗口内使用Playwright浏览器时钟推进真实的游戏回调：50毫秒内检查显示位移，40毫秒内检查普攻预显示及权威攻击状态；窗口外恢复正常时钟。WebSocket、WebRTC、Worker与房主权威模拟仍使用实际实现。
 
 macOS可用`DB_SOFTWARE_GPU=1 PLAYWRIGHT_CHANNEL=chrome npm run test:online`复现软件渲染环境。联机配置继承基础浏览器配置，保留该环境变量的选择。
 

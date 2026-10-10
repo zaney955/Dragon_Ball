@@ -42,7 +42,7 @@ async function lobby(page) {
     process.platform !== 'darwin' || !!process.env.DB_SOFTWARE_GPU,
   );
   await page.goto('/?test=1');
-  await expect(page.locator('#loading')).toHaveClass('hidden');
+  await expect(page.locator('#loading')).toHaveClass('hidden', { timeout: 30000 });
   await page.locator('#homeOnline').click();
   await expect(page.locator('.onlineRoomCard')).toHaveCount(3, { timeout: 15000 });
   await expect(page.locator('[data-room="1"]')).toBeEnabled();

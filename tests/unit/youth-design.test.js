@@ -13,7 +13,7 @@ test('fourteen independent childhood profiles and fixed skill costs', () => {
     assert.ok(VICTORY_LINES[id]);
     assert.ok(Object.keys(RELATION_LINES).some((k) => k.startsWith(id + ':')));
     for (const s of p.skills) {
-      assert.ok(s.kiCost >= 30);
+      assert.ok(s.kiCost >= 30 && s.kiCost <= 100, id + ' skill must be usable at full ki');
       assert.ok(s.startup > 0);
       assert.ok(s.cooldown >= 0);
     }

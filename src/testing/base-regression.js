@@ -1223,6 +1223,8 @@ export function register({
     test('P0', '狼牙四段连击与有效突进', () => {
       for (const dist of [0.9, 3]) {
         const [p, e] = fresh(6, 0);
+        // Keep the target alive through every hit even when ultimate damage is rebalanced.
+        e.hp = e.maxHp = 10000;
         e.pos.x = dist;
         p.ki = 100;
         p.startUlt();
@@ -1242,6 +1244,7 @@ export function register({
     test('P0', '必杀同局连续释放仍可造成伤害', () => {
       for (let c = 0; c < 7; c++) {
         const [p, e] = fresh(c, 3);
+        e.hp = e.maxHp = 10000;
         let previous = e.hp;
         for (let shot = 0; shot < 3; shot++) {
           p.pos.set(0, 0, 0);
@@ -1266,6 +1269,7 @@ export function register({
       e.pos.x = 3;
       p.ki = 100;
       p.startUlt();
+      const blockedDamage = Math.round(p.attack.dmg * p.def.power * 0.06 * 10) / 10;
       for (let n = 0; n < 180; n++)
         step(
           1,
@@ -1274,12 +1278,16 @@ export function register({
             block: true,
           },
         );
-      assert(e.lastHitText === '格挡' && e.hp > e.maxHp - 3);
+      assert(e.lastHitText === '格挡' && Math.abs(e.maxHp - e.hp - blockedDamage) < 1e-7);
       [p, e] = fresh();
-      e.pos.x = 11;
       p.ki = 100;
       p.startUlt();
-      step(240);
+      e.pos.x = p.attack.range + 3;
+      p.stateTimer = p.attack.hitT;
+      combatModule.sampleCombatRig(p);
+      combatModule.sampleCombatRig(e);
+      assert(!combatModule.combatIntersects(p, e, p.attack), '射程外不可命中');
+      step(1);
       assert(e.hp === e.maxHp);
       [p, e] = fresh();
       e.pos.x = -3;
