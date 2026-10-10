@@ -234,7 +234,9 @@ export function register({ characters, combat, match, testing, ai, audio, render
         p.ki = 100;
         p.hp = 1;
         p.startUlt();
-        assert(p.hp === 1);
+        assert(p.hp === 0);
+        ticks(1);
+        assert(p.state === 'dead' && !p.attack);
       });
       test('残像反掌精确窗口、投技可破', (assert) => {
         const [p, e] = fixture('roshi');
