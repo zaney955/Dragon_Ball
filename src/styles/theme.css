@@ -455,6 +455,7 @@ button:hover {
   color: var(--muted);
   border-top: 1px solid var(--line);
   padding-top: 16px;
+  padding-bottom: max(64px, env(safe-area-inset-bottom));
 }
 .controls .smallBtn {
   background: transparent;

@@ -15,11 +15,36 @@ async function pauseClock(page) {
 async function lobby(page) {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(
+    (softwareGPU) => {
+      const raf = window.requestAnimationFrame;
+      window.requestAnimationFrame = (callback) =>
+        raf.call(window, (at) => {
+          const renderer = window.__db?.renderer;
+          if (renderer) {
+            renderer.setPixelRatio(softwareGPU ? 0.25 : 0.5);
+            if (softwareGPU) {
+              renderer.shadowMap.enabled = false;
+              const draw = renderer.render.bind(renderer);
+              let lastDraw = -Infinity;
+              renderer.render = (...args) => {
+                const now = performance.now();
+                if (now - lastDraw < 1000) return;
+                lastDraw = now;
+                return draw(...args);
+              };
+            }
+            window.requestAnimationFrame = raf;
+          }
+          callback(at);
+        });
+    },
+    process.platform !== 'darwin' || !!process.env.DB_SOFTWARE_GPU,
+  );
   await page.goto('/?test=1');
   await expect(page.locator('#loading')).toHaveClass('hidden');
-  await page.evaluate(() => window.__db.renderer.setPixelRatio(0.5));
   await page.locator('#homeOnline').click();
-  await expect(page.locator('.onlineRoomCard')).toHaveCount(3);
+  await expect(page.locator('.onlineRoomCard')).toHaveCount(3, { timeout: 15000 });
   await expect(page.locator('[data-room="1"]')).toBeEnabled();
   return errors;
 }
@@ -470,7 +495,7 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
     await host.waitForTimeout(500);
     await host.keyboard.up('KeyD');
     await host.keyboard.down('KeyI');
-    await host.waitForFunction(() => window.__db.player.ki >= 90, null, { timeout: 10000 });
+    await host.waitForFunction(() => window.__db.player.ki >= 90, null, { timeout: 60000 });
     await host.keyboard.up('KeyI');
     await host.waitForFunction(() => window.__db.player.state !== 'charge');
     await host.keyboard.down('KeyS');

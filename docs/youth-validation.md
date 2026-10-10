@@ -1,5 +1,15 @@
 # 少年武道会本地验收记录
 
+## 2026-10-10：全局音乐测试与按钮遮挡修复
+
+全局音乐开关测试使用禁用动画帧的固定场景，原先默认依赖 `requestAnimationFrame` 的异步等待会超时；四处音频等待改为100ms定时轮询。选角页页脚增加音乐按钮的预留空间，修复固定音乐按钮遮挡“操作与招式”的问题；手机回归增加实际打开和关闭指南的操作。
+
+曲目的循环与裁切参数统一查询配置，离线导出合并根目录与assets目录的MP3内嵌流程，兼容中文及编码后的资源地址。README与设计记录同步当前全局单曲循环、独立开关和九首离线音频的行为。
+
+本轮ESLint、Prettier、78个模块接口检查、25项单元测试、生产构建与离线导出均通过。Chrome浏览器专项7项通过：桌面流程、320px／390px手机指南与控制、1024px／390px音乐开关持久化、曲目解码与暂停恢复、直接打开离线文件。离线验收包含57项系统、66项少年角色检查，九首音乐全部解码且HTTP请求为0。本轮未运行196对角色矩阵或联机回归，未推送或部署。
+
+复现专项检查：先运行 `npm run build` 和 `npm run build:offline`，再运行 `PLAYWRIGHT_CHANNEL=chrome OFFLINE_TEST=1 npx playwright test tests/e2e/game.spec.js --grep 'global music|tracks decode|production home|mobile .*selection|offline export'`。
+
 ## 2026-10-10：连击保护、追击与角色动作
 
 - 连续受击6次或空中受击3次触发保护：后倾击飞，正常地面约5.6米，落地破坏场景并扬尘；场景边缘会缩短位移。

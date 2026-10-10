@@ -38,6 +38,8 @@ GitHub Actions使用SwiftShader软件渲染。联机功能测试等待角色实�
 
 macOS可用`DB_SOFTWARE_GPU=1 PLAYWRIGHT_CHANNEL=chrome npm run test:online`复现软件渲染环境。联机配置继承基础浏览器配置，保留该环境变量的选择。
 
+软件GPU下，联机功能测试在首帧前降低绘制分辨率、关闭阴影，并限制WebGL重复绘制为每秒一次；模拟、输入、网络回调和角色姿势继续正常推进。画面检查由独立的浏览器回归覆盖。四浏览器观战测试先加载全部页面再发动限时四臂形态，蓄气等待按实际资源值验收。
+
 CI先运行静态检查与单元测试，再分别运行完整浏览器、离线导出和联机检查；三个浏览器任务并行执行，独立记录失败产物，不共用一个20分钟任务预算。
 
 离线单文件保留本地玩法，联机需打开网页版。生产网页默认连接同域名 `wss://dragon-ball-budokai.pages.dev/api/online`，由 Pages Function 通过 Durable Object binding 直接连接现有三个房间的协调对象，浏览器不再访问 `workers.dev`。`public/_routes.json` 只将这一个路径交给 Function，其余网页资源仍走静态服务。每次进入大厅仍只建立一条 WebSocket；连接 10 秒未收到房间状态会停止等待，提供手动重试，不增加自动轮询。`VITE_ONLINE_URL` 可覆盖地址；本地由 Vite 将同域入口转发到 8787。

@@ -11,6 +11,10 @@ export const MUSIC_URLS = {
   lose: new URL('../assets/music/lose.mp3', import.meta.url).href,
   draw: new URL('../assets/music/draw.mp3', import.meta.url).href,
 };
+const TRACKS = Object.fromEntries([
+  ...manifest.map((track) => [track.id, track]),
+  ['global', { loop: true }],
+]);
 export function register({ audio, match }) {
   const buffers = new Map();
   const voices = new Set();
@@ -46,10 +50,10 @@ export function register({ audio, match }) {
       const response = await fetch(MUSIC_URLS[id]);
       if (!response.ok) throw new Error('配乐加载失败：' + id);
       const decoded = await audio.actx.decodeAudioData(await response.arrayBuffer());
-      if (id === 'global') buffers.set(id, decoded);
+      const duration = TRACKS[id].duration;
+      if (duration == null) buffers.set(id, decoded);
       else {
-        const meta = manifest.find((t) => t.id === id),
-          n = Math.min(decoded.length, Math.round(meta.duration * decoded.sampleRate)),
+        const n = Math.min(decoded.length, Math.round(duration * decoded.sampleRate)),
           copy = audio.actx.createBuffer(decoded.numberOfChannels, n, decoded.sampleRate);
         for (let c = 0; c < copy.numberOfChannels; c++)
           copy.copyToChannel(decoded.getChannelData(c).subarray(0, n), c);
@@ -82,14 +86,11 @@ export function register({ audio, match }) {
       }
       const source = audio.actx.createBufferSource(),
         gain = audio.actx.createGain(),
-        meta =
-          id === 'global'
-            ? { loop: true, duration: pcm.duration }
-            : manifest.find((m) => m.id === id);
+        meta = TRACKS[id];
       source.buffer = pcm;
       source.loop = meta.loop;
       source.loopStart = 0;
-      source.loopEnd = meta.duration;
+      source.loopEnd = meta.duration ?? pcm.duration;
       gain.gain.setValueAtTime(0, t);
       gain.gain.linearRampToValueAtTime(
         audio.bgmVolume * BGM_OUTPUT_GAIN * (match.game.muted || !musicEnabled ? 0 : 1),

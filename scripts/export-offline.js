@@ -26,22 +26,22 @@ try {
   const stylesheet = html.match(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"[^>]*>/);
   if (!script || !stylesheet) throw new Error('Expected one bundled script and stylesheet');
   let javascript = await readFile(resolve(scratch, script[1]), 'utf8');
-  for (const name of await readdir(scratch)) {
-    if (!name.endsWith('.mp3')) continue;
-    const bytes = await readFile(join(scratch, name));
-    const embedded = 'data:audio/mpeg;base64,' + bytes.toString('base64');
-    for (const path of [name, encodeURIComponent(name)])
-      javascript = javascript.replaceAll('./' + path, embedded).replaceAll('/' + path, embedded);
-  }
-  for (const name of await readdir(join(scratch, 'assets'))) {
-    if (!name.endsWith('.mp3')) continue;
-    const bytes = await readFile(join(scratch, 'assets', name));
-    const embedded = 'data:audio/mpeg;base64,' + bytes.toString('base64');
-    javascript = javascript
-      .replaceAll('./assets/' + name, embedded)
-      .replaceAll('/assets/' + name, embedded)
-      .replaceAll(name, embedded);
-  }
+  for (const directory of ['', 'assets'])
+    for (const name of await readdir(join(scratch, directory))) {
+      if (!name.endsWith('.mp3')) continue;
+      const bytes = await readFile(join(scratch, directory, name));
+      const embedded = 'data:audio/mpeg;base64,' + bytes.toString('base64');
+      const relative = directory ? directory + '/' + name : name;
+      const paths = new Set(
+        [relative, encodeURI(relative), name, encodeURIComponent(name)].flatMap((path) => [
+          './' + path,
+          '/' + path,
+          path,
+        ]),
+      );
+      for (const path of [...paths].sort((a, b) => b.length - a.length))
+        javascript = javascript.replaceAll(path, embedded);
+    }
   const cssPath = resolve(scratch, stylesheet[1]);
   let css = await readFile(cssPath, 'utf8');
   const assets = [...css.matchAll(/url\((['"]?)([^)'"\s]+)\1\)/g)];
