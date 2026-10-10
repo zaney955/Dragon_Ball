@@ -795,6 +795,17 @@ kbd {
 .hp .fill {
   background: linear-gradient(90deg, #779d61, #c4d487);
 }
+.healthStack {
+  display: grid;
+  gap: 3px;
+}
+.bar.hp.reserve {
+  height: 7px;
+  border-color: #e1d5b6;
+}
+.hp.reserve .fill {
+  background: linear-gradient(90deg, #c9d6ae, #eef3d5);
+}
 .ki .fill {
   background: linear-gradient(90deg, #4c91aa, #b0e0dd);
   box-shadow: none;

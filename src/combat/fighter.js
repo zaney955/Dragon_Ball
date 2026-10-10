@@ -10,7 +10,7 @@ export function register({
   ui: uiModule,
   world: worldModule,
 }) {
-  // Six connected hits allow a full light chain plus a short follow-up before separation.
+  // Six connected hits allow the longest authored chain, then force separation.
   combatModule.COMBO_PROTECTION_HITS = 6;
   combatModule.launchKnockback = function (f, attacker, reason = 'combo') {
     const direction = f.pos.clone().sub(attacker.pos).setY(0);
@@ -51,8 +51,8 @@ export function register({
         Object.assign(this, {
           def,
           isAI,
-          maxHp: def.hp,
-          hp: def.hp,
+          maxHp: def.hp * 2,
+          hp: def.hp * 2,
           ki: 30,
           maxKi: 100,
           guard: 100,
@@ -165,7 +165,7 @@ export function register({
             up: !!input.up,
             down: !!input.down,
           },
-          life: 0.24,
+          life: 0.34,
         });
         this.buffered = type;
       }
@@ -808,7 +808,10 @@ export function register({
         const result =
           this.hitResult === 'hit' ? 'hit' : this.hitResult === 'blocked' ? 'block' : 'whiff';
         const rules = a.cancelRules[result] ?? [],
-          windowStart = a.hitT + (result === 'block' ? a.active : 0.045);
+          windowStart =
+            result === 'whiff'
+              ? a.hitT + a.active + a.recovery * 0.55
+              : a.hitT + (result === 'block' ? a.active : 0.045);
         if (!a.isUlt && this.stateTimer + 1e-9 >= windowStart) {
           const q = this.queue.find(
             (q) => rules.includes(q.type) && combatModule.legalCancel(this, a, q),
@@ -853,8 +856,13 @@ export function register({
           this.attack = null;
           this.state = 'idle';
           this.stateTimer = 0;
-          this.comboTimer = 0;
-          this.comboType = null;
+          if (a.chainType && !a.terminal && !['launcher', 'sweep'].includes(a.id)) {
+            this.comboTimer = 0.4;
+          } else {
+            this.comboTimer = 0;
+            this.comboType = null;
+            this.queue = this.queue.filter((q) => !['light', 'heavy'].includes(q.type));
+          }
         }
       }
       pursue(foe) {
@@ -936,12 +944,14 @@ export function register({
         if (dir.lengthSq() < 0.01) dir.copy(this.forward()).negate();
         dir.normalize();
         this.vel.copy(dir).multiplyScalar(7);
-        foe.vel.copy(dir).multiplyScalar(-7);
-        foe.attack = null;
-        foe.clearQueue();
-        foe.state = 'hit';
-        foe.stateTimer = 0;
-        foe.stunTime = 0.3;
+        if (!foe.attack?.superArmor) {
+          foe.vel.copy(dir).multiplyScalar(-7);
+          foe.attack = null;
+          foe.clearQueue();
+          foe.state = 'hit';
+          foe.stateTimer = 0;
+          foe.stunTime = 0.3;
+        }
         renderModule.spawnShockRing(
           this.pos.clone().add(new THREE.Vector3(0, 1, 0)),
           0x8ddff1,
@@ -961,7 +971,7 @@ export function register({
           if (!matchModule.game.manualTest && this === matchModule.player)
             matchModule.notify('聚气被打断', 0.5);
         }
-        if (a.isThrow) {
+        if (a.isThrow && !this.attack?.superArmor) {
           if (
             this.pos.y > 0.2 ||
             ['hit', 'knockdown', 'grabbed', 'guardbreak'].includes(this.state)
@@ -1000,12 +1010,14 @@ export function register({
         if (perfect) this.parryCooldown = 0.65;
         if (perfect) {
           attacker.hitResult = 'parried';
-          attacker.attack = null;
-          attacker.clearQueue();
-          attacker.state = 'hit';
-          attacker.stateTimer = 0;
-          attacker.stunTime = this.def.id === 'roshi' ? 0.36 : 0.27;
-          attacker.vel.copy(dir).multiplyScalar(-2);
+          if (!attacker.attack?.superArmor) {
+            attacker.attack = null;
+            attacker.clearQueue();
+            attacker.state = 'hit';
+            attacker.stateTimer = 0;
+            attacker.stunTime = this.def.id === 'roshi' ? 0.36 : 0.27;
+            attacker.vel.copy(dir).multiplyScalar(-2);
+          }
           this.guard = Math.min(100, this.guard + 12);
           this.ki = Math.min(100, this.ki + 7);
           this.invulnerable = 0.045;
@@ -1023,7 +1035,10 @@ export function register({
         const recovered = !['hit', 'knockdown', 'guardbreak', 'grabbed'].includes(this.state);
         this.armorTimer = this.stateTimer;
         const oldAttack = this.attack,
-          counter = (!!oldAttack && this.stateTimer < oldAttack.hitT) || this.state === 'charge',
+          superArmored = !!oldAttack?.superArmor && !blocking,
+          counter =
+            (!superArmored && !!oldAttack && this.stateTimer < oldAttack.hitT) ||
+            this.state === 'charge',
           punish = !!oldAttack && this.stateTimer > oldAttack.hitT + (oldAttack.active ?? 0.07);
         let guardBreak = false;
         if (blocking) {
@@ -1039,7 +1054,8 @@ export function register({
           a.dmg *
           attacker.def.power *
           (blocking && !guardBreak ? 0.06 : scaling) *
-          (counter ? 1.14 : 1);
+          (counter ? 1.14 : 1) *
+          (superArmored ? 0.6 : 1);
         dmg = Math.round(dmg * 10) / 10;
         const hpBefore = this.hp;
         this.hp = Math.max(matchModule.game.difficulty === 'training' ? 1 : 0, this.hp - dmg);
@@ -1070,57 +1086,62 @@ export function register({
                 ? '后摇惩罚'
                 : '命中';
         const armored =
-          !blocking &&
-          !a.isThrow &&
-          !a.isUlt &&
-          a.level !== 'low' &&
-          !a.launch &&
-          oldAttack?.armor &&
-          this.stateTimer < oldAttack.hitT &&
-          !(this.armorSpent ?? false);
-        if (armored) this.armorSpent = true;
-        this.state = guardBreak ? 'guardbreak' : blocking ? 'blockstun' : 'hit';
-        this.stateTimer = 0;
-        this.stunTime = guardBreak
-          ? 0.8
-          : blocking
-            ? (a.blockstun ?? 0.12)
-            : a.stun + (counter ? 0.07 : 0);
-        this.vel.copy(dir).multiplyScalar(a.kb * (blocking && !guardBreak ? 0.25 : 1));
-        this.flash = blocking ? 0.15 : a.chainType === 'light' ? 0.4 : 0.65;
-        this.attack = null;
-        this.comboType = null;
-        this.comboTimer = 0;
-        if (!blocking || guardBreak) {
-          this.receivedCombo++;
-          this.comboGrace = this.stunTime + 0.2;
-          if (this.pos.y > 0.15) this.juggle++;
-          if (a.launch && !this.launchFlight) {
-            this.jumpVel = a.launch;
-            this.pos.y = Math.max(0.04, this.pos.y);
-            this.airRecovery = true;
+          superArmored ||
+          (!blocking &&
+            !a.isThrow &&
+            !a.isUlt &&
+            a.level !== 'low' &&
+            !a.launch &&
+            oldAttack?.armor &&
+            this.stateTimer < oldAttack.hitT &&
+            !(this.armorSpent ?? false));
+        if (armored && !superArmored) this.armorSpent = true;
+        if (!superArmored) {
+          this.state = guardBreak ? 'guardbreak' : blocking ? 'blockstun' : 'hit';
+          this.stateTimer = 0;
+          this.stunTime = guardBreak
+            ? 0.8
+            : blocking
+              ? (a.blockstun ?? 0.12)
+              : a.stun + (counter ? 0.07 : 0);
+          this.vel.copy(dir).multiplyScalar(a.kb * (blocking && !guardBreak ? 0.25 : 1));
+          this.flash = blocking ? 0.15 : a.chainType === 'light' ? 0.4 : 0.65;
+          this.attack = null;
+          this.comboType = null;
+          this.comboTimer = 0;
+          if (!blocking || guardBreak) {
+            this.receivedCombo++;
+            this.comboGrace = this.stunTime + 0.65;
+            if (this.pos.y > 0.15) this.juggle++;
+            if (a.launch && !this.launchFlight) {
+              this.jumpVel = a.launch;
+              this.pos.y = Math.max(0.04, this.pos.y);
+              this.airRecovery = true;
+            }
+            if (a.knockdown && !this.launchFlight) {
+              this.airRecovery = true;
+              this.jumpVel = 3.2;
+              this.pos.y = 0.03;
+            }
+            if (
+              !this.launchFlight &&
+              !armored &&
+              (this.receivedCombo >= combatModule.COMBO_PROTECTION_HITS ||
+                (this.juggle >= 3 && (!a.chainType || a.terminal)))
+            ) {
+              combatModule.launchKnockback(this, attacker);
+            }
           }
-          if (a.knockdown && !this.launchFlight) {
-            this.airRecovery = true;
-            this.jumpVel = 3.2;
-            this.pos.y = 0.03;
-          }
-          if (
-            !this.launchFlight &&
-            !armored &&
-            (this.receivedCombo >= combatModule.COMBO_PROTECTION_HITS || this.juggle >= 3)
-          ) {
-            combatModule.launchKnockback(this, attacker);
+          if (launchVelocity) this.vel.copy(launchVelocity);
+          if (armored && !this.launchFlight) {
+            this.attack = oldAttack;
+            this.state = 'attack';
+            this.stateTimer = this.armorTimer;
+            this.vel.set(0, 0, 0);
+            this.lastHitText = '霸体承伤';
           }
         }
-        if (launchVelocity) this.vel.copy(launchVelocity);
-        if (armored && !this.launchFlight) {
-          this.attack = oldAttack;
-          this.state = 'attack';
-          this.stateTimer = this.armorTimer;
-          this.vel.set(0, 0, 0);
-          this.lastHitText = '霸体承伤';
-        }
+        if (superArmored) this.lastHitText = '霸体承伤 · 60%';
         if (!a.projectile) attacker.hitResult = blocking && !guardBreak ? 'blocked' : 'hit';
         this.hitSide = THREE.MathUtils.clamp(
           dir.x * Math.cos(this.facingAngle) - dir.z * Math.sin(this.facingAngle),
@@ -1149,7 +1170,7 @@ export function register({
         else if (counter || punish) matchModule.notify(this.lastHitText, 0.42);
         if (attacker === matchModule.player && !blocking) {
           matchModule.game.comboCount = this.receivedCombo;
-          matchModule.game.comboTimer = this.stunTime + 0.3;
+          matchModule.game.comboTimer = this.stunTime + 0.65;
           matchModule.game.comboDamage = this.damageTotal;
           if (matchModule.game.comboCount >= 2) uiModule.showCombo(matchModule.game.comboCount);
         }

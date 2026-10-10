@@ -81,12 +81,22 @@ export function register({ art: artModule, characters: charactersModule }) {
     );
     const st = charactersModule.meshTo(
       b.parts.handR,
-      new THREE.CylinderGeometry(0.034, 0.034, 2.5, 12),
+      new THREE.CylinderGeometry(0.05, 0.05, 2.5, 12),
       charactersModule.M(0xc72d2b),
       0,
       0,
       0.07,
     );
+    const staffGold = charactersModule.M(0xe9ba43);
+    for (const end of [-1, 1])
+      charactersModule.meshTo(
+        st,
+        new THREE.CylinderGeometry(0.057, 0.057, 0.18, 12),
+        staffGold,
+        0,
+        end * 1.16,
+        0,
+      );
     st.rotation.z = Math.PI / 2;
     st.visible = false;
     b.parts.staff = st;

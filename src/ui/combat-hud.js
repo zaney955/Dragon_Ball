@@ -10,6 +10,11 @@ export function register({
     if (matchModule.game.over) return matchModule.game.endReason || '回合结束';
     if (matchModule.game.paused) return '已暂停';
     if (matchModule.game.ready > 0) return '准备';
+    if (f.youth?.reversedTime > 0)
+      return '太阳拳 · 方向反向 ' + f.youth.reversedTime.toFixed(1) + 's';
+    if (f.attack?.ability === 'sidestep') return '狼牙侧步 · 等待闪避反击';
+    if (f.attack?.youthDodgeCounter) return '狼牙闪身 · 背后击飞';
+    if (f.attack?.superArmor) return f.attack.name + ' · 霸体 · 承伤60%';
     if (f.attack) {
       if (f.attack.isKiBlast)
         return (

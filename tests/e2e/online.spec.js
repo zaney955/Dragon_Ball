@@ -42,7 +42,7 @@ async function lobby(page) {
     process.platform !== 'darwin' || !!process.env.DB_SOFTWARE_GPU,
   );
   await page.goto('/?test=1');
-  await expect(page.locator('#loading')).toHaveClass('hidden');
+  await expect(page.locator('#loading')).toHaveClass('hidden', { timeout: 30000 });
   await page.locator('#homeOnline').click();
   await expect(page.locator('.onlineRoomCard')).toHaveCount(3, { timeout: 15000 });
   await expect(page.locator('[data-room="1"]')).toBeEnabled();
@@ -470,6 +470,7 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
   ]);
   const [host, guest, viewer, mobile] = await Promise.all(contexts.map((c) => c.newPage()));
   try {
+    await guest.clock.install();
     for (const page of [host, guest])
       await page.addInitScript(() => {
         window.RTCPeerConnection = undefined;
@@ -501,9 +502,19 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
     await host.keyboard.down('KeyS');
     await host.keyboard.press('KeyR');
     await host.keyboard.up('KeyS');
-    await host.waitForFunction(() => window.__db.player.youth.form === 'fourArms', null, {
-      timeout: 10000,
-    });
+    // Hold the timed form while slow software-GPU pages join and inspect its snapshots.
+    // The real RAF, Worker and spectator publishing continue while combat is paused.
+    await host.waitForFunction(
+      () => {
+        const db = window.__db;
+        if (db.player.youth.form !== 'fourArms') return false;
+        db.game.paused = true;
+        return true;
+      },
+      null,
+      { timeout: 10000 },
+    );
+    await pauseClock(guest);
     await viewer.locator('[data-watch-room="3"]').click();
     await viewer.waitForFunction(
       () => window.__db.online.spectating && window.__db.online.spectator.stats.received >= 3,
@@ -519,6 +530,8 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
       expect(await page.evaluate(() => window.__db.player.youth.form)).toBe('fourArms');
       expect(await page.evaluate(() => window.__db.player.parts.extraArms.length)).toBe(2);
     }
+    await host.evaluate(() => (window.__db.game.paused = false));
+    await guest.clock.resume();
     const participantHealth = await host.evaluate(() => [
       window.__db.player.hp,
       window.__db.enemy.hp,
@@ -611,6 +624,135 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
     await expect(viewer.locator('#onlineLobby')).toBeVisible();
     await expect(viewer.locator('[data-watch-room]')).toHaveCount(0);
     expect(await viewer.evaluate(() => window.__db.online.spectator.objects.size)).toBe(0);
+    expect(errors.flat()).toEqual([]);
+  } finally {
+    await Promise.all(contexts.map((c) => c.close()));
+  }
+});
+
+test('solar reversal and ox king armor replay identically on both multiplayer endpoints', async ({
+  browser,
+}) => {
+  const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
+  const [host, guest] = await Promise.all(contexts.map((context) => context.newPage()));
+  try {
+    for (const page of [host, guest])
+      await page.addInitScript(() => {
+        window.RTCPeerConnection = undefined;
+      });
+    const errors = await Promise.all([lobby(host), lobby(guest)]);
+    await host.locator('[data-room="2"]').click();
+    await expect(guest.locator('[data-room="2"]')).toHaveText('加入房间');
+    await guest.locator('[data-room="2"]').click();
+    await expect.poll(() => host.evaluate(() => window.__db.online.room.players.length)).toBe(2);
+    await host.locator('#charList .char-card').nth(4).click();
+    await guest.locator('#charList .char-card').nth(7).click();
+    await host.locator('#startBtn').click();
+    await guest.locator('#startBtn').click();
+    await guest.waitForFunction(
+      () => window.__db.game.ready <= 0 && window.__db.online.remoteSequence > 5,
+    );
+    await host.keyboard.down('KeyW');
+    try {
+      await host.waitForFunction(
+        () => window.__db.player.pos.distanceTo(window.__db.enemy.pos) < 2.5,
+      );
+    } finally {
+      await host.keyboard.up('KeyW');
+    }
+    await host.keyboard.press('KeyR');
+    await host.waitForFunction(() => window.__db.enemy.youth.reversedTime > 1);
+    await guest.waitForFunction(() => window.__db.enemy.youth.reversedTime > 1);
+    await guest.keyboard.down('KeyW');
+    try {
+      await host.waitForFunction(
+        () => window.__db.enemy.lastInput.down && !window.__db.enemy.lastInput.up,
+      );
+      await guest.waitForFunction(
+        () => window.__db.enemy.lastInput.down && !window.__db.enemy.lastInput.up,
+      );
+    } finally {
+      await guest.keyboard.up('KeyW');
+    }
+    await guest.waitForFunction(() => window.__db.enemy.youth.reversedTime === 0);
+    await guest.keyboard.press('KeyK');
+    await host.waitForFunction(() => window.__db.enemy.attack?.superArmor === true);
+    await guest.waitForFunction(() => window.__db.enemy.attack?.superArmor === true);
+    expect(await host.evaluate(() => window.__db.online.active)).toBe(true);
+    expect(await guest.evaluate(() => window.__db.online.active)).toBe(true);
+    expect(errors.flat()).toEqual([]);
+  } finally {
+    await Promise.all(contexts.map((context) => context.close()));
+  }
+});
+
+test('yamcha dodge counter and double health bars replay across a real relay match', async ({
+  browser,
+}) => {
+  const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
+  const [host, guest] = await Promise.all(contexts.map((c) => c.newPage()));
+  try {
+    for (const page of [host, guest])
+      await page.addInitScript(() => {
+        window.RTCPeerConnection = undefined;
+      });
+    const errors = await Promise.all([lobby(host), lobby(guest)]);
+    await host.locator('[data-room="3"]').click();
+    await expect(guest.locator('[data-room="3"]')).toHaveText('加入房间');
+    await guest.locator('[data-room="3"]').click();
+    await expect.poll(() => host.evaluate(() => window.__db.online.room.players.length)).toBe(2);
+    await host.locator('#charList .char-card').nth(0).click();
+    await guest.locator('#charList .char-card').nth(6).click();
+    await host.locator('#startBtn').click();
+    await guest.locator('#startBtn').click();
+    await guest.waitForFunction(
+      () => window.__db.game.ready <= 0 && window.__db.online.remoteSequence > 5,
+    );
+    for (const page of [host, guest]) {
+      expect(
+        await page.evaluate(() =>
+          [window.__db.player, window.__db.enemy].every(
+            (f) => f.hp === f.def.hp * 2 && f.maxHp === f.def.hp * 2,
+          ),
+        ),
+      ).toBe(true);
+      await expect(page.locator('#p1reserve')).toBeVisible();
+      await expect(page.locator('#p2reserve')).toBeVisible();
+    }
+    await host.bringToFront();
+    await host.keyboard.down('KeyW');
+    try {
+      await host.waitForFunction(
+        () => window.__db.player?.pos.distanceTo(window.__db.enemy.pos) < 1.3,
+        null,
+        { timeout: 15000 },
+      );
+    } finally {
+      await host.keyboard.up('KeyW');
+    }
+    await guest.keyboard.down('KeyS');
+    await guest.keyboard.press('KeyR');
+    await guest.keyboard.up('KeyS');
+    await host.waitForFunction(() => window.__db.enemy.attack?.ability === 'sidestep');
+    await host.bringToFront();
+    await host.keyboard.press('KeyJ');
+    await host.waitForFunction(() => window.__db.player.launchFlight);
+    await guest.waitForFunction(() => window.__db.player.launchFlight);
+    await host.waitForFunction(() => window.__db.player.state === 'idle');
+    const sequence = await host.evaluate(() => window.__db.online.sequence);
+    await guest.waitForFunction((seq) => window.__db.online.remoteSequence > seq, sequence);
+    const states = await Promise.all(
+      [host, guest].map((page) =>
+        page.evaluate(() => ({
+          active: window.__db.online.active,
+          hp: [window.__db.player.hp, window.__db.enemy.hp],
+        })),
+      ),
+    );
+    expect(states[0].active && states[1].active).toBe(true);
+    expect(states[0].hp).toEqual(states[1].hp);
+    expect(states[0].hp[0]).toBeLessThan(480);
+    expect(states[0].hp[1]).toBe(480);
     expect(errors.flat()).toEqual([]);
   } finally {
     await Promise.all(contexts.map((c) => c.close()));

@@ -118,7 +118,9 @@ export function register({
               a.recovery > 0 &&
               Math.abs(a.dur - a.startup - a.active - a.recovery) < 1e-8 &&
               a.anim &&
-              a.cancelRules.whiff.length === 0,
+              (a.terminal
+                ? a.cancelRules.whiff.length === 0
+                : a.cancelRules.whiff.includes(a.chainType)),
           );
       });
       test('行走、后退、闪身、跳跃与落地 ' + def.id, () => {
@@ -210,7 +212,9 @@ export function register({
         assert(p.ki <= 100);
       });
       test('必杀生效扣气一次和状态恢复 ' + def.id, () => {
-        const [p] = v2Fixture(index, 0, 1.2);
+        const [p, e] = v2Fixture(index, 0, 1.2);
+        // Keep the round active while checking every hit and the full recovery.
+        e.hp = e.maxHp = 10000;
         p.startUlt();
         const a = p.attack;
         assert(a && p.ki === 0 && a.costCommitted);
@@ -250,7 +254,7 @@ export function register({
             b = p.parts.axe.localToWorld(new THREE.Vector3(0.56, 1.1, 0));
           assert(a.distanceTo(r.hit[0].a) < 1e-6 && b.distanceTo(r.hit[0].b) < 1e-6);
         });
-        test('横扫霸体一次承伤与投技反制', () => {
+        test('横扫全程霸体、多次承伤及投技保护', () => {
           const [p, e] = v2Fixture(index);
           p.startSpecial();
           p.stateTimer = p.attack.hitT;
@@ -263,7 +267,9 @@ export function register({
           assert(p.hp < p.maxHp && p.attack === a);
           p.invulnerable = 0;
           p.takeHit(e, { ...e.attack, level: 'mid' });
-          assert(p.attack === null);
+          assert(p.attack === a);
+          p.takeHit(e, { ...e.attack, isThrow: true });
+          assert(p.attack === a && !p.throwPending);
         });
       }
       if (def.id === 'chichi')
@@ -417,6 +423,7 @@ export function register({
         });
         test('三机实际接合、限时冲撞与恢复', () => {
           const [p, e] = v2Fixture(index, 0, 4);
+          e.hp = e.maxHp = 10000;
           p.startUlt();
           v2TestTicks(118);
           assert(p.youth.form === 'combined' && p.parts.combinedMechs.length === 2);
@@ -1061,11 +1068,11 @@ export function register({
       }
     });
     test('有限霸体、连击脱身与无重复相位伤害', () => {
-      const [p, e] = v2Fixture(7, 0, 0.8);
-      p.startAttack('heavy');
+      const [p, e] = v2Fixture(3, 0, 0.8);
+      p.startSpecial({ down: true });
       e.startThrow();
       p.takeHit(e, e.attack);
-      assert(p.throwPending, '投技未克制霸体');
+      assert(p.throwPending, '投技须克制比克的有限霸体');
       const [x, y] = v2Fixture(6, 0, 0.8);
       x.startUlt();
       v2TestTicks(230);

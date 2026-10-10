@@ -22,7 +22,7 @@ jobs:
   browser:
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ matrix.suite == 'full' && 30 || 20 }}
     strategy:
       fail-fast: false
       matrix:

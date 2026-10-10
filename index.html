@@ -19,7 +19,12 @@
         <div class="side left">
           <div class="pname" id="p1name">玩家</div>
           <div class="ultname" id="p1ultname"></div>
-          <div class="bar hp"><div class="fill" id="p1hp"></div></div>
+          <div class="healthStack" aria-label="两条生命">
+            <div class="bar hp"><div class="fill" id="p1hp"></div></div>
+            <div class="bar hp reserve" aria-label="备用生命">
+              <div class="fill" id="p1reserve"></div>
+            </div>
+          </div>
           <div class="bar ki" id="p1kibar"><div class="fill" id="p1ki"></div></div>
           <div class="guardBar" aria-label="护盾"><span id="p1guard"></span></div>
           <div class="resourceRow">
@@ -32,7 +37,12 @@
         <div class="side right">
           <div class="pname" id="p2name">CPU</div>
           <div class="ultname" id="p2ultname"></div>
-          <div class="bar hp"><div class="fill" id="p2hp"></div></div>
+          <div class="healthStack" aria-label="两条生命">
+            <div class="bar hp"><div class="fill" id="p2hp"></div></div>
+            <div class="bar hp reserve" aria-label="备用生命">
+              <div class="fill" id="p2reserve"></div>
+            </div>
+          </div>
           <div class="bar ki" id="p2kibar"><div class="fill" id="p2ki"></div></div>
           <div class="guardBar" aria-label="护盾"><span id="p2guard"></span></div>
           <div class="resourceRow">
@@ -86,6 +96,7 @@
         <div class="viewStats">
           <div class="viewName"><span class="viewLabel">1P</span><span id="view1Name"></span></div>
           <div class="viewHP"><span id="view1HP"></span></div>
+          <div class="viewHP reserve" aria-label="备用生命"><span id="view1Reserve"></span></div>
           <div class="viewKi"><span id="view1Ki"></span></div>
           <p id="view1Stats"></p>
         </div>
@@ -99,6 +110,7 @@
         <div class="viewStats">
           <div class="viewName"><span class="viewLabel">2P</span><span id="view2Name"></span></div>
           <div class="viewHP"><span id="view2HP"></span></div>
+          <div class="viewHP reserve" aria-label="备用生命"><span id="view2Reserve"></span></div>
           <div class="viewKi"><span id="view2Ki"></span></div>
           <p id="view2Stats"></p>
         </div>

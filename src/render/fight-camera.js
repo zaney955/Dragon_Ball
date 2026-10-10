@@ -183,7 +183,11 @@ export function register({
         [matchModule.enemy, matchModule.player, 'view2', renderModule.camera2],
       ]) {
         document.getElementById(prefix + 'Name').textContent = own.def.name;
-        document.getElementById(prefix + 'HP').style.width = (own.hp / own.maxHp) * 100 + '%';
+        const barHp = own.maxHp / 2;
+        document.getElementById(prefix + 'HP').style.width =
+          Math.min(1, Math.max(0, (own.hp - barHp) / barHp)) * 100 + '%';
+        document.getElementById(prefix + 'Reserve').style.width =
+          Math.min(1, Math.max(0, own.hp / barHp)) * 100 + '%';
         document.getElementById(prefix + 'Ki').style.width = own.ki + '%';
         document
           .getElementById(prefix + 'Ki')

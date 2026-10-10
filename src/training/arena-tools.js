@@ -143,7 +143,7 @@ export function register({
         ' / ' +
         rec +
         '</td><td>' +
-        a.dmg +
+        (a.damageLabel ?? a.dmg) +
         '</td><td>' +
         {
           high: '高',

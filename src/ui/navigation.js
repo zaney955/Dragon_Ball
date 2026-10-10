@@ -82,7 +82,7 @@ export function register({
     document.getElementById('heroName').textContent = c.name;
     document.getElementById('heroTitle').textContent = c.title;
     document.getElementById('heroUlt').textContent = c.ultName;
-    document.getElementById('heroHP').textContent = c.hp;
+    document.getElementById('heroHP').textContent = c.hp * 2 + '（双血条）';
     document.getElementById('heroSpeed').textContent = Math.round(c.speed * 100) + '%';
     document.getElementById('heroOwner').textContent =
       (matchModule.game.selectionPlayer === 1 ? '1P' : '2P') + ' 武道家';

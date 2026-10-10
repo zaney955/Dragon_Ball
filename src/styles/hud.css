@@ -204,3 +204,12 @@
     line-height: 1.15;
   }
 }
+
+.viewHP.reserve {
+  height: 7px;
+  margin-top: 3px;
+  border-color: #e1d5b6;
+}
+.viewHP.reserve span {
+  background: linear-gradient(90deg, #c9d6ae, #eef3d5);
+}

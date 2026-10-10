@@ -310,7 +310,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         const [p, e] = fixture('goku', 'krillin', 3);
         p.comboType = 'heavy';
         p.comboTimer = 1;
-        p.comboIdx = 1;
+        p.comboIdx = p.def.combos.heavy.length - 2;
         p.startAttack('heavy');
         p.hitResult = 'hit';
         p.stateTimer = p.attack.hitT + 0.05;
@@ -439,7 +439,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         const [ox] = fixture('gyumao');
         ox.comboType = 'heavy';
         ox.comboTimer = 1;
-        ox.comboIdx = 0;
+        ox.comboIdx = ox.def.combos.heavy.length - 2;
         ox.startAttack('heavy');
         const damage = world.currentMap.damageEvents;
         ticks(Math.ceil(ox.attack.hitT / match.STEP) + 1);

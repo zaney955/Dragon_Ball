@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { reverseDirectionalInput, staffReach } from './attack-rules.js';
 export function register({ combat, characters, animation, match, render, world, ui, audio }) {
   const foeOf = (f) => (f === match.player ? match.enemy : match.player);
   const blockedStates = [
@@ -23,6 +24,7 @@ export function register({ combat, characters, animation, match, render, world, 
       apeUsed: false,
       heals: 1,
       controlGrace: 0,
+      reversedTime: 0,
       controlCount: 0,
       wolfUntil: 0,
       catUntil: 0,
@@ -217,7 +219,7 @@ export function register({ combat, characters, animation, match, render, world, 
     if (a.chainType && a.effector === 'torso') f.attack.drive = (a.drive ?? 3) + 2;
     if (a.chainType && f.def.id === 'krillin' && a.chainType === 'light')
       f.attack.drive = (a.drive ?? 2.5) + 1.5;
-    if (a.chainType && a.effector === 'axe' && a.motion === 'axeSweep') f.attack.drive = 0;
+    if (a.chainType && a.effector === 'axe' && a.motion !== 'axeJab') f.attack.drive = 0;
     f.attackMask = 0;
     f.hasHit = false;
     f.hitResult = null;
@@ -240,13 +242,19 @@ export function register({ combat, characters, animation, match, render, world, 
         type === 'light'
           ? [
               ['横拍', 'claw', 8, 0.25],
-              ['反手扫', 'backClaw', 12, 0.35],
+              ['反手扫', 'backClaw', 9, 0.3],
+              ['进步横拍', 'claw', 10, 0.28],
+              ['低身推掌', 'doublePalm', 10, 0.32],
+              ['巨猿踢击', 'heavyKick', 14, 0.35],
             ]
           : [
-              ['砸地', 'doublePalm', 18, 0.55],
-              ['踩踏', 'heavyKick', 24, 0.65],
+              ['重掌', 'doublePalm', 12, 0.4],
+              ['巨爪横扫', 'claw', 13, 0.4],
+              ['反身重拍', 'backClaw', 14, 0.45],
+              ['踩踏', 'heavyKick', 15, 0.45],
+              ['双掌砸地', 'doublePalm', 24, 0.55],
             ]
-      ).map(([name, motion, dmg, startup], i) => {
+      ).map(([name, motion, dmg, startup], i, chain) => {
         const a = combat.finalizeMove({
           id: type[0] + (i + 1),
           name,
@@ -257,14 +265,18 @@ export function register({ combat, characters, animation, match, render, world, 
           recovery: type === 'light' ? 0.35 : 0.7,
           range: type === 'light' ? 2.6 : 3.2,
           stun: 0.4,
-          kb: 3,
+          kb: i === chain.length - 1 ? 5 : 0.35,
           guardDamage: 22,
           chainType: type,
           chainIndex: i,
-          terminal: i === 1,
+          terminal: i === chain.length - 1,
           authored: true,
           effector: animation.youthEffector(motion, i, 'goku'),
-          cancelRules: { hit: i === 0 ? [type] : [], block: [], whiff: [] },
+          cancelRules: {
+            hit: i < chain.length - 1 ? [type] : [],
+            block: [],
+            whiff: i < chain.length - 1 ? [type] : [],
+          },
         });
         a.anim = animation.authorYouthMove(f.def, a, i);
         return a;
@@ -274,13 +286,6 @@ export function register({ combat, characters, animation, match, render, world, 
     let a = { ...list[idx] };
     if (type === 'heavy' && (input.up || input.down) && f.youth.form !== 'ape')
       a = { ...f.def.directionMoves[input.up ? 0 : 1] };
-    if (
-      f.def.id === 'tien' &&
-      type === 'heavy' &&
-      idx > 0 &&
-      (f.hitResult !== 'hit' || foeOf(f).pos.distanceTo(f.pos) > a.range + 0.35)
-    )
-      return false;
     if (f.pos.y > 0.15) a.level = 'overhead';
     if (f.youth.form === 'muscle' && type === 'heavy') a.dmg *= 1.15;
     if (f.youth.form === 'fourArms') a.dmg *= 1.1;
@@ -291,7 +296,7 @@ export function register({ combat, characters, animation, match, render, world, 
     }
     f.comboType = type;
     f.comboIdx = idx;
-    f.comboTimer = a.dur + 0.25;
+    f.comboTimer = a.dur + 0.4;
     return launch(f, a);
   };
   combat.startYouthSpecial = function (f, context = {}) {
@@ -398,6 +403,55 @@ export function register({ combat, characters, animation, match, render, world, 
     combat.youthEntities.push(e);
     return e;
   }
+  // Called only after a genuine hit has reached the fighter (or an aimed control skill).
+  function dodgeCounter(f, attacker, incoming) {
+    const dodge = f.attack;
+    if (
+      f.def.id !== 'yamcha' ||
+      f.hp <= 0 ||
+      incoming.isThrow ||
+      incoming.counterResponse ||
+      attacker !== foeOf(f) ||
+      attacker.hp <= 0 ||
+      dodge?.ability !== 'sidestep' ||
+      f.stateTimer + 1e-9 < dodge.hitT ||
+      f.stateTimer > dodge.hitT + dodge.active + 1e-9
+    )
+      return false;
+    combat.spawnAfterimage(f);
+    const behind = attacker.pos.clone().addScaledVector(attacker.forward(), -1);
+    behind.y = f.pos.y;
+    moveBy(f, behind.sub(f.pos));
+    f.facingAngle = Math.atan2(attacker.pos.x - f.pos.x, attacker.pos.z - f.pos.z);
+    f.clearQueue();
+    f.invulnerable = Math.max(f.invulnerable, 0.08);
+    const counter = {
+      ...dodge,
+      ability: undefined,
+      shape: undefined,
+      name: '狼牙闪身·背袭',
+      motion: 'doublePalm',
+      effector: 'both',
+      dmg: 22,
+      range: 1.7,
+      startup: 0.08,
+      active: 0.14,
+      recovery: 0.4,
+      kb: 6,
+      stun: 0.55,
+      launch: 7,
+      counterResponse: true,
+      youthDodgeCounter: true,
+      drive: 3,
+    };
+    counter.anim = animation.authorYouthMove(f.def, counter);
+    launch(f, counter);
+    attacker.hitResult = 'dodged';
+    f.lastHitText = '闪避成功 · 背后击飞';
+    combat.spawnAfterimage(f);
+    combat.emitCombatEvent('dodgeCounter', f, attacker, incoming);
+    return true;
+  }
   combat.releaseYouthAbility = function (f, a) {
     const v = f.youth,
       foe = foeOf(f),
@@ -419,6 +473,10 @@ export function register({ combat, characters, animation, match, render, world, 
       const hit = combat.sampleCombatRig(f).hit[0];
       const impact = hit.a.clone().add(hit.b).multiplyScalar(0.5).setY(0);
       world.damageStage(f, { ...a, landingImpact: true }, impact);
+      if (a.motion === 'axeCataclysm') {
+        render.spawnShockRing(f.pos.clone().setY(0.08), 0xffb35e, a.range);
+        render.spawnSpark(impact.clone().setY(0.15), 0xffcf83, 24, 0.7);
+      }
     }
     if (!kind) return;
     if (kind === 'equipment') {
@@ -470,7 +528,7 @@ export function register({ combat, characters, animation, match, render, world, 
       v.armorSpent = false;
     }
     if (kind === 'retreat') f.youth.retreat = { time: 0.2, remaining: 1.2 };
-    if (kind === 'sidestep' || kind === 'catStep') {
+    if (kind === 'catStep') {
       const side = f.lastInput?.left ? -1 : 1;
       moveBy(
         f,
@@ -478,12 +536,11 @@ export function register({ combat, characters, animation, match, render, world, 
           1.2 * side,
         ),
       );
-      if (kind === 'catStep') {
-        f.invulnerable = Math.max(f.invulnerable, 0.075);
-        v.catUntil = match.game.simTime + 0.35;
-      }
+      f.invulnerable = Math.max(f.invulnerable, 0.075);
+      v.catUntil = match.game.simTime + 0.35;
       combat.spawnAfterimage(f);
     }
+    if (kind === 'sidestep') combat.spawnAfterimage(f);
     if (kind === 'floatRetreat') {
       v.floatTime = 0.5;
       v.floatRemaining = 1.2;
@@ -506,7 +563,14 @@ export function register({ combat, characters, animation, match, render, world, 
         foe.forward().dot(delta.clone().negate()) > 0.25 &&
         !combat.coverBlocks(f.pos, foe.pos)
       ) {
-        combat.applyControl(f, foe, a);
+        if (foe.hp > 0 && foe.invulnerable <= 0 && !['block', 'blockstun'].includes(foe.state)) {
+          if (dodgeCounter(foe, f, a)) return;
+          combat.applyControl(f, foe, a);
+          foe.youth.reversedTime = a.reverseDuration ?? 3;
+          combat.emitCombatEvent('reverseDirections', f, foe, a, {
+            duration: foe.youth.reversedTime,
+          });
+        }
         render.spawnShockRing(f.pos.clone().add(new THREE.Vector3(0, 1.5, 0)), 0xfff5bd, 1.8);
       }
     }
@@ -536,12 +600,13 @@ export function register({ combat, characters, animation, match, render, world, 
         );
       entity(f, 'smoke', 3, 0, mesh, f.pos.clone().addScaledVector(f.forward(), 1.2));
     }
-    if (kind === 'helmetCombo') shoot(f, { ...a, range: 8 }, 'helmet', 26, 0.12);
+    if (kind === 'helmetCombo') shoot(f, { ...a, range: 8 }, 'helmet', a.projectileDamage, 0.12);
     if (kind === 'barrage') {
-      for (let i = 0; i < 4; i++) shoot(f, a, 'bullet', 7, i * 0.12);
+      for (let i = 0; i < 4; i++) shoot(f, a, 'bullet', a.dmg, i * 0.12);
     }
     if (kind === 'psychicVolley') {
-      for (let i = 0; i < 3; i++) shoot(f, { ...a, range: 8 }, 'psychic', 8, 0.12 + i * 0.12);
+      for (let i = 0; i < 3; i++)
+        shoot(f, { ...a, range: 8 }, 'psychic', a.projectileDamage, 0.12 + i * 0.12);
     }
     if (kind === 'trial') {
       combat.spawnAfterimage(f);
@@ -560,8 +625,8 @@ export function register({ combat, characters, animation, match, render, world, 
     if (kind === 'combine') {
       combat.setYouthBody(f, 'combined');
       v.formTime = 3;
-      shoot(f, { ...a, range: 8 }, 'missile', 10, 0);
-      shoot(f, { ...a, range: 8 }, 'missile', 10, 0.12);
+      shoot(f, { ...a, range: 8 }, 'missile', a.projectileDamage, 0);
+      shoot(f, { ...a, range: 8 }, 'missile', a.projectileDamage, 0.12);
     }
   };
   combat.coverBlocks = function (from, to) {
@@ -606,6 +671,10 @@ export function register({ combat, characters, animation, match, render, world, 
     f.stateTimer + 1e-9 >= f.attack.hitT &&
     f.stateTimer <= f.attack.hitT + f.attack.active + 1e-9;
   combat.reflectProjectile = function (f, b) {
+    if (dodgeCounter(f, b.owner, b.attack)) {
+      b.hits?.add(f);
+      return true;
+    }
     if (!combat.counterActive(f)) return false;
     const attacker = b.owner;
     if (b.kind === 'blade') attacker.v2.bladeOut = false;
@@ -632,6 +701,22 @@ export function register({ combat, characters, animation, match, render, world, 
   combat.tickYouthFighter = function (f, dt) {
     const v = f.youth;
     if (!v) return;
+    v.reversedTime = Math.max(0, v.reversedTime - dt);
+    if (
+      f.attack?.ability === 'sidestep' &&
+      !f.attack.sidestepMoved &&
+      f.stateTimer >= f.attack.hitT + f.attack.active
+    ) {
+      f.attack.sidestepMoved = true;
+      const side = f.lastInput?.left ? -1 : 1;
+      moveBy(
+        f,
+        new THREE.Vector3(Math.cos(f.facingAngle), 0, -Math.sin(f.facingAngle)).multiplyScalar(
+          1.2 * side,
+        ),
+      );
+      combat.spawnAfterimage(f);
+    }
     if (f.v2.controlTarget?.v2.controlTime <= 0) f.v2.controlTarget = null;
     if (v.form === 'combined' && !f.attack) combat.endYouthForm(f, false);
     v.cooldowns = v.cooldowns.map((t) => Math.max(0, t - dt));
@@ -832,13 +917,22 @@ export function register({ combat, characters, animation, match, render, world, 
       return launch(this, this.def.throwMove);
     };
     combat.releaseV2Ability = combat.releaseYouthAbility;
+    const capture = proto.captureInput;
+    proto.captureInput = function (input) {
+      capture.call(this, this.youth.reversedTime > 0 ? reverseDirectionalInput(input) : input);
+    };
     const update = proto.update;
     proto.update = function (dt, foe, input = {}) {
       if (match.game.over) return;
       if (foe && !combat.inYouthSmoke(this) && !combat.inYouthSmoke(foe))
         this.youth.lastSeen = { x: foe.pos.x, y: foe.pos.y, z: foe.pos.z };
       combat.tickYouthFighter(this, dt);
-      update.call(this, dt, foe, input);
+      update.call(
+        this,
+        dt,
+        foe,
+        this.youth.reversedTime > 0 ? reverseDirectionalInput(input) : input,
+      );
     };
     const flight = combat.flightPhysics;
     combat.flightPhysics = function (f, dt, input) {
@@ -923,7 +1017,7 @@ export function register({ combat, characters, animation, match, render, world, 
         this.root.rotation.set(0, this.facingAngle, 0);
         characters.applyPose(this.parts, combat.combatPose(this), 0, true);
         if (this.parts.staff && this.attack.effector === 'staff') {
-          const length = this.attack.range / this.baseScale;
+          const length = staffReach(this.attack, this.stateTimer) / this.baseScale;
           this.parts.staff.rotation.set(0, 0, 0);
           this.parts.staff.scale.set(1, length / 2.5, 1);
           this.parts.staff.position.set(0, -length / 2, 0);
@@ -958,6 +1052,7 @@ export function register({ combat, characters, animation, match, render, world, 
     combat.sampleCombatRig = function (f) {
       const r = oldRig(f),
         a = f.attack;
+      if (a?.shape === 'ability') for (const hit of r.hit) hit.enabled = false;
       if (
         a?.authored &&
         a.shape !== 'beam' &&
@@ -1008,7 +1103,7 @@ export function register({ combat, characters, animation, match, render, world, 
         }
         if (effect === 'staff') {
           p.handR.localToWorld(r.hit[0].a.set(0, 0, 0));
-          p.handR.localToWorld(r.hit[0].b.set(0, -(a.range ?? 2) / f.baseScale, 0));
+          p.handR.localToWorld(r.hit[0].b.set(0, -staffReach(a, f.stateTimer) / f.baseScale, 0));
           r.hit[0].r = 0.09 * f.baseScale;
           r.hit[0].enabled = true;
         }
@@ -1114,6 +1209,7 @@ export function register({ combat, characters, animation, match, render, world, 
         old = this.attack,
         oldTimer = this.stateTimer,
         hp = this.hp;
+      if (dodgeCounter(this, attacker, a)) return;
       if (combat.counterActive(this) && !a.isThrow && !a.counterResponse) {
         attacker.hitResult = 'countered';
         this.lastHitText = a.projectile || a.shape === 'beam' ? '远程反弹' : '防反';
@@ -1153,7 +1249,8 @@ export function register({ combat, characters, animation, match, render, world, 
           );
           combat.emitCombatEvent('reflection', this, attacker, a);
         } else {
-          attacker.attack = null;
+          const protectedAttack = attacker.attack?.superArmor;
+          if (!protectedAttack) attacker.attack = null;
           if (typeof attacker.takeHit === 'function') {
             attacker.takeHit(
               this,
@@ -1168,7 +1265,8 @@ export function register({ combat, characters, animation, match, render, world, 
                 kb: 0,
               }),
             );
-            if (attacker.hp > 0) combat.launchKnockback(attacker, this, 'counter');
+            if (attacker.hp > 0 && !protectedAttack)
+              combat.launchKnockback(attacker, this, 'counter');
           } else {
             // Summon pounces use a source proxy rather than a Fighter instance.
             const minion = combat.youthEntities.find((e) => e.pos === attacker.pos);
@@ -1233,12 +1331,21 @@ export function register({ combat, characters, animation, match, render, world, 
         }
         if (attacker.youth && a.ability === 'wolf')
           attacker.youth.wolfUntil = match.game.simTime + 0.25;
-        if (a.control > 0 && !this.launchFlight) combat.applyControl(attacker, this, a);
+        if (
+          a.youthDodgeCounter &&
+          !old?.superArmor &&
+          this.hp > 0 &&
+          !['block', 'blockstun'].includes(this.state)
+        )
+          combat.launchKnockback(this, attacker, 'counter');
+        if (a.control > 0 && !this.launchFlight && !old?.superArmor)
+          combat.applyControl(attacker, this, a);
       }
     };
     combat.applyControl = function (owner, foe, a) {
       if (
         foe.hp <= 0 ||
+        foe.attack?.superArmor ||
         foe.launchFlight ||
         foe.invulnerable > 0 ||
         ['block', 'blockstun'].includes(foe.state)

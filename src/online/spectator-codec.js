@@ -50,6 +50,10 @@ export const ATTACK_FIELDS = [
   'targetDistance',
   'targetScale',
   'drive',
+  'extendingStaff',
+  'superArmor',
+  'youthDodgeCounter',
+  'launch',
   'costCommitted',
   'serial',
 ];
@@ -143,6 +147,8 @@ export function validSpectatorFrame(frame) {
         [null, 'ape', 'muscle', 'fourArms', 'ogre', 'bat', 'armor', 'combined'].includes(f.form) &&
         vector(f.cooldowns, 2) &&
         finite(f.formTime) &&
+        (f.reversedTime === undefined ||
+          (finite(f.reversedTime) && f.reversedTime >= 0 && f.reversedTime <= 3)) &&
         finite(f.heals) &&
         typeof f.tailIntact === 'boolean' &&
         ['missile', 'flame'].includes(f.weapon) &&

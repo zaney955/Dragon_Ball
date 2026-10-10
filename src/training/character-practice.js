@@ -36,7 +36,7 @@ export function register({
           '</td><td>' +
           [a.startup, a.active, a.recovery].map((x) => Number((x * 60).toFixed(2))).join(' / ') +
           '</td><td>' +
-          a.dmg +
+          (a.damageLabel ?? a.dmg) +
           '</td><td>' +
           ({
             low: '下',
