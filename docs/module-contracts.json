@@ -2152,7 +2152,6 @@
       "audio.playBGM",
       "audio.sfxGain",
       "audio.sfxVolume",
-      "audio.stopBGM",
       "audio.updateBGM",
       "match.enemy",
       "match.game",

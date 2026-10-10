@@ -1,6 +1,7 @@
 import manifest from '../assets/music/manifest.js';
 const BGM_OUTPUT_GAIN = 0.4;
 export const MUSIC_URLS = {
+  global: './01.魔訶不思議アドベンチャー__爱给网_aigei_com.mp3',
   menu: new URL('../assets/music/menu.mp3', import.meta.url).href,
   arena: new URL('../assets/music/arena.mp3', import.meta.url).href,
   wild: new URL('../assets/music/wild.mp3', import.meta.url).href,
@@ -16,7 +17,7 @@ export function register({ audio, match }) {
   let generation = 0,
     current = null,
     desired = null,
-    crisisLatched = false;
+    musicEnabled = true;
   audio.bgmVolume = 0.35;
   audio.sfxVolume = 0.8;
   audio.bgmState = { track: null, looping: 0, loading: false, error: null };
@@ -45,12 +46,15 @@ export function register({ audio, match }) {
       const response = await fetch(MUSIC_URLS[id]);
       if (!response.ok) throw new Error('配乐加载失败：' + id);
       const decoded = await audio.actx.decodeAudioData(await response.arrayBuffer());
-      const meta = manifest.find((t) => t.id === id),
-        n = Math.min(decoded.length, Math.round(meta.duration * decoded.sampleRate)),
-        copy = audio.actx.createBuffer(decoded.numberOfChannels, n, decoded.sampleRate);
-      for (let c = 0; c < copy.numberOfChannels; c++)
-        copy.copyToChannel(decoded.getChannelData(c).subarray(0, n), c);
-      buffers.set(id, copy);
+      if (id === 'global') buffers.set(id, decoded);
+      else {
+        const meta = manifest.find((t) => t.id === id),
+          n = Math.min(decoded.length, Math.round(meta.duration * decoded.sampleRate)),
+          copy = audio.actx.createBuffer(decoded.numberOfChannels, n, decoded.sampleRate);
+        for (let c = 0; c < copy.numberOfChannels; c++)
+          copy.copyToChannel(decoded.getChannelData(c).subarray(0, n), c);
+        buffers.set(id, copy);
+      }
     }
     return buffers.get(id);
   }
@@ -78,14 +82,17 @@ export function register({ audio, match }) {
       }
       const source = audio.actx.createBufferSource(),
         gain = audio.actx.createGain(),
-        meta = manifest.find((m) => m.id === id);
+        meta =
+          id === 'global'
+            ? { loop: true, duration: pcm.duration }
+            : manifest.find((m) => m.id === id);
       source.buffer = pcm;
       source.loop = meta.loop;
       source.loopStart = 0;
       source.loopEnd = meta.duration;
       gain.gain.setValueAtTime(0, t);
       gain.gain.linearRampToValueAtTime(
-        audio.bgmVolume * BGM_OUTPUT_GAIN * (match.game.muted ? 0 : 1),
+        audio.bgmVolume * BGM_OUTPUT_GAIN * (match.game.muted || !musicEnabled ? 0 : 1),
         t + fade,
       );
       source.connect(gain);
@@ -121,26 +128,15 @@ export function register({ audio, match }) {
     decoded: [...buffers.keys()],
     voices: voices.size,
     looping: [...voices].filter((v) => v.source.loop).length,
-    crisisLatched,
+    musicEnabled,
     bgm: audio.bgmVolume,
     sfx: audio.sfxVolume,
   });
   audio.resetBGM = function () {
-    crisisLatched = false;
-    audio.stopBGM();
     audio.updateBGM();
   };
-  audio.finishBGM = function (winner) {
-    audio.stopBGM();
-    if (match.game.matchFinished || winner === 'draw')
-      audio.playBGM(
-        winner === 'draw'
-          ? 'draw'
-          : winner === 'enemy' && match.game.difficulty !== 'local'
-            ? 'lose'
-            : 'win',
-        0.05,
-      );
+  audio.finishBGM = function () {
+    audio.updateBGM();
   };
   audio.updateBGM = function () {
     if (!audio.actx || match.game.manualTest) return;
@@ -149,15 +145,7 @@ export function register({ audio, match }) {
       return;
     }
     if (audio.actx.state === 'suspended') audio.actx.resume();
-    if (match.game.screen === 'fight' && !match.game.over) {
-      if (
-        [match.player, match.enemy].some((f) => f && f.hp / f.maxHp <= 0.25) ||
-        match.game.timeLeft <= 20
-      )
-        crisisLatched = true;
-      const id = crisisLatched ? 'crisis' : ['arena', 'wild', 'island'][match.game.selectedMap];
-      if (desired !== id) audio.playBGM(id, crisisLatched ? 0.5 : 0.8);
-    } else if (match.game.screen === 'menu' && desired !== 'menu') audio.playBGM('menu');
+    if (musicEnabled && desired !== 'global') audio.playBGM('global');
     if (current) {
       const duck =
         match.victory?.finished && match.victory.time >= 2
@@ -165,8 +153,9 @@ export function register({ audio, match }) {
           : [match.player, match.enemy].some((f) => f?.attack?.isUlt)
             ? 0.5
             : 1;
+      current.gain.gain.cancelScheduledValues(audio.actx.currentTime);
       current.gain.gain.setTargetAtTime(
-        audio.bgmVolume * BGM_OUTPUT_GAIN * duck,
+        audio.bgmVolume * BGM_OUTPUT_GAIN * duck * (musicEnabled ? 1 : 0),
         audio.actx.currentTime,
         0.12,
       );
@@ -180,8 +169,38 @@ export function register({ audio, match }) {
       if (saved) {
         audio.bgmVolume = Math.max(0, Math.min(1, saved.bgm ?? 0.35));
         audio.sfxVolume = Math.max(0, Math.min(1, saved.sfx ?? 0.8));
+        musicEnabled = saved.musicEnabled !== false;
       }
     } catch {}
+    const saveSettings = () => {
+      try {
+        localStorage.setItem(
+          'dragon-ball-audio',
+          JSON.stringify({ bgm: audio.bgmVolume, sfx: audio.sfxVolume, musicEnabled }),
+        );
+      } catch {}
+    };
+    const musicBtn = document.getElementById('musicBtn');
+    const updateMusicButton = () => {
+      musicBtn.textContent = musicEnabled ? '音乐：开' : '音乐：关';
+      musicBtn.setAttribute('aria-pressed', String(musicEnabled));
+      musicBtn.title = musicEnabled ? '关闭背景音乐' : '开启背景音乐';
+    };
+    updateMusicButton();
+    musicBtn.onclick = () => {
+      musicEnabled = !musicEnabled;
+      updateMusicButton();
+      saveSettings();
+      for (const voice of voices) {
+        voice.gain.gain.cancelScheduledValues(audio.actx.currentTime);
+        voice.gain.gain.setTargetAtTime(
+          musicEnabled ? audio.bgmVolume * BGM_OUTPUT_GAIN : 0,
+          audio.actx.currentTime,
+          0.03,
+        );
+      }
+      audio.initAudio();
+    };
     const settings = document.createElement('div');
     settings.className = 'audioSettings';
     settings.innerHTML = `<label>音乐 <input id="bgmVolume" aria-label="音乐音量" type="range" min="0" max="100" value="${audio.bgmVolume * 100}"></label><label>音效 <input id="sfxVolume" aria-label="音效音量" type="range" min="0" max="100" value="${audio.sfxVolume * 100}"></label>`;
@@ -192,10 +211,7 @@ export function register({ audio, match }) {
     ])
       document.getElementById(id).oninput = (e) => {
         audio[key] = Number(e.target.value) / 100;
-        localStorage.setItem(
-          'dragon-ball-audio',
-          JSON.stringify({ bgm: audio.bgmVolume, sfx: audio.sfxVolume }),
-        );
+        saveSettings();
         audio.updateBGM();
       };
     const init = audio.initAudio;

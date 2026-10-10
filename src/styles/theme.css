@@ -61,6 +61,28 @@ select,
   box-shadow: none;
   transform: none;
 }
+#musicBtn {
+  position: fixed;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  z-index: 90;
+  min-height: 44px;
+  border-color: var(--gold);
+  background: var(--ink);
+  color: var(--gold);
+}
+#musicBtn[aria-pressed='false'] {
+  border-color: var(--line);
+  color: var(--muted);
+}
+.splitMode #musicBtn {
+  bottom: max(68px, env(safe-area-inset-bottom));
+}
+@media (pointer: coarse), (max-width: 600px) {
+  body:has(#hud.show) #musicBtn {
+    bottom: max(220px, env(safe-area-inset-bottom));
+  }
+}
 select {
   color-scheme: dark;
   max-width: 100%;
