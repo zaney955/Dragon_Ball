@@ -57,6 +57,7 @@ export function createSpectator({ online, animation, combat, match, render, worl
       attack: f.attack ? pickFields(f.attack, ATTACK_FIELDS) : null,
       form: f.youth.form,
       formTime: f.youth.formTime,
+      reversedTime: f.youth.reversedTime,
       cooldowns: f.youth.cooldowns,
       heals: f.youth.heals,
       tailIntact: f.youth.tailIntact,
@@ -196,6 +197,7 @@ export function createSpectator({ online, animation, combat, match, render, worl
       }
       Object.assign(f, data.props);
       f.youth.formTime = data.formTime;
+      f.youth.reversedTime = data.reversedTime ?? 0;
       f.youth.cooldowns = [...data.cooldowns];
       f.youth.heals = data.heals;
       f.youth.tailIntact = data.tailIntact;

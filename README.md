@@ -73,19 +73,19 @@ src/animation/              动作关键帧、姿态插值、接触动作
 src/ai/                     延迟观察、记忆与角色战术
 src/world/                  舞台、光照、破坏与仙豆规则
 src/render/                 场景、镜头、分屏与特效
-src/audio/                  音效、原创 BGM、音量与切曲
+src/audio/                  音效、全局背景音乐、独立开关与音量
 src/input/                  键盘、触屏、双人输入
 src/match/                  对局状态、回合与界面切换
 src/ui/                     HUD、选角、招式指南、美术图鉴
 src/training/               陪练、专项练习与训练工具
 src/online/                 联机大厅、连接和战斗同步
 src/styles/                 按原级联顺序组织的 CSS
-src/assets/                 图片与八首本地 MP3
+src/assets/                 图片与保留的八首原创 MP3
 src/testing/                原有游戏验收与测试接口
 scripts/                    构建辅助工具
 workers/                    免费联机 Worker 与房间协调对象
 functions/                  同域名 WebSocket 接入
-public/_routes.json         仅联机接入调用 Pages Function
+public/                     全局背景音乐及 Pages Function 路由配置
 tests/                     单元测试与浏览器回归
 docs/                      架构、模块接口与当前验收记录
 ```
@@ -114,6 +114,8 @@ npm run test:offline
 ## 维护说明
 
 Three.js 固定为原版 `0.160.0`。角色生命、速度、力量沿用现值；本轮更换独立动作、技能、形态及胜利演出。完整规则见 [14 人设计记录](docs/youth-design.md)。依赖版本及锁文件已固定，安装使用 `npm ci`。
+
+背景音乐在首次交互后启动，首页、选角、战斗及结果页持续循环同一首全局曲目。右下角音乐开关只控制背景音乐，音效保持独立；开关和音量设置保存在本地。暂停或页面隐藏时暂停音频，恢复后继续原播放位置。原有八首原创曲目保留供手动播放与解码验收，不再随地图、危机或胜负自动切换。网页版使用本地 MP3 资源，离线导出将全部九首曲目内嵌。
 
 角色、招式与帧数据以 `src/characters/` 的运行时定义为准，可在游戏内查看招式指南。已删除过时报告、重复 JSON/CSV 导出和被覆盖的旧实现，历史资料可从 Git 基线 `f3a1a69` 找回；范围与验证见 [项目清理记录](docs/cleanup-validation.md)。
 

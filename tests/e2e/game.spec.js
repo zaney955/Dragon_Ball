@@ -338,6 +338,9 @@ for (const width of [390, 320])
     await page.locator('#charList .char-card').nth(12).click();
     await page.locator('.settingsDisclosure summary').click();
     await page.locator('#lighting').selectOption('moon');
+    await page.locator('#moveGuideBtn').click();
+    await expect(page.locator('#moveGuide')).toHaveClass(/show/);
+    await page.locator('#guideClose').click();
     await page.locator('#startBtn').click();
     await expect(page.locator('#secondarySkill')).toBeVisible();
     await expect(page.locator('#secondarySkill')).toContainText('仙豆');
@@ -354,6 +357,7 @@ for (const width of [390, 320])
 for (const width of [1024, 390])
   test(`global music toggle persists and does not mute effects at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 720 });
+    // This fixture disables animation frames; async audio waits must use timer polling.
     const errors = await openGame(page, true, true);
     const toggle = page.locator('#musicBtn');
     await expect(toggle).toBeVisible();
@@ -361,17 +365,23 @@ for (const width of [1024, 390])
     await toggle.click();
     await expect(toggle).toHaveText('音乐：关');
     await expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    await page.waitForFunction(() => window.__db.musicDiagnostics().context === 'running');
+    await page.waitForFunction(() => window.__db.musicDiagnostics().context === 'running', null, {
+      polling: 100,
+    });
     expect(await page.evaluate(() => window.__db.game.muted)).toBe(false);
     expect(await page.evaluate(() => window.__db.musicDiagnostics().musicEnabled)).toBe(false);
     await toggle.click();
-    await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'global');
+    await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'global', null, {
+      polling: 100,
+    });
     expect((await page.evaluate(() => window.__db.musicDiagnostics())).looping).toBe(1);
     await page.locator('#homeStart').click();
     await expect(toggle).toBeVisible();
     await page.locator('#startBtn').click();
     await expect(toggle).toBeVisible();
-    await page.waitForFunction(() => window.__db.musicDiagnostics().voices === 1);
+    await page.waitForFunction(() => window.__db.musicDiagnostics().voices === 1, null, {
+      polling: 100,
+    });
     await page.locator('#pauseBtn').click();
     await expect(toggle).toBeVisible();
     await page.locator('#pauseMenu').click();
@@ -384,7 +394,9 @@ for (const width of [1024, 390])
     await page.locator('#homeStart').click();
     expect((await page.evaluate(() => window.__db.musicDiagnostics())).voices).toBe(0);
     await toggle.click();
-    await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'global');
+    await page.waitForFunction(() => window.__db.musicDiagnostics().track === 'global', null, {
+      polling: 100,
+    });
     expect(errors).toEqual([]);
   });
 

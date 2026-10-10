@@ -1,3 +1,5 @@
+import { reverseDirectionalInput } from '../combat/attack-rules.js';
+
 const movable = new Set(['idle', 'walk', 'crouch', 'block', 'charge', 'blastCharge']);
 
 /** Predict display positions only. Authoritative fighter state is never changed. */
@@ -36,7 +38,9 @@ export class GuestPresentation {
           const step = Math.min(1 / 120, elapsed - time),
             at = now - elapsed * 1000 + time * 1000;
           while (this.history[historyIndex + 1]?.at <= at) historyIndex++;
-          const input = this.history[historyIndex].input;
+          const rawInput = this.history[historyIndex].input;
+          const input =
+            fighter.youth?.reversedTime > 0 ? reverseDirectionalInput(rawInput) : rawInput;
           let side = +!!input.right - +!!input.left,
             forward = +!!input.up - +!!input.down;
           const length = Math.hypot(side, forward),
@@ -74,7 +78,9 @@ export class GuestPresentation {
         !fighter.youth?.form &&
         this.action?.at > (this.confirmedAt ?? -Infinity) &&
         now - this.action.at < 200
-          ? this.action
+          ? fighter.youth?.reversedTime > 0
+            ? reverseDirectionalInput(this.action)
+            : this.action
           : null;
     });
   }

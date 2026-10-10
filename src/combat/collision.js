@@ -15,6 +15,18 @@ export function register({
       enabled: true,
     };
   }
+  combatModule.applyBackflipTransform = function applyBackflipTransform(f, root) {
+    if (f.state !== 'dash' || f.dashKind !== 'backflip') return;
+    const progress = THREE.MathUtils.clamp(f.stateTimer / 0.66, 0, 1),
+      turn = progress * 3,
+      angle = -turn * Math.PI * 2,
+      pivot = f.anatomy?.hip ?? 1.05 * f.baseScale,
+      hop = Math.sin((turn % 1) * Math.PI) * 0.36;
+    root.rotation.set(angle, f.facingAngle, 0, 'YXZ');
+    root.position.y += pivot * (1 - Math.cos(angle)) + hop;
+    root.position.x -= Math.sin(f.facingAngle) * pivot * Math.sin(angle);
+    root.position.z -= Math.cos(f.facingAngle) * pivot * Math.sin(angle);
+  };
   combatModule.ensureCombatRig = function ensureCombatRig(f) {
     if (f.combatRig) return f.combatRig;
     const root = new THREE.Group(),
@@ -345,6 +357,7 @@ export function register({
     r.root.position.copy(f.pos);
     r.root.position.y += f.attack ? (pose.ry ?? 0) : 0;
     r.root.rotation.set(0, f.facingAngle, 0);
+    combatModule.applyBackflipTransform(f, r.root);
     if (f.launchFlight) {
       const lean = THREE.MathUtils.clamp(f.launchElapsed / 0.16, 0, 1);
       r.root.rotation.set(-lean * 1.15, f.facingAngle, 0, 'YXZ');

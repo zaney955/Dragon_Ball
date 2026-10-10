@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 export function register({ animation, combat, match }) {
   const stances = {
     spring: {
@@ -123,6 +124,8 @@ export function register({ animation, combat, match }) {
                         ? 'both'
                         : motion === 'cross' ||
                             motion === 'backClaw' ||
+                            (index % 2 === 1 &&
+                              ['pigSlap', 'catClaw', 'psychicPoke'].includes(motion)) ||
                             (id === 'pilaf' && index === 0) ||
                             (id === 'yamcha' && index === 0)
                           ? 'handL'
@@ -218,8 +221,11 @@ export function register({ animation, combat, match }) {
       contact.eR = -0.05;
       contact.aL = [-0.6, 0, -0.4];
       if (a.motion === 'staffSmash') {
-        prep.aR = [-2.8, 0, -0.45];
-        contact.aR = [-1.4, 0, -0.6];
+        prep.aR = [-2.9, 0, -0.12];
+        prep.eR = -0.08;
+        contact.aR = [-1.15, 0, -0.12];
+        contact.eR = -0.02;
+        contact.aL = [-1.1, 0, 0.18];
         contact.t[0] = 0.45;
         contact.ry = 0.12;
       }
@@ -245,7 +251,7 @@ export function register({ animation, combat, match }) {
     }
     if (/Belly|Ram|headbutt/.test(a.motion)) {
       prep.t[0] = -0.12;
-      contact.t[0] = a.motion === 'headbutt' ? 0.65 : 0.42;
+      contact.t[0] = a.motion === 'headbutt' ? 0.65 : 0.42 + index * 0.04;
       contact.aR = [-0.8, 0, 0.3];
       contact.aL = [-0.8, 0, -0.3];
     }
@@ -300,6 +306,10 @@ export function register({ animation, combat, match }) {
           contact.kL = heavy ? 0.6 : 0.32;
           contact.kR = heavy ? 0.55 : 0.24;
           contact.t[1] = heavy ? 0.28 : 0.08;
+          if (side === 'L') {
+            contact.aL[0] -= 0.3;
+            contact.t[0] += 0.1;
+          }
           if (a.motion === 'elbow') {
             contact.eR = -1.55;
             contact.aR = [-1.4, 0, -0.4];
@@ -347,7 +357,7 @@ export function register({ animation, combat, match }) {
           prep.t[0] = heavy ? 0.4 : 0.3;
           contact.y -= heavy && a.motion === 'sweep' ? 0.12 : 0.03;
           contact.ry = a.motion === 'uppercut' ? 0.16 : a.motion === 'heavyKick' ? 0.12 : 0;
-          contact.aL = a.effector === 'both' ? contact.aL : [-0.85, 0, -0.32];
+          if (!['both', 'handL'].includes(a.effector)) contact.aL = [-0.85, 0, -0.32];
           break;
         case 'yamcha':
           prep.t = [heavy ? 0.4 : 0.3, -sign * (heavy ? 0.68 : 0.5), 0.08 * sign];
@@ -364,6 +374,8 @@ export function register({ animation, combat, match }) {
           prep.lR = [-0.1, 0, -0.3];
           prep.kL = prep.kR = heavy ? 0.6 : 0.25;
           if (!heavy) {
+            prep.t[1] = index === 2 ? -0.6 : -0.25;
+            contact.t[1] = index === 2 ? 0.45 : 0.18;
             prep.aR = [-0.7, 0, 0.35];
             prep.eR = -1.1;
             contact.t[0] = 0.2;
@@ -375,7 +387,8 @@ export function register({ animation, combat, match }) {
             contact.y = -0.12;
             contact.kL = contact.kR = 0.55;
           } else {
-            prep.t[1] = -0.8;
+            prep.t[1] = a.motion === 'axeBackSweep' ? 0.8 : -0.8;
+            prep.aR[0] = a.motion === 'axeBackSweep' ? -1.8 : prep.aR[0];
             contact.t[1] = 0.55;
           }
           break;
@@ -436,6 +449,9 @@ export function register({ animation, combat, match }) {
             contact.y = -0.2;
           }
           if (heavy && index === 1) prep.aR = [-2.6, 0, 0.3];
+          if (heavy && index === 2) prep.t[1] = 0.55;
+          if (heavy && index === 3) prep.aR = [-1.5, 0, 0.7];
+          if (heavy && index === 4) prep.aR = [-2.9, 0, 0.1];
           break;
         case 'pilaf':
           prep.t = [heavy ? -0.12 : 0.04, 0, 0];
@@ -449,10 +465,19 @@ export function register({ animation, combat, match }) {
           break;
       }
     }
+    if (a.chainType) {
+      prep.t[1] += ((index % 3) - 1) * 0.12;
+      prep.kL += (index % 3) * 0.09;
+      prep.aL[0] -= (index % 3) * 0.12;
+    }
+    if (a.motion === 'elbow') {
+      contact.aR[2] = -0.85;
+      contact.t[0] += 0.2;
+    }
     Object.assign(follow, animation.cloneCombatPose(contact));
     follow.t[1] += sign * twist * 0.2;
     follow.eR += 0.08;
-    if (a.motion === 'axeChop') follow.aR[0] = -0.6;
+    if (a.motion === 'axeChop' || a.motion === 'staffSmash') follow.aR[0] = -0.6;
     follow.y -= 0.02;
     if (a.chainType) {
       if (c.id === 'goku') {
@@ -490,13 +515,40 @@ export function register({ animation, combat, match }) {
       if (c.id === 'oolong') follow.t[2] *= -1;
       if (c.id === 'korin') follow.t[1] += 0.2;
       if (c.id === 'pilaf') {
+        follow.t[0] += index * 0.05;
         follow.eR += 0.3;
         follow.eL += 0.3;
       }
     }
+    if (a.motion === 'axeCataclysm') {
+      const sweep = animation.cloneCombatPose(contact);
+      sweep.t = [0.15, 0.95, 0];
+      sweep.aR = [-1.6, 0, -0.9];
+      const raised = animation.cloneCombatPose(prep);
+      raised.t = [-0.2, -0.25, 0];
+      raised.aR = [-2.9, 0, -0.15];
+      raised.aL = [-2.55, 0, 0.15];
+      raised.eR = raised.eL = -0.12;
+      const slam = animation.cloneCombatPose(contact);
+      slam.t = [0.65, 0, 0];
+      slam.aR = [-0.75, 0, -0.25];
+      slam.aL = [-0.95, 0, 0.25];
+      slam.y = -0.25;
+      slam.kR = slam.kL = 0.65;
+      return [
+        [0, neutral],
+        [0.12, prep],
+        [0.25, sweep],
+        [0.4, raised],
+        [0.48, slam],
+        [0.58, slam],
+        [0.83, animation.mixCombatPose(slam, neutral, 0.65)],
+        [1, neutral],
+      ];
+    }
     return [
       [0, neutral],
-      [0.22, prep],
+      [a.extendingStaff ? 0.4 : 0.22, prep],
       [0.48, contact],
       [0.58, follow],
       [0.83, animation.mixCombatPose(follow, neutral, 0.65)],
@@ -523,6 +575,17 @@ export function register({ animation, combat, match }) {
         }
         if (f.def.id === 'goku') q.y += Math.abs(Math.sin(match.game.simTime * 5)) * 0.025;
         if (f.def.id === 'oolong') q.t[2] += Math.sin(match.game.simTime * 3) * 0.04;
+      }
+      if (f.state === 'dash' && f.dashKind === 'backflip') {
+        q.t = [0.08, 0, 0];
+        q.h = [0.1, 0, 0];
+        q.aR = [-0.7, 0, 0.35];
+        q.aL = [-0.7, 0, -0.35];
+        q.eR = q.eL = -1.2;
+        q.lR = [-0.55, 0, -0.08];
+        q.lL = [-0.55, 0, 0.08];
+        q.kR = q.kL = 1.1;
+        q.y = -0.08;
       }
       return q;
     };
@@ -556,7 +619,8 @@ export function register({ animation, combat, match }) {
           -0.35,
           Math.min(1.35, Math.atan2(shoulder + f.pos.y - a.targetY, 0.7)),
         );
-        const fit = a.effector === 'axe' && a.motion !== 'axeJab' ? 0 : tilt;
+        const fit =
+          (a.effector === 'axe' && a.motion !== 'axeJab') || a.motion === 'staffSmash' ? 0 : tilt;
         q.aR[0] += fit * reach;
         q.aL[0] += fit * reach;
         const crouch =
@@ -572,6 +636,30 @@ export function register({ animation, combat, match }) {
         q.kR += crouch * 0.8;
         q.kL += crouch * 0.8;
         if (a.effector === 'axe') q.aR[2] -= 0.35 * reach;
+        if (a.motion === 'staffSmash' || (a.effector === 'axe' && a.motion !== 'axeJab')) {
+          const distance = Math.max(
+            0.4,
+            (a.targetDistance ?? a.range) - ((a.drive ?? 0) / 11) * (1 - Math.exp(-11 * a.hitT)),
+          );
+          // Aim the real shoulder-to-weapon line in torso space, including its lateral offset.
+          const torso = new THREE.Quaternion().setFromEuler(new THREE.Euler(...q.t));
+          const direction = new THREE.Vector3(
+            0,
+            (a.targetY - f.pos.y - (q.ry ?? 0)) / f.baseScale,
+            distance / f.baseScale,
+          )
+            .sub(new THREE.Vector3(0, (f.parts.restTorsoY ?? 1.28) + q.y, 0))
+            .applyQuaternion(torso.invert())
+            .sub(f.parts.armR.position)
+            .normalize();
+          const rotation = new THREE.Euler().setFromQuaternion(
+            new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, -1, 0), direction),
+          );
+          const aim = a.extendingStaff
+            ? animation.smoothstep(Math.max(0, Math.min(1, (t - a.hitT * 0.8) / (a.hitT * 0.2))))
+            : 1;
+          q.aR = q.aR.map((value, i) => value + (rotation.toArray()[i] - value) * reach * aim);
+        }
         if (a.launch && ['handR', 'handL', 'both'].includes(a.effector)) {
           const pitch = -Math.atan2(0.7, shoulder + f.pos.y - crouch - a.targetY) - q.t[0];
           q.aR[0] += (pitch - q.aR[0]) * reach;

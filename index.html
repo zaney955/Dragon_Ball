@@ -19,7 +19,12 @@
         <div class="side left">
           <div class="pname" id="p1name">玩家</div>
           <div class="ultname" id="p1ultname"></div>
-          <div class="bar hp"><div class="fill" id="p1hp"></div></div>
+          <div class="healthStack" aria-label="两条生命">
+            <div class="bar hp"><div class="fill" id="p1hp"></div></div>
+            <div class="bar hp reserve" aria-label="备用生命">
+              <div class="fill" id="p1reserve"></div>
+            </div>
+          </div>
           <div class="bar ki" id="p1kibar"><div class="fill" id="p1ki"></div></div>
           <div class="guardBar" aria-label="护盾"><span id="p1guard"></span></div>
           <div class="resourceRow">
@@ -32,7 +37,12 @@
         <div class="side right">
           <div class="pname" id="p2name">CPU</div>
           <div class="ultname" id="p2ultname"></div>
-          <div class="bar hp"><div class="fill" id="p2hp"></div></div>
+          <div class="healthStack" aria-label="两条生命">
+            <div class="bar hp"><div class="fill" id="p2hp"></div></div>
+            <div class="bar hp reserve" aria-label="备用生命">
+              <div class="fill" id="p2reserve"></div>
+            </div>
+          </div>
           <div class="bar ki" id="p2kibar"><div class="fill" id="p2ki"></div></div>
           <div class="guardBar" aria-label="护盾"><span id="p2guard"></span></div>
           <div class="resourceRow">
@@ -85,26 +95,32 @@
       <div class="viewHUD one">
         <div class="viewStats">
           <div class="viewName"><span class="viewLabel">1P</span><span id="view1Name"></span></div>
-          <div class="viewHP"><span id="view1HP"></span></div>
+          <div class="healthStack" aria-label="两层生命">
+            <div class="viewHP"><span id="view1HP"></span></div>
+            <div class="viewHP reserve" aria-label="备用生命"><span id="view1Reserve"></span></div>
+          </div>
           <div class="viewKi"><span id="view1Ki"></span></div>
           <p id="view1Stats"></p>
         </div>
         <div class="viewEnemy" id="view1Enemy"></div>
         <div class="viewControls">
-          WASD 移动 · J / K 攻击 · I 聚气 · F 气弹 · U 必杀 · Space 升空
+          WASD 移动 · J / K 攻击 · I 聚气 · F 气弹 · U 必杀 · Space 升空 · S + E 后空翻
         </div>
         <div class="lockTarget" id="view1Target"></div>
       </div>
       <div class="viewHUD two">
         <div class="viewStats">
           <div class="viewName"><span class="viewLabel">2P</span><span id="view2Name"></span></div>
-          <div class="viewHP"><span id="view2HP"></span></div>
+          <div class="healthStack" aria-label="两层生命">
+            <div class="viewHP"><span id="view2HP"></span></div>
+            <div class="viewHP reserve" aria-label="备用生命"><span id="view2Reserve"></span></div>
+          </div>
           <div class="viewKi"><span id="view2Ki"></span></div>
           <p id="view2Stats"></p>
         </div>
         <div class="viewEnemy" id="view2Enemy"></div>
         <div class="viewControls">
-          方向键移动 · 小键盘 1 / 2 攻击 · 5 聚气 · − 气弹 · 3 必杀 · 0 升空
+          方向键移动 · 小键盘 1 / 2 攻击 · 5 聚气 · − 气弹 · 3 必杀 · 0 升空 · ↓ + 9 后空翻
         </div>
         <div class="lockTarget" id="view2Target"></div>
       </div>
@@ -356,6 +372,11 @@
                 <td><kbd>小键盘 9</kbd></td>
               </tr>
               <tr>
+                <td>连续后空翻</td>
+                <td><kbd>S + E</kbd></td>
+                <td><kbd>↓ + 小键盘 9</kbd></td>
+              </tr>
+              <tr>
                 <td>升空</td>
                 <td><kbd>Space（按住）</kbd></td>
                 <td><kbd>小键盘 0（按住）</kbd></td>
@@ -386,7 +407,10 @@
               </tr>
               <tr>
                 <td>W + K → E → J</td>
-                <td>挑空、E 爆冲追击、空中攻击；爆冲消耗 12 元气，最远 10 米。</td>
+                <td>
+                  挑空、E 爆冲追击、空中攻击；爆冲消耗 12 元气，最远 10 米；后退 + E
+                  连续向后翻腾三次，消耗 12 元气。
+                </td>
               </tr>
               <tr>
                 <td>S + K</td>

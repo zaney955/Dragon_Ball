@@ -11,14 +11,14 @@ import { register as registerStages } from '../../src/world/stages.js';
 test('fourteen independent childhood profiles and fixed skill costs', () => {
   assert.equal(Object.keys(YOUTH_PROFILES).length, 14);
   for (const [id, p] of Object.entries(YOUTH_PROFILES)) {
-    assert.ok(p.light.length >= 2);
-    assert.ok(p.heavy.length >= 2);
+    assert.ok(p.light.length >= 5);
+    assert.ok(p.heavy.length >= 5);
     assert.equal(p.skills.length, 2);
     assert.equal(p.ult.kiCost, 100);
     assert.ok(VICTORY_LINES[id]);
     assert.ok(Object.keys(RELATION_LINES).some((k) => k.startsWith(id + ':')));
     for (const s of p.skills) {
-      assert.ok(s.kiCost >= 30);
+      assert.ok(s.kiCost >= 30 && s.kiCost <= 100, id + ' skill must be usable at full ki');
       assert.ok(s.startup > 0);
       assert.ok(s.cooldown >= 0);
     }

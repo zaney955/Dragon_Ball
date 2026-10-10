@@ -310,7 +310,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         const [p, e] = fixture('goku', 'krillin', 3);
         p.comboType = 'heavy';
         p.comboTimer = 1;
-        p.comboIdx = 1;
+        p.comboIdx = p.def.combos.heavy.length - 2;
         p.startAttack('heavy');
         p.hitResult = 'hit';
         p.stateTimer = p.attack.hitT + 0.05;
@@ -439,7 +439,7 @@ export function register({ characters, combat, match, testing, ai, audio, render
         const [ox] = fixture('gyumao');
         ox.comboType = 'heavy';
         ox.comboTimer = 1;
-        ox.comboIdx = 0;
+        ox.comboIdx = ox.def.combos.heavy.length - 2;
         ox.startAttack('heavy');
         const damage = world.currentMap.damageEvents;
         ticks(Math.ceil(ox.attack.hitT / match.STEP) + 1);
@@ -725,7 +725,10 @@ export function register({ characters, combat, match, testing, ai, audio, render
           const [p] = fixture(c.id, target.id, 12);
           p.startAttack('light');
           const a = p.attack;
-          assert(!a.cancelRules.whiff.length);
+          assert(
+            a.cancelRules.whiff.every((type) => type === 'light'),
+            '打空只允许同类连招衔接，不得取消成追击或异类攻击',
+          );
           assert(!c.combos.light.at(-1).cancelRules.hit.includes('heavy'));
           ticks(100);
           assert(p.hitResult !== 'hit');

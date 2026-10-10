@@ -62,3 +62,26 @@ test('local attack anticipation stops when input is acknowledged and cannot pred
   assert.equal(fighters[1].onlineVisualAction, null);
   assert.equal(presentation.delay, 0.04);
 });
+
+test('guest movement prediction follows solar reversal without changing authority or input', () => {
+  const { fighters, presentation } = setup();
+  fighters[1].youth = { reversedTime: 3 };
+  const input = { up: true, moveYaw: 0, actions: [] };
+  presentation.record(input, 1000);
+  presentation.update(1050, 1 / 60, true);
+  assert.ok(fighters[1].onlineVisualPosition.z < -0.02);
+  assert.deepEqual(fighters[1].pos.toArray(), [0, 0, 0]);
+  assert.equal(fighters[1].youth.reversedTime, 3);
+  assert.equal(input.up, true);
+  assert.equal(input.down, undefined);
+});
+
+test('guest directional attack preview follows the same reversed keys as combat', () => {
+  const { fighters, presentation } = setup();
+  fighters[1].youth = { reversedTime: 3 };
+  presentation.record({ actions: [{ type: 'heavy', up: true, down: false }] }, 1000);
+  presentation.update(1050, 1 / 60, true);
+  assert.equal(fighters[1].onlineVisualAction.up, false);
+  assert.equal(fighters[1].onlineVisualAction.down, true);
+  assert.equal(fighters[1].attack, null);
+});

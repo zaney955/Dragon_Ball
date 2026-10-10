@@ -204,3 +204,108 @@
     line-height: 1.15;
   }
 }
+
+.viewHP.reserve {
+  height: 7px;
+  margin-top: 3px;
+  border-color: #e1d5b6;
+}
+.viewHP.reserve span {
+  background: linear-gradient(90deg, #c9d6ae, #eef3d5);
+}
+
+/* Tournament gauges: the active life overlays the reserve, exposing its lower edge. */
+#hud .side {
+  padding: 6px 0;
+}
+#hud .pname {
+  font-style: italic;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+#hud .ultname {
+  margin-bottom: 7px;
+}
+.healthStack {
+  position: relative;
+  display: block;
+  height: 25px;
+  isolation: isolate;
+  filter: drop-shadow(0 2px 2px #05111dc0);
+}
+#hud .healthStack .hp,
+#splitOverlay .healthStack .viewHP {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  height: 19px;
+  margin: 0;
+  border: 2px solid #f5eed7;
+  border-radius: 0;
+  background: transparent !important;
+  clip-path: polygon(0 0, 100% 0, calc(100% - 9px) 100%, 0 100%);
+  box-shadow: inset 0 1px #ffffff6b !important;
+}
+#hud .healthStack .reserve,
+#splitOverlay .healthStack .reserve {
+  top: 6px;
+  z-index: 1;
+  background: #13232ce8 !important;
+  border-color: #a2abb0;
+}
+#hud .healthStack .hp .fill,
+#splitOverlay .healthStack .viewHP span {
+  background: linear-gradient(180deg, #d9ff72 0%, #98da37 38%, #3d9728 100%);
+  box-shadow: inset 0 2px #ffffff60;
+  transition: width 0.12s linear;
+}
+#hud .healthStack .reserve .fill,
+#splitOverlay .healthStack .reserve span {
+  background: linear-gradient(180deg, #ffefd2, #efbd6e 48%, #c87d37);
+}
+#hud .side.right .healthStack .hp {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 9px 100%);
+}
+#hud .bar.ki,
+#splitOverlay .viewKi {
+  height: 8px;
+  margin-top: 5px;
+  border: 1px solid #c0ddec;
+  border-radius: 0;
+  background: #092432c9 !important;
+}
+#hud .ki .fill,
+#splitOverlay .viewKi span {
+  background: linear-gradient(180deg, #e4fdff, #5dd0e8 45%, #2382b5);
+}
+#splitOverlay .healthStack {
+  margin-top: 6px;
+}
+@media (max-width: 600px) {
+  #hud .topbar {
+    gap: 10px;
+  }
+  #hud .side {
+    padding: 3px 0;
+    max-width: calc(50% - 30px);
+  }
+  #hud .ultname {
+    font-size: 9px;
+  }
+  .healthStack {
+    height: 21px;
+  }
+  #hud .healthStack .hp,
+  #splitOverlay .healthStack .viewHP {
+    height: 16px;
+  }
+  #hud .healthStack .reserve,
+  #splitOverlay .healthStack .reserve {
+    top: 5px;
+  }
+}
+
+#hud .side.right .healthStack .fill {
+  left: auto;
+  right: 0;
+}
