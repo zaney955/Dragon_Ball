@@ -17,6 +17,13 @@ export function register({ match: matchModule, ui: uiModule }) {
     uiModule.el.p2kibar.classList.toggle('full', matchModule.enemy.ki >= matchModule.enemy.maxKi);
     uiModule.el.p1ult.classList.toggle('on', matchModule.player.ki >= matchModule.player.maxKi);
     uiModule.el.p2ult.classList.toggle('on', matchModule.enemy.ki >= matchModule.enemy.maxKi);
+    for (const [f, prefix] of [
+      [matchModule.player, 'p1'],
+      [matchModule.enemy, 'p2'],
+    ]) {
+      uiModule.el[prefix + 'ult'].textContent = '必杀能量已满';
+      uiModule.el[prefix + 'ult'].setAttribute('aria-hidden', String(f.ki < f.maxKi));
+    }
     const t = Math.ceil(matchModule.game.timeLeft);
     uiModule.el.timer.textContent = String(t).padStart(2, '0');
     uiModule.el.timer.classList.toggle('low', t <= 10);

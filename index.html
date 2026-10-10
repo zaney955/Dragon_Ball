@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>龙珠 · 少年武道会 V2</title>
+    <title>龙珠 · 少年武道会</title>
     <link rel="icon" href="data:," />
 
     <link rel="stylesheet" href="./src/styles/index.css" />
@@ -26,14 +26,31 @@
             </div>
           </div>
           <div class="bar ki" id="p1kibar"><div class="fill" id="p1ki"></div></div>
-          <div class="guardBar" aria-label="护盾"><span id="p1guard"></span></div>
+          <div class="guardResource" id="p1guardResource">
+            <span class="guardLabel"
+              ><svg viewBox="0 0 16 18" aria-hidden="true">
+                <path d="M8 1L14 3V8C14 12 11 15 8 17C5 15 2 12 2 8V3Z" /></svg
+              >防御 <span class="guardState" id="p1guardState">就绪</span></span
+            >
+            <div
+              class="guardBar"
+              role="progressbar"
+              aria-label="防御值"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="100"
+            >
+              <span id="p1guard"></span>
+            </div>
+            <span class="guardValue" id="p1guardValue">100%</span>
+          </div>
           <div class="resourceRow">
             <div class="value" id="p1value"></div>
             <div class="escapeRow" id="p1escape"></div>
           </div>
           <div class="ultTag" id="p1ult">必杀就绪 · U</div>
         </div>
-        <div class="timer" id="timer">99</div>
+        <div class="timer" id="timer">180</div>
         <div class="side right">
           <div class="pname" id="p2name">CPU</div>
           <div class="ultname" id="p2ultname"></div>
@@ -44,7 +61,24 @@
             </div>
           </div>
           <div class="bar ki" id="p2kibar"><div class="fill" id="p2ki"></div></div>
-          <div class="guardBar" aria-label="护盾"><span id="p2guard"></span></div>
+          <div class="guardResource" id="p2guardResource">
+            <span class="guardLabel"
+              ><svg viewBox="0 0 16 18" aria-hidden="true">
+                <path d="M8 1L14 3V8C14 12 11 15 8 17C5 15 2 12 2 8V3Z" /></svg
+              >防御 <span class="guardState" id="p2guardState">就绪</span></span
+            >
+            <div
+              class="guardBar"
+              role="progressbar"
+              aria-label="防御值"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="100"
+            >
+              <span id="p2guard"></span>
+            </div>
+            <span class="guardValue" id="p2guardValue">100%</span>
+          </div>
           <div class="resourceRow">
             <div class="value" id="p2value"></div>
             <div class="escapeRow" id="p2escape"></div>
@@ -53,26 +87,24 @@
         </div>
       </div>
       <div id="arenaName"></div>
+      <div id="skillDock" class="skillDock" aria-label="角色操作"></div>
       <div class="actionReadout">
         <div id="actionState"></div>
         <div id="combatReadout"></div>
       </div>
       <div id="fightbar">
-        <span class="keyboardHint"
-          ><kbd>J / K</kbd> 攻击　<kbd>L</kbd> 格挡　<kbd>I</kbd> 聚气　<kbd>F</kbd> 气弹　<kbd
-            >U</kbd
-          >
-          必杀</span
+        <span class="keyboardHint" id="basicFightHint"></span
         ><span class="dashStatus"
           >闪身 Shift
           <div class="dashTrack"><span id="dashReady"></span></div></span
-        ><button id="fightGuide">招式</button><button id="resetPractice">重置 T</button
+        ><button id="fightGuide">操作指南</button><button id="resetPractice">重置 T</button
         ><button id="pauseBtn">暂停 P</button>
       </div>
       <div id="touch">
+        <div id="touchStatus" class="touchStatus"></div>
         <div class="touchGroup move">
           <button data-key="KeyC">下蹲</button><button data-key="KeyW" aria-label="向前">↑</button
-          ><button data-key="Space">升空</button><button data-key="KeyA" aria-label="向左">←</button
+          ><button data-key="Space">跳跃</button><button data-key="KeyA" aria-label="向左">←</button
           ><button data-key="KeyS" aria-label="向后">↓</button
           ><button data-key="KeyD" aria-label="向右">→</button>
         </div>
@@ -80,7 +112,7 @@
           <button data-key="KeyJ">轻击</button><button data-key="KeyK">重击</button
           ><button data-key="KeyL">格挡</button><button data-key="ShiftLeft">闪身</button
           ><button data-key="KeyU">必杀</button><button data-key="KeyI">聚气</button
-          ><button data-key="KeyF" aria-label="远程：按下发射">气弹</button
+          ><button data-key="KeyF" aria-label="远程：按下发射">远程</button
           ><button data-key="KeyE">爆冲</button><button data-key="KeyQ">残像</button
           ><button data-key="KeyO">投技</button
           ><button data-key="KeyR" id="primarySkill">技能</button
@@ -95,11 +127,29 @@
       <div class="viewHUD one">
         <div class="viewStats">
           <div class="viewName"><span class="viewLabel">1P</span><span id="view1Name"></span></div>
-          <div class="healthStack" aria-label="两层生命">
+          <div class="healthStack" aria-label="两条生命">
             <div class="viewHP"><span id="view1HP"></span></div>
             <div class="viewHP reserve" aria-label="备用生命"><span id="view1Reserve"></span></div>
           </div>
           <div class="viewKi"><span id="view1Ki"></span></div>
+          <div class="guardResource" id="view1guardResource">
+            <span class="guardLabel"
+              ><svg viewBox="0 0 16 18" aria-hidden="true">
+                <path d="M8 1L14 3V8C14 12 11 15 8 17C5 15 2 12 2 8V3Z" /></svg
+              >防御 <span class="guardState" id="view1guardState">就绪</span></span
+            >
+            <div
+              class="guardBar"
+              role="progressbar"
+              aria-label="防御值"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="100"
+            >
+              <span id="view1guard"></span>
+            </div>
+            <span class="guardValue" id="view1guardValue">100%</span>
+          </div>
           <p id="view1Stats"></p>
         </div>
         <div class="viewEnemy" id="view1Enemy"></div>
@@ -111,11 +161,29 @@
       <div class="viewHUD two">
         <div class="viewStats">
           <div class="viewName"><span class="viewLabel">2P</span><span id="view2Name"></span></div>
-          <div class="healthStack" aria-label="两层生命">
+          <div class="healthStack" aria-label="两条生命">
             <div class="viewHP"><span id="view2HP"></span></div>
             <div class="viewHP reserve" aria-label="备用生命"><span id="view2Reserve"></span></div>
           </div>
           <div class="viewKi"><span id="view2Ki"></span></div>
+          <div class="guardResource" id="view2guardResource">
+            <span class="guardLabel"
+              ><svg viewBox="0 0 16 18" aria-hidden="true">
+                <path d="M8 1L14 3V8C14 12 11 15 8 17C5 15 2 12 2 8V3Z" /></svg
+              >防御 <span class="guardState" id="view2guardState">就绪</span></span
+            >
+            <div
+              class="guardBar"
+              role="progressbar"
+              aria-label="防御值"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-valuenow="100"
+            >
+              <span id="view2guard"></span>
+            </div>
+            <span class="guardValue" id="view2guardValue">100%</span>
+          </div>
           <p id="view2Stats"></p>
         </div>
         <div class="viewEnemy" id="view2Enemy"></div>
@@ -133,9 +201,10 @@
         <div class="dialogEyebrow">少年武道会</div>
         <h2 id="pauseTitle">已暂停</h2>
         <div class="btnrow">
-          <button id="resumeBtn">继续对战</button><button id="pauseMenu">返回选角</button>
+          <button id="resumeBtn">继续对战</button><button id="pauseGuide">操作指南</button
+          ><button id="pauseMenu">返回选角</button>
         </div>
-        <p class="pauseHint">P 继续 · 切换窗口自动暂停</p>
+        <p id="pauseHint" class="pauseHint">P 继续 · 切换窗口自动暂停</p>
       </div>
     </div>
 
@@ -160,13 +229,14 @@
         ><span class="dragonBall"><b>★</b><b>★</b><b>★</b><b>★</b><b>★</b><b>★</b><b>★</b></span>
       </div>
       <div class="homeActions">
-        <button id="homeStart" aria-label="开始游戏" class="homeButton">
-          <span>开始游戏</span></button
+        <button id="homeStart" aria-label="本地游戏" class="homeButton">
+          <span>本地游戏</span><small>电脑对战 · 本地双人 · 自由练习</small></button
         ><button id="homeOnline" aria-label="联机对战" class="homeButton secondary">
           <span>联机对战</span></button
         ><button id="homeExit" aria-label="退出游戏" class="homeButton secondary">
           <span>退出游戏</span>
         </button>
+        <button id="homeGuide" class="homeHelp">操作指南</button>
       </div>
     </div>
     <div id="menu" class="hidden" inert>
@@ -181,18 +251,23 @@
           <img id="heroImage" class="heroPortrait" alt="角色模型" />
           <h3 id="heroName"></h3>
           <p id="heroTitle" class="heroTitle"></p>
+          <p id="heroSummary" class="heroSummary"></p>
           <div id="heroUlt" class="heroUlt"></div>
+          <div class="heroActions">
+            <button id="heroGuide" class="smallBtn">角色玩法</button
+            ><button id="heroPractice" class="smallBtn">练习这个角色</button>
+          </div>
           <div class="heroStats">
-            <div>生命<b id="heroHP"></b></div>
-            <div>速度<b id="heroSpeed"></b></div>
+            <div>总生命<b id="heroHP"></b><small>两条生命连续消耗</small></div>
+            <div>移动速度<b id="heroSpeed"></b><small>100% 为标准速度</small></div>
           </div>
         </aside>
         <div class="rosterColumn">
           <div class="modeRow">
             <label
               >模式<select id="difficulty" aria-label="对战模式">
-                <option value="normal">标准对战</option>
-                <option value="hard">高手对战</option>
+                <option value="normal">电脑对战 · 普通</option>
+                <option value="hard">电脑对战 · 困难</option>
                 <option value="local">本地双人</option>
                 <option value="training">自由练习</option>
               </select></label
@@ -207,7 +282,7 @@
                 <option value="guard">站立防御</option>
                 <option value="lowguard">下段防御</option>
               </select></label
-            ><span class="modeNote" id="modeNote">99 秒 · 三局两胜</span>
+            ><span class="modeNote" id="modeNote">180 秒 · 三局两胜</span>
           </div>
           <section class="section">
             <div class="rosterHeading">
@@ -228,13 +303,15 @@
               <summary>对战设置</summary>
               <div class="settingsContent">
                 <label
-                  >光影<select id="lighting">
+                  >场景时段<select id="lighting">
                     <option value="moon">满月夜</option>
                     <option value="day">晴日</option>
                     <option value="sunset">暖夕</option>
                   </select></label
-                ><button id="soundBtn" class="smallBtn" aria-pressed="true">声音：开</button
-                ><button id="motionBtn" class="smallBtn" aria-pressed="true">震屏：开</button>
+                >
+                <p id="lightingHint" class="settingHint"></p>
+                <button id="soundBtn" class="smallBtn" aria-pressed="true">音效：开</button
+                ><button id="motionBtn" class="smallBtn" aria-pressed="true">震动：开</button>
               </div>
             </details>
           </div>
@@ -245,8 +322,9 @@
         </div>
       </div>
       <div class="controls">
-        <span><kbd>WASD</kbd> 移动　<kbd>J / K</kbd> 攻击　<kbd>L</kbd> 格挡</span
-        ><button id="moveGuideBtn" class="smallBtn">操作与招式</button>
+        <span id="selectionControls"
+          ><kbd>WASD</kbd> 移动　<kbd>J / K</kbd> 攻击　<kbd>L</kbd> 格挡</span
+        ><button id="moveGuideBtn" class="smallBtn">操作指南</button>
       </div>
     </div>
     <div id="quitOverlay" hidden>
@@ -271,9 +349,10 @@
     <div id="moveGuide" role="dialog" aria-modal="true" aria-labelledby="guideTitle">
       <div class="guidePanel">
         <div class="guideHeader">
-          <h2 id="guideTitle">操作与招式</h2>
-          <button id="guideClose" class="smallBtn" aria-label="关闭操作与招式">关闭 ×</button>
+          <h2 id="guideTitle">操作指南</h2>
+          <button id="guideClose" class="smallBtn" aria-label="关闭操作指南">关闭 ×</button>
         </div>
+        <p id="guideContext" class="guideContext"></p>
         <div class="guideTabs" role="tablist" aria-label="指南内容">
           <button
             id="keysTab"
@@ -282,8 +361,19 @@
             aria-selected="true"
             data-guide-tab="guideKeys"
           >
-            基础操作</button
-          ><button
+            基础操作
+          </button>
+          <button
+            id="characterTab"
+            role="tab"
+            aria-controls="characterGuide"
+            aria-selected="false"
+            data-guide-tab="characterGuide"
+            tabindex="-1"
+          >
+            角色玩法
+          </button>
+          <button
             id="combosTab"
             role="tab"
             aria-controls="guideCombos"
@@ -291,8 +381,9 @@
             data-guide-tab="guideCombos"
             tabindex="-1"
           >
-            进阶招式</button
-          ><button
+            对战规则
+          </button>
+          <button
             id="framesTab"
             role="tab"
             aria-controls="characterMoves"
@@ -300,185 +391,73 @@
             data-guide-tab="characterMoves"
             tabindex="-1"
           >
-            角色帧表
+            招式数据
           </button>
         </div>
         <div class="guideContent">
-          <section id="guideKeys" role="tabpanel" aria-labelledby="keysTab">
-            <table class="keyTable">
-              <tr>
-                <th>动作</th>
-                <th>1P</th>
-                <th>2P</th>
-              </tr>
-              <tr>
-                <td>移动</td>
-                <td><kbd>WASD</kbd></td>
-                <td><kbd>方向键</kbd></td>
-              </tr>
-              <tr>
-                <td>轻击 / 重击</td>
-                <td><kbd>J / K</kbd></td>
-                <td><kbd>小键盘 1 / 2</kbd></td>
-              </tr>
-              <tr>
-                <td>气弹 / 蓄力气弹</td>
-                <td><kbd>F</kbd></td>
-                <td><kbd>小键盘 −</kbd></td>
-              </tr>
-              <tr>
-                <td>特殊技</td>
-                <td><kbd>R</kbd></td>
-                <td><kbd>小键盘 +</kbd></td>
-              </tr>
-              <tr>
-                <td>必杀</td>
-                <td><kbd>U</kbd></td>
-                <td><kbd>小键盘 3</kbd></td>
-              </tr>
-              <tr>
-                <td>格挡</td>
-                <td><kbd>L</kbd></td>
-                <td><kbd>小键盘 4</kbd></td>
-              </tr>
-              <tr>
-                <td>气弹 / 蓄力弹</td>
-                <td><kbd>F（点按 / 长按松开）</kbd></td>
-                <td><kbd>小键盘 −</kbd></td>
-              </tr>
-              <tr>
-                <td>聚气</td>
-                <td><kbd>I（按住）</kbd></td>
-                <td><kbd>小键盘 5（按住）</kbd></td>
-              </tr>
-              <tr>
-                <td>闪身</td>
-                <td><kbd>Shift</kbd></td>
-                <td><kbd>小键盘 6</kbd></td>
-              </tr>
-              <tr>
-                <td>投技 / 拆投</td>
-                <td><kbd>O</kbd></td>
-                <td><kbd>小键盘 7</kbd></td>
-              </tr>
-              <tr>
-                <td>残像</td>
-                <td><kbd>Q</kbd></td>
-                <td><kbd>小键盘 8</kbd></td>
-              </tr>
-              <tr>
-                <td>爆冲追击</td>
-                <td><kbd>E</kbd></td>
-                <td><kbd>小键盘 9</kbd></td>
-              </tr>
-              <tr>
-                <td>连续后空翻</td>
-                <td><kbd>S + E</kbd></td>
-                <td><kbd>↓ + 小键盘 9</kbd></td>
-              </tr>
-              <tr>
-                <td>升空</td>
-                <td><kbd>Space（按住）</kbd></td>
-                <td><kbd>小键盘 0（按住）</kbd></td>
-              </tr>
-              <tr>
-                <td>下蹲</td>
-                <td><kbd>C</kbd></td>
-                <td><kbd>小键盘 .</kbd></td>
-              </tr>
-              <tr>
-                <td>暂停 / 返回选角</td>
-                <td><kbd>P / Esc</kbd></td>
-                <td><kbd>P / Esc</kbd></td>
-              </tr>
-              <tr>
-                <td>练习重置 / 判定显示</td>
-                <td><kbd>T / B</kbd></td>
-                <td><kbd>T / B</kbd></td>
-              </tr>
-            </table>
-            <p>2P 使用小键盘，请开启 Num Lock。触屏使用屏幕按键。</p>
-          </section>
+          <div class="guideSelectors">
+            <label>查看角色<select id="guideCharacter" aria-label="查看角色"></select></label>
+            <label
+              >输入方式<select id="guideInput" aria-label="输入方式">
+                <option value="one">键盘 · 1P / 联机</option>
+                <option value="two">键盘 · 本地2P</option>
+                <option value="touch">触屏</option>
+              </select></label
+            >
+          </div>
+          <section id="guideKeys" role="tabpanel" aria-labelledby="keysTab"></section>
+          <section
+            id="characterGuide"
+            role="tabpanel"
+            aria-labelledby="characterTab"
+            hidden
+          ></section>
           <section id="guideCombos" role="tabpanel" aria-labelledby="combosTab" hidden>
-            <table>
-              <tr>
-                <td>J → J → J → K</td>
-                <td>轻击接重击；命中后可提前衔接，空挥需等收招。</td>
-              </tr>
-              <tr>
-                <td>W + K → E → J</td>
-                <td>
-                  挑空、E 爆冲追击、空中攻击；爆冲消耗 12 元气，最远 10 米；后退 + E
-                  连续向后翻腾三次，消耗 12 元气。
-                </td>
-              </tr>
-              <tr>
-                <td>S + K</td>
-                <td>下段扫腿；用 C + L 防御。</td>
-              </tr>
-              <tr>
-                <td>O / 受投时 O</td>
-                <td>近身投技突破格挡；被投时及时按 O 拆投。</td>
-              </tr>
-              <tr>
-                <td>L / 及时按 L</td>
-                <td>按住格挡；精准格挡可获得反击机会。</td>
-              </tr>
-              <tr>
-                <td>Q</td>
-                <td>残像：15 气，最多 2 次；每 6.5 秒恢复 1 次，冷却 1 秒。</td>
-              </tr>
-              <tr>
-                <td>受击时 L + Shift</td>
-                <td>爆气解围：35 气，冷却 5.5 秒。</td>
-              </tr>
-              <tr>
-                <td>命中后 Shift</td>
-                <td>消耗 8 气取消后摇，调整站位。</td>
-              </tr>
-              <tr>
-                <td>C / C + L</td>
-                <td>下蹲避高段，下段防御挡扫腿；无法抵挡空中攻击。</td>
-              </tr>
-              <tr>
-                <td>I / U</td>
-                <td>
-                  聚气起势 0.25 秒，每秒恢复 15 气；站定且受击打断。满气必杀，必杀在发动时消耗 100
-                  资源。
-                </td>
-              </tr>
-              <tr>
-                <td>F / 2P 小键盘 −</td>
-                <td>
-                  按下发射对应气弹或装备；牛魔王、乌龙、猫仙人没有远程攻击。克林蓄力气功使用 S+R。
-                </td>
-              </tr>
-              <tr>
-                <td>Space / 2P 小键盘 0</td>
-                <td>悟空使用筋斗云；天津饭、饺子、比克大魔王可短时舞空，其余角色跳跃。</td>
-              </tr>
-              <tr>
-                <td>R / 2P 小键盘 +</td>
-                <td>主技能 R；第二技能 S+R（2P ↓+小键盘+）。费用、条件、独立冷却见角色指南。</td>
-              </tr>
-              <tr>
-                <td>自由练习 / T</td>
-                <td>切换陪练、查看判定与帧数；T 重置。</td>
-              </tr>
-            </table>
-            <details>
-              <summary>对战规则</summary>
-              <p>
-                99 秒，三局两胜；时间结束按剩余生命比例判胜。连击伤害递减；连续 6 次或空中 3
-                次受击触发击飞保护，落地造成破坏。
-              </p>
-              <p>
-                仙豆恢复 15% 生命：开战 25 秒、60 秒各刷新一次；场上最多一颗，12
-                秒未拾取则消失。满血不会消耗仙豆。
-              </p>
-              <p>仙豆争夺模式有仙豆刷新；标准竞技不刷新仙豆。可在对战设置中切换。</p>
-              <p>开启出界判负后，仅武道会擂台生效；自由练习不判胜负。</p>
-            </details>
+            <h3>胜负与回合</h3>
+            <p>
+              本地对战每回合180秒，三局两胜；联机为180秒单回合。生命耗尽判负，超时按剩余总生命比例判胜。自由练习不限时，不判胜负。
+            </p>
+            <h3>生命与能量</h3>
+            <p>
+              每人有两条生命，先消耗当前条，再消耗备用条，换条不会获得无敌。总生命用于变身条件、回血和超时判胜。每回合恢复两条生命。
+            </p>
+            <p>
+              所有角色共用一条上限100的能量。按住聚气键，站在地面聚气；起势0.25秒后每秒恢复15能量，受击会打断。两项技能各自计算冷却，必杀消耗100能量。
+            </p>
+            <p>
+              技能成功发动时就扣费，起手被打断不退款；条件不满足不会扣费。变身与仙豆的次数只在成功后消耗。
+            </p>
+            <h3>防御与脱身</h3>
+            <p>
+              按住格挡键防御。下段攻击需下蹲格挡；下蹲格挡挡不住空中攻击。投技突破格挡，被投时及时按投技键拆投。
+            </p>
+            <p>
+              防御有100点：轻击消耗12，重击22，技能至少12，必杀45；普通近战挡住不扣生命，气弹与必杀仍有少量穿透伤害。持续举防0.6秒后每秒消耗6点，疲劳最低降至20点。松开格挡并停止攻击后恢复；受击后需等待1.2秒，每秒恢复24点。耗尽会破防0.9秒，防御归零，恢复到30点才能再次格挡。
+            </p>
+            <p>
+              闪身用于调整站位；残像用于受击时脱身，消耗15能量和一次机会，最多两次，每6.5秒恢复一次。受击时同时按格挡与闪身可爆气解围，消耗35能量，冷却5.5秒。
+            </p>
+            <h3>连招与追击</h3>
+            <p>
+              连续轻击或重击可以衔接连招，末段需完整收招。挑空或命中后可按爆冲追击，消耗12能量，最远10米。后退与爆冲同时按会连续后空翻三次，也消耗12能量。
+            </p>
+            <p>
+              连击伤害逐渐降低；连续六次受击或独立空中三次受击会触发击飞保护，避免无限连击。霸体表示不会被打断，仍然会受伤。
+            </p>
+            <h3>舞台规则</h3>
+            <p>
+              仙豆争夺：开战25秒、60秒各刷新一次，场上最多一颗，12秒未拾取消失；拾取恢复总生命的15%，满血不会消耗。标准竞技不刷新仙豆。
+            </p>
+            <p>
+              出界判负只适用于天下一武道会擂台，自由练习不判负。满月夜是悟空大猩猩的必要条件，晴日与暖夕不能变身。
+            </p>
+            <h3>联机与观战</h3>
+            <p>
+              房间最多两名选手，双方准备后开战。进入联机后，无论你在左侧还是右侧，都使用键盘1P或触屏操作。观众不占选手席位。
+            </p>
+            <p>
+              联机中查看指南不会暂停对局；关闭指南后继续操作。返回房间会离开当前对局，双方重新准备后可以再战。
+            </p>
           </section>
         </div>
       </div>

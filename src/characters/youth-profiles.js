@@ -514,7 +514,7 @@ export function register({ characters, animation, combat, ai }) {
         };
       }
       c.name = c.id === 'krillin' ? '克林' : c.name;
-      c.resource ??= '气';
+      c.resource = '能量';
       c.role ??= c.title;
       for (const type of ['light', 'heavy']) {
         const old = c.combos[type];

@@ -1,3 +1,4 @@
+import { CHARACTER_HELP } from '../ui/character-help.js';
 export function register({
   characters: charactersModule,
   combat: combatModule,
@@ -11,7 +12,9 @@ export function register({
     trainingModule.refreshMoveTable = function () {
       v2TableBase();
       const c =
-          matchModule.player?.def ?? charactersModule.CHARACTERS[matchModule.game.selectedChar],
+          uiModule.guideCharacter ??
+          matchModule.player?.def ??
+          charactersModule.CHARACTERS[matchModule.game.selectedChar],
         body = trainingModule.table.querySelector('tbody');
       const list = c.youth
         ? []
@@ -49,9 +52,6 @@ export function register({
           '</td>';
         body.insertBefore(row, body.lastElementChild);
       }
-      if (c.id === 'gyumao')
-        trainingModule.table.querySelector('.v2MoveNotes').innerHTML +=
-          '<p>斧柄用于贴身；巨斧横扫主要交战距离约2.2米，贴得太近可进入刃口内侧。震地只能命中低地面目标。</p>';
     };
     v2DrillBase = trainingModule.drillInput;
     trainingModule.drillInput = function (ai, foe) {
@@ -62,26 +62,12 @@ export function register({
         matchModule.game.difficulty !== 'training'
       )
         return v2DrillBase(ai, foe);
-      uiModule.v2Goal.time += matchModule.STEP;
-      if (uiModule.v2Goal.character === 'roshi' && uiModule.v2Goal.time >= 1.5 && !ai.attack) {
-        uiModule.v2Goal.time = 0;
-        return {
-          actions: [
-            {
-              type: 'light',
-            },
-          ],
-        };
-      }
-      if (uiModule.v2Goal.character === 'tien' && uiModule.v2Goal.time >= 1.4 && ai.pos.y === 0) {
-        uiModule.v2Goal.time = 0;
-        return {
-          actions: [
-            {
-              type: 'jump',
-            },
-          ],
-        };
+      const goal = uiModule.v2Goal,
+        condition = CHARACTER_HELP[goal.character].drill[goal.step][1];
+      if (['counter', 'dodgeCounter'].includes(condition)) goal.time += matchModule.STEP;
+      if (['counter', 'dodgeCounter'].includes(condition) && goal.time >= 1.5 && !ai.attack) {
+        goal.time = 0;
+        return { actions: [{ type: 'light' }] };
       }
       return {};
     };

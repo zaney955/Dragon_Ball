@@ -758,3 +758,94 @@ test('yamcha dodge counter and double health bars replay across a real relay mat
     await Promise.all(contexts.map((c) => c.close()));
   }
 });
+
+for (const mode of ['direct', 'relay']) {
+  test(`defense fatigue, real guard breaks and recovery stay synchronized over ${mode}`, async ({
+    browser,
+  }) => {
+    const contexts = await Promise.all([
+      browser.newContext({ permissions: mode === 'direct' ? ['camera', 'microphone'] : [] }),
+      browser.newContext({ permissions: mode === 'direct' ? ['camera', 'microphone'] : [] }),
+    ]);
+    const [host, guest] = await Promise.all(contexts.map((c) => c.newPage()));
+    try {
+      if (mode === 'relay')
+        for (const page of [host, guest])
+          await page.addInitScript(() => {
+            window.RTCPeerConnection = undefined;
+          });
+      const errors = await Promise.all([lobby(host), lobby(guest)]);
+      await host.locator('[data-room="1"]').click();
+      await guest.locator('[data-room="1"]').click();
+      await expect.poll(() => host.evaluate(() => window.__db.online.room.players.length)).toBe(2);
+      await host.locator('#charList .char-card').nth(0).click();
+      await guest.locator('#charList .char-card').nth(5).click();
+      await host.locator('#startBtn').click();
+      await guest.locator('#startBtn').click();
+      await guest.waitForFunction(
+        () => window.__db.game.ready <= 0 && window.__db.online.remoteSequence > 5,
+        null,
+        { timeout: 20000 },
+      );
+      await guest.keyboard.down('KeyL');
+      for (const page of [host, guest])
+        await page.waitForFunction(() => window.__db.enemy.guard < 88, null, { timeout: 15000 });
+      for (const page of [host, guest]) {
+        expect(await page.evaluate(() => window.__db.enemy.hp === window.__db.enemy.maxHp)).toBe(
+          true,
+        );
+        await expect(page.locator('#p2guardResource')).toHaveAttribute('data-state', 'blocking');
+      }
+      await guest.keyboard.up('KeyL');
+      for (const page of [host, guest])
+        await page.waitForFunction(() => window.__db.enemy.guard === 100, null, { timeout: 15000 });
+      await host.keyboard.down('KeyW');
+      await host.waitForFunction(
+        () => window.__db.player.pos.distanceTo(window.__db.enemy.pos) < 1.2,
+        null,
+        { timeout: 15000 },
+      );
+      await guest.keyboard.down('KeyL');
+      await host.waitForFunction(() => window.__db.enemy.guardHeld > 0.15, null, {
+        timeout: 10000,
+      });
+      let stop = false;
+      const attacks = (async () => {
+        for (let i = 0; i < 20 && !stop; i++) {
+          await host.keyboard.press('KeyK');
+          await host.waitForTimeout(400);
+        }
+      })();
+      try {
+        await host.waitForFunction(() => window.__db.enemy.guardBroken, null, { timeout: 15000 });
+        stop = true;
+        await attacks;
+        await host.keyboard.up('KeyW');
+        await guest.waitForFunction(() => window.__db.enemy.guardBroken, null, { timeout: 10000 });
+      } finally {
+        stop = true;
+        await attacks;
+        await host.keyboard.up('KeyW');
+      }
+      for (const page of [host, guest]) {
+        expect(await page.evaluate(() => window.__db.enemy.hp < window.__db.enemy.maxHp)).toBe(
+          true,
+        );
+        expect(await page.evaluate(() => window.__db.enemy.guard < 30)).toBe(true);
+        await page.waitForFunction(
+          () => !window.__db.enemy.guardBroken && window.__db.enemy.state === 'block',
+          null,
+          { timeout: 15000 },
+        );
+      }
+      await guest.keyboard.up('KeyL');
+      for (const page of [host, guest])
+        await page.waitForFunction(() => window.__db.enemy.guard === 100, null, { timeout: 15000 });
+      for (const page of [host, guest])
+        expect(await page.evaluate(() => window.__db.online.active)).toBe(true);
+      expect(errors.flat()).toEqual([]);
+    } finally {
+      await Promise.all(contexts.map((c) => c.close()));
+    }
+  });
+}

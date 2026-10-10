@@ -308,12 +308,12 @@ export function register({
           : trainingModule.senzuHint(matchModule.player, renderModule.shoulderStates[0])) +
         ' · +15% 生命 · ' +
         left +
-        's';
+        '秒';
     } else if (map.senzuSpawnCount >= worldModule.SENZU_RULES.maxSpawns)
       el.textContent = '本回合仙豆已结束';
     else
       el.textContent =
-        '仙豆 ' + Math.max(0, Math.ceil(map.senzuNextSpawn - map.senzuTime - 1e-9)) + 's 后出现';
+        '仙豆 ' + Math.max(0, Math.ceil(map.senzuNextSpawn - map.senzuTime - 1e-9)) + '秒后出现';
   };
   return function initialize() {
     worldModule.SENZU_RULES = Object.freeze({

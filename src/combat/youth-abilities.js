@@ -51,7 +51,8 @@ export function register({ combat, characters, animation, match, render, world, 
     else if (f.ki < s.kiCost) reason = '资源不足';
     else if (s.ability === 'ape' && match.game.lightPreset !== 'moon') reason = '需要满月夜';
     else if (s.ability === 'ape' && f.hp / f.maxHp > 0.25) reason = '生命需不高于25%';
-    else if (s.ability === 'ape' && (v.apeUsed || !v.tailIntact)) reason = '本回合已变身';
+    else if (s.ability === 'ape' && (v.apeUsed || !v.tailIntact))
+      reason = !v.tailIntact ? '尾巴已断' : '本回合已变身';
     else if (['ape', 'muscle', 'fourArms', 'ogre', 'bat', 'armor'].includes(s.ability) && v.form)
       reason = '已有形态';
     else if (
@@ -321,7 +322,14 @@ export function register({ combat, characters, animation, match, render, world, 
     const info = combat.skillAvailability(f, variant, { cancel: !!f.attack });
     if (!info.available) {
       if (!f.isAI && !match.game.manualTest)
-        match.notify(info.skill.name + ' · ' + info.reason, 0.7);
+        match.notify(
+          info.skill.name +
+            ' · ' +
+            (info.reason === '资源不足'
+              ? '能量不足，还差' + Math.ceil(info.cost - f.ki) + ' · 按住聚气补充'
+              : info.reason.replace(/s$/, '秒')),
+          1.2,
+        );
       return false;
     }
     if (info.reverting) {
@@ -934,6 +942,30 @@ export function register({ combat, characters, animation, match, render, world, 
         this.youth.reversedTime > 0 ? reverseDirectionalInput(input) : input,
       );
     };
+    // These authored follow-ups must consume input during their short windows,
+    // before the source skill finishes recovery and clears its input buffer.
+    const updateAttack = proto.updateAttack;
+    proto.updateAttack = function (dt, foe, input) {
+      if (
+        this.attack?.ability === 'catStep' &&
+        this.youth.catUntil > match.game.simTime &&
+        this.pull('light')
+      ) {
+        this.startAttack('light', input);
+        return;
+      }
+      const followup = this.queue.find((q) => q.type === 'special' && !q.context.down);
+      if (
+        this.attack?.ability === 'wolf' &&
+        this.youth.wolfUntil > match.game.simTime &&
+        followup
+      ) {
+        this.pull('special');
+        this.startSpecial(followup.context);
+        return;
+      }
+      updateAttack.call(this, dt, foe, input);
+    };
     const flight = combat.flightPhysics;
     combat.flightPhysics = function (f, dt, input) {
       if (
@@ -968,7 +1000,10 @@ export function register({ combat, characters, animation, match, render, world, 
                 ? 'psychic'
                 : 'ki';
       const cost = kind === 'flame' ? 12 : kind === 'missile' ? 10 : kind === 'helmet' ? 8 : 5;
-      if (this.ki < cost) return false;
+      if (this.ki < cost) {
+        combat.warnKi(this, cost);
+        return false;
+      }
       this.ki -= cost;
       const a = combat.finalizeMove({
         id: 'equipment',

@@ -1137,7 +1137,7 @@ export function register({
       const seed = 314159 + row * 1777 + target * 97 + seedIndex * 104729;
       aiModule.setCombatSeed(seed);
       let frame = 0;
-      while (!matchModule.game.over && frame++ < 4400) {
+      while (!matchModule.game.over && frame++ < 6000) {
         combatModule.advanceCombat(
           1 / 30,
           () => aiModule.aiThink(matchModule.player, matchModule.enemy, matchModule.STEP),
@@ -1156,7 +1156,7 @@ export function register({
         winner: matchModule.game.lastWinner,
         reason: matchModule.game.endReason,
         hp: [matchModule.player.hp, matchModule.enemy.hp],
-        duration: 99 - matchModule.game.timeLeft,
+        duration: 180 - matchModule.game.timeLeft,
         frames: frame,
         damage: diag?.damage,
         healed: diag?.healed,

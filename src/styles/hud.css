@@ -22,7 +22,6 @@
   }
 }
 #hud .bar,
-#hud .guardBar,
 #splitOverlay .viewHP,
 #splitOverlay .viewKi {
   background: #ffffff24 !important;
@@ -308,4 +307,130 @@
 #hud .side.right .healthStack .fill {
   left: auto;
   right: 0;
+}
+
+.guardResource {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 3px 6px;
+  margin-top: 7px;
+  color: #eedfff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 14px;
+  text-shadow: 0 1px 3px #071725;
+}
+.guardLabel {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.guardLabel svg {
+  width: 11px;
+  height: 13px;
+  flex-shrink: 0;
+  fill: #715099;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+.guardState {
+  padding-left: 3px;
+  border-left: 1px solid #d8b5f577;
+  font-weight: 500;
+}
+#hud .guardBar,
+#splitOverlay .guardBar {
+  position: relative;
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  height: 9px;
+  margin: 0;
+  border: 1px solid #d8b5f5;
+  border-radius: 3px;
+  background: #261637dd;
+}
+.guardBar span {
+  background: linear-gradient(180deg, #e4c7ff, #a378cf);
+  transition: width 0.08s linear;
+}
+.guardBar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 calc(20% - 1px),
+    #26163799 calc(20% - 1px) 20%
+  );
+}
+#hud .side.right .guardBar span {
+  margin-left: auto;
+}
+.guardValue {
+  grid-column: 2;
+  grid-row: 1;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.guardResource[data-state='blocking'] .guardBar span {
+  background: linear-gradient(180deg, #faf0ff, #c291fb);
+}
+.guardResource[data-state='waiting'] .guardState {
+  color: #d7c6e6;
+}
+.guardResource[data-state='recovering'] .guardState {
+  color: #c5f3da;
+}
+.guardResource[data-state='low'],
+.guardResource[data-state='broken'],
+.guardResource[data-state='locked'] {
+  color: #ffd1c5;
+}
+#hud .guardResource[data-state='low'] .guardBar,
+#hud .guardResource[data-state='broken'] .guardBar,
+#hud .guardResource[data-state='locked'] .guardBar,
+#splitOverlay .guardResource[data-state='low'] .guardBar,
+#splitOverlay .guardResource[data-state='broken'] .guardBar,
+#splitOverlay .guardResource[data-state='locked'] .guardBar {
+  border-color: #ffac9c;
+}
+.guardResource[data-state='low'] .guardBar span {
+  background: #f17d72;
+}
+.guardResource[data-state='broken'] .guardBar,
+.guardResource[data-state='locked'] .guardBar {
+  background: repeating-linear-gradient(135deg, #301b2be6 0 4px, #803f4655 4px 8px);
+}
+.guardResource[data-state='locked'] .guardBar::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  bottom: 0;
+  left: 30%;
+  border-left: 2px solid #fff0cc;
+}
+#hud .side.right .guardResource[data-state='locked'] .guardBar::before {
+  left: auto;
+  right: 30%;
+}
+@media (max-width: 600px) {
+  .guardResource {
+    grid-template-columns: minmax(0, 1fr) 32px;
+    gap: 2px 3px;
+    font-size: 9px;
+    margin-top: 5px;
+  }
+  .guardLabel {
+    gap: 2px;
+  }
+  .guardState {
+    padding-left: 2px;
+  }
 }

@@ -1,3 +1,6 @@
+import { INPUT_LABELS } from './character-help.js';
+import { defenseStatus } from '../combat/defense-rules.js';
+
 export function register({
   characters: charactersModule,
   combat: combatModule,
@@ -5,13 +8,13 @@ export function register({
   training: trainingModule,
   ui: uiModule,
 }) {
-  uiModule.fighterStatus = function fighterStatus(f) {
+  uiModule.fighterStatus = function fighterStatus(f, keys = INPUT_LABELS.one) {
     if (!f) return '';
     if (matchModule.game.over) return matchModule.game.endReason || '回合结束';
     if (matchModule.game.paused) return '已暂停';
     if (matchModule.game.ready > 0) return '准备';
     if (f.youth?.reversedTime > 0)
-      return '太阳拳 · 方向反向 ' + f.youth.reversedTime.toFixed(1) + 's';
+      return '太阳拳 · 方向反向 ' + f.youth.reversedTime.toFixed(1) + '秒';
     if (f.attack?.ability === 'sidestep') return '狼牙侧步 · 等待闪避反击';
     if (f.attack?.youthDodgeCounter) return '狼牙闪身 · 背后击飞';
     if (f.attack?.superArmor) return f.attack.name + ' · 霸体 · 承伤60%';
@@ -21,11 +24,11 @@ export function register({
           f.attack.name +
           ' · ' +
           f.attack.kiCost +
-          ' 气 · ' +
+          ' 能量 · ' +
           (f.attack.costCommitted ? '已发射' : '准备发射')
         );
-      if (f.attack.id === 'special') return f.attack.name + ' · ' + f.attack.kiCost + ' 气';
-      if (f.attack.isUlt) return f.def.ultName + ' · 满气必杀';
+      if (f.attack.id === 'special') return f.attack.name + ' · ' + f.attack.kiCost + ' 能量';
+      if (f.attack.isUlt) return f.def.ultName + ' · 满能量必杀';
       if (f.attack.isThrow) return '投技';
       if (f.attack.id === 'launcher') return '挑空';
       if (f.attack.id === 'sweep') return '下段扫腿';
@@ -33,13 +36,13 @@ export function register({
     }
     if (f.state === 'charge')
       return f.ki >= 100
-        ? '气力充满 · U 必杀'
+        ? `能量已满 · ${keys.ultimate} 必杀`
         : (f.chargeHeld ?? 0) < combatModule.KI_RULES.chargeStartup
           ? '聚气起势'
-          : '聚气 · +15 气 / 秒';
+          : '聚气 · +15 能量 / 秒';
     if (f.state === 'blastCharge') {
       const q = combatModule.kiBlastPower(f.blastHeldTime ?? 0, f.ki);
-      return q.charged ? '蓄力气弹 · ' + q.cost + ' 气 · 松开发射' : '气弹 · 5 气 · 松开发射';
+      return q.charged ? '蓄力气弹 · ' + q.cost + ' 能量 · 松开发射' : '气弹 · 5 能量 · 松开发射';
     }
     return (
       {
@@ -47,11 +50,11 @@ export function register({
         block: f.crouching ? '下段防御' : '站立防御',
         blockstun: '格挡硬直',
         dash: f.dashKind === 'backflip' ? '连续后空翻' : f.dashKind === 'pursuit' ? '追击' : '闪身',
-        hit: '受击 · Q 脱身 / L+Shift 解围',
+        hit: `受击 · ${keys.evasion} 脱身 / ${keys.burst} 解围`,
         guardbreak: '破防',
         knockdown: '倒地',
         landing: '落地恢复',
-        grabbed: '被投 · O 拆投',
+        grabbed: `被投 · ${keys.throw} 拆投`,
         dead: '倒下',
         crouch: '下蹲',
       }[f.state] ||
@@ -82,8 +85,25 @@ export function register({
         'landing',
         'blastCharge',
       ].includes(f.state);
-    const reason = f.ki < 30 ? '气力不足' : usable ? '可发动' : '等待行动恢复';
-    return name + ' · 30 气 · ' + reason;
+    const reason = f.ki < 30 ? '能量不足' : usable ? '可发动' : '等待行动恢复';
+    return name + ' · 30 能量 · ' + reason;
+  };
+  uiModule.updateDefenseHUD = function updateDefenseHUD(f, prefix) {
+    const guard = Math.min(100, Math.max(0, f.guard));
+    const status = defenseStatus(f);
+    const resource = document.getElementById(prefix + 'guardResource');
+    const fill = document.getElementById(prefix + 'guard');
+    const bar = fill.parentElement;
+    resource.dataset.state = status.state;
+    resource.title = status.hint;
+    fill.style.width = guard + '%';
+    document.getElementById(prefix + 'guardValue').textContent = Math.floor(guard) + '%';
+    document.getElementById(prefix + 'guardState').textContent = status.label;
+    bar.setAttribute('aria-valuenow', String(Math.floor(guard)));
+    bar.setAttribute(
+      'aria-valuetext',
+      `防御 ${Math.floor(guard)}%，${status.label}，${status.hint}`,
+    );
   };
   uiModule.updateExtraHUD = function updateExtraHUD() {
     const note = document.getElementById('fightNotice');
@@ -106,8 +126,8 @@ export function register({
         .getElementById(prefix + 'kibar')
         .classList.toggle('insufficient', (f.kiWarning ?? 0) > 0);
       document.getElementById(prefix + 'value').textContent =
-        Math.ceil(f.hp) + ' / ' + f.maxHp + ' · 气 ' + Math.floor(f.ki) + ' / 100';
-      document.getElementById(prefix + 'guard').style.width = f.guard + '%';
+        Math.ceil(f.hp) + ' / ' + f.maxHp + ' · 能量 ' + Math.floor(f.ki) + ' / 100';
+      uiModule.updateDefenseHUD(f, prefix);
       document.getElementById(prefix + 'escape').textContent =
         '残像 ' + ('●'.repeat(f.escapeCharges) + '○'.repeat(2 - f.escapeCharges));
     }
@@ -134,7 +154,7 @@ export function register({
   };
   uiModule.showCombo = function showCombo(n) {
     uiModule.el.combo.innerHTML =
-      n + ' HIT <small>' + Math.round(matchModule.game.comboDamage ?? 0) + ' DAMAGE</small>';
+      n + ' 连击 <small>' + Math.round(matchModule.game.comboDamage ?? 0) + ' 伤害</small>';
     uiModule.el.combo.classList.add('show');
   };
   return function initialize() {

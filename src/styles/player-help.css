@@ -1,0 +1,716 @@
+/* Shared player-facing typography and states; combat surfaces remain transparent. */
+body {
+  font-variant-numeric: tabular-nums;
+}
+button,
+select,
+summary {
+  font-size: 13px;
+}
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+button:disabled {
+  cursor: not-allowed;
+}
+.homeButton {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+}
+.homeButton small {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+.homeHelp {
+  background: transparent;
+  color: var(--paper);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  min-height: 40px;
+  align-self: flex-start;
+}
+.homeSubtitle::after {
+  content: '十四位角色 · 少年篇对战';
+  letter-spacing: 1px;
+}
+.selectLayout {
+  grid-template-columns: 280px minmax(0, 1fr);
+  align-items: start;
+}
+.heroPanel {
+  padding: 16px;
+}
+.heroPortrait {
+  height: 150px;
+}
+.heroPanel .heroTitle {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.heroSummary {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 12px 0;
+  color: var(--paper);
+}
+.heroUlt {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 0;
+  font-size: 14px;
+}
+.heroUlt::before {
+  display: none;
+}
+.heroUlt > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.heroUlt kbd {
+  min-width: 26px;
+  text-align: center;
+}
+.heroUlt span {
+  min-width: 0;
+}
+.heroUlt small {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+.heroActions {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+.heroActions button {
+  flex: 1;
+  min-height: 40px;
+  padding: 6px 8px;
+}
+.heroStats {
+  gap: 20px;
+}
+.heroStats b {
+  font-size: 22px;
+}
+.heroStats small {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.heroStats div {
+  min-width: 0;
+}
+.artOpen {
+  font-size: 12px;
+  min-height: 38px;
+}
+.controls,
+.modeNote,
+.settingHint,
+.settingsDisclosure summary {
+  font-size: 13px;
+}
+.settingsContent {
+  align-items: flex-start;
+}
+#lightingHint {
+  flex-basis: 100%;
+  margin: 0;
+  line-height: 1.7;
+}
+.guidePanel {
+  width: min(980px, 100%);
+  max-height: 90dvh;
+}
+.guideContext {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 0 24px 12px;
+  margin: 0;
+}
+.guideTabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.guideTabs button {
+  font-size: 14px;
+  min-height: 42px;
+}
+.guideContent {
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-x: hidden;
+}
+.guideContent h3 {
+  font-size: 20px;
+  margin: 16px 0 12px;
+}
+.guideContent h4 {
+  font-size: 16px;
+  margin: 0;
+}
+.guideContent p {
+  font-size: 14px;
+  line-height: 1.8;
+}
+.guideSelectors {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.guideSelectors label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.guideSelectors select {
+  max-width: 220px;
+  min-height: 40px;
+  font: inherit;
+}
+.helpLead {
+  color: var(--paper) !important;
+  font-size: 16px !important;
+}
+.helpCaution {
+  padding-left: 12px;
+  border-left: 3px solid var(--gold);
+}
+.helpMoves {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+.helpMove {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  min-width: 0;
+}
+.helpMoveTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.helpMeta {
+  color: var(--gold) !important;
+  font-size: 12px !important;
+}
+.helpMove p:last-child {
+  margin-bottom: 0;
+}
+.keyTable {
+  table-layout: auto;
+}
+.keyTable th:first-child {
+  width: 20%;
+}
+.keyTable th:nth-child(2) {
+  width: 22%;
+}
+.guideContent table {
+  font-size: 13px;
+}
+.guideContent td,
+.guideContent th {
+  padding: 12px 10px;
+  vertical-align: top;
+}
+.guideContent td kbd {
+  white-space: normal;
+}
+.keyLegend {
+  color: var(--muted);
+}
+.conditionList {
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 20px;
+}
+.conditionList li {
+  font-size: 13px;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+.conditionList span {
+  color: var(--muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.conditionList [data-met='false'] span {
+  color: #ffb290;
+}
+.conditionList [data-met='true'] span {
+  color: #b6de96;
+}
+.helpDetails {
+  margin: 16px 0;
+}
+.helpDetails summary {
+  font-size: 14px;
+  min-height: 32px;
+}
+#guidePractice {
+  min-height: 44px;
+  margin-bottom: 16px;
+}
+.skillDock {
+  position: absolute;
+  left: 24px;
+  bottom: 90px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  width: min(860px, calc(100vw - 48px));
+  color: var(--paper);
+  text-shadow:
+    0 1px 3px var(--ink),
+    0 0 5px var(--ink);
+  pointer-events: none;
+}
+.skillSlot {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 5px 8px;
+  min-width: 0;
+  align-content: start;
+}
+.skillSlot kbd {
+  font-size: 12px;
+  border-color: #f3e4c2aa;
+  background: transparent;
+  color: var(--paper);
+}
+.skillName {
+  font-size: 14px;
+  font-weight: 700;
+}
+.skillStatus {
+  grid-column: 1/-1;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.skillSlot[data-available='false'] .skillStatus {
+  color: #ffe1bd;
+}
+.actionReadout {
+  bottom: 168px;
+  gap: 2px;
+}
+#actionState {
+  font-size: 14px;
+}
+#specialState,
+#combatReadout {
+  font-size: 12px;
+}
+#specialState:empty {
+  display: none;
+}
+.value,
+.escapeRow,
+.v2Ability {
+  font-size: 12px;
+}
+#fightbar {
+  font-size: 12px;
+  gap: 10px;
+}
+#fightbar button {
+  font-size: 12px;
+  min-height: 40px;
+}
+.touchStatus {
+  display: none;
+}
+#touch button.unavailable {
+  border-style: dashed;
+  opacity: 0.7;
+}
+#touch button {
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+#trainingPanel {
+  width: 310px;
+  font-size: 13px;
+  max-height: calc(100dvh - 280px);
+}
+#trainingPanel h3 {
+  font-size: 18px;
+}
+#trainingPanel h4 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+#trainingPanel select,
+#trainingPanel button {
+  font-size: 12px;
+  min-height: 38px;
+}
+#trainingAdvanced {
+  border-top: 1px solid #8b805d;
+  padding-top: 12px;
+  margin-top: 14px;
+}
+#trainingAdvanced summary {
+  min-height: 32px;
+  font-size: 13px;
+  color: #714213;
+}
+.mechanicPractice {
+  border-top: 1px solid #8b805d;
+  padding-top: 12px;
+  margin-top: 14px;
+}
+#v2Goal {
+  font-size: 13px;
+  white-space: pre-line;
+  line-height: 1.7;
+  margin-bottom: 10px;
+}
+#v2GoalStop {
+  margin-left: 5px;
+}
+#trainingPanel .trainingActions {
+  flex-wrap: wrap;
+}
+#drillReadout,
+#frameReadout,
+#inputHistory,
+#tacticsReadout {
+  font-size: 12px;
+}
+.onlineReadyHint {
+  flex-basis: 100%;
+  font-size: 12px;
+  color: var(--gold);
+  margin: 0;
+}
+#onlineRoomInfo {
+  flex-wrap: wrap;
+}
+.onlineRoomCard p,
+.onlineIntro,
+#onlineStatus {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.onlineSelection #heroPractice {
+  display: none;
+}
+.spectating .skillDock,
+.spectating .keyboardHint {
+  display: none;
+}
+.splitMode .skillDock {
+  display: none;
+}
+.viewControls {
+  font-size: 12px;
+  white-space: pre-line;
+  max-width: calc(100% - 30px);
+  line-height: 1.7;
+}
+.viewStats p {
+  font-size: 11px;
+}
+#pause .btnrow {
+  flex-wrap: wrap;
+}
+.dialogCard p,
+#pause p {
+  font-size: 14px;
+  line-height: 1.7;
+}
+@media (max-width: 1100px) {
+  .selectLayout {
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 20px;
+  }
+  .skillDock {
+    width: calc(100vw - 48px);
+    gap: 12px;
+  }
+  .skillName {
+    font-size: 13px;
+  }
+}
+@media (max-width: 760px) {
+  .selectLayout {
+    grid-template-columns: 1fr;
+  }
+  .heroPanel {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1fr);
+    padding: 14px;
+    gap: 8px 14px;
+  }
+  .heroPortrait {
+    grid-column: 1;
+    grid-row: 1/4;
+    height: 120px;
+  }
+  .heroPanel h3,
+  .heroTitle {
+    grid-column: 2;
+  }
+  .heroSummary,
+  .heroUlt,
+  .heroActions,
+  .heroStats,
+  .artOpen {
+    grid-column: 1/-1;
+    margin: 0;
+  }
+  .heroPanel .heroTitle {
+    font-size: 13px;
+  }
+  .heroSummary {
+    font-size: 13px;
+  }
+  .heroUlt {
+    margin: 10px 0;
+    gap: 10px;
+  }
+  .heroUlt > div {
+    align-items: baseline;
+  }
+  .heroUlt small {
+    display: inline;
+    margin-left: 8px;
+    font-size: 11px;
+  }
+  .heroStats {
+    margin: 10px 0 0;
+  }
+  .heroStats small {
+    display: none;
+  }
+  .heroActions button {
+    min-height: 42px;
+  }
+  .char-card .cname {
+    font-size: 12px;
+  }
+  .guideContext {
+    padding: 0 16px 12px;
+  }
+  .guideSelectors {
+    gap: 10px;
+  }
+  .guideSelectors label {
+    width: 100%;
+  }
+  .guideSelectors select {
+    flex: 1;
+    max-width: none;
+    min-width: 0;
+  }
+  .guideTabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .helpMoves,
+  .conditionList {
+    grid-template-columns: 1fr;
+  }
+  .guideContent table {
+    font-size: 12px;
+  }
+  .guideContent td,
+  .guideContent th {
+    padding: 10px 6px;
+  }
+  .keyTable th:first-child {
+    width: 22%;
+  }
+  .keyTable th:nth-child(2) {
+    width: 24%;
+  }
+  .value,
+  .escapeRow,
+  .v2Ability {
+    font-size: 11px;
+  }
+  .v2Ability {
+    max-width: none;
+  }
+  .side {
+    max-width: 44%;
+  }
+  .viewControls {
+    font-size: 10px;
+  }
+  #trainingPanel {
+    right: 12px;
+    width: min(310px, calc(100vw - 24px));
+  }
+}
+@media (pointer: coarse), (max-width: 600px) {
+  .skillDock {
+    display: none;
+  }
+  #touch {
+    left: 8px;
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .touchStatus {
+    display: block;
+    position: absolute;
+    bottom: 158px;
+    left: 4px;
+    right: 4px;
+    font-size: 11px;
+    line-height: 1.6;
+    color: var(--paper);
+    text-shadow:
+      0 1px 3px var(--ink),
+      0 0 5px var(--ink);
+    pointer-events: none;
+  }
+  #touch .touchGroup:not(.move) {
+    grid-template-columns: repeat(4, 48px);
+    gap: 5px;
+  }
+  #touch .touchGroup.move {
+    grid-template-columns: repeat(3, 44px);
+    gap: 5px;
+  }
+  #touch .touchGroup button {
+    width: 48px;
+    height: 48px;
+    font-size: 11px;
+  }
+  #touch .touchGroup.move button {
+    width: 44px;
+    height: 48px;
+  }
+  #fightbar {
+    bottom: 204px;
+  }
+  .actionReadout {
+    bottom: 258px;
+    left: 12px;
+  }
+  #senzuStatus {
+    top: 185px;
+    bottom: auto;
+  }
+  #trainingPanel {
+    top: 205px;
+    max-height: calc(100dvh - 470px);
+  }
+  .splitMode .viewControls {
+    max-width: 70vw;
+  }
+  .spectating #fightbar {
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}
+@media (max-width: 380px) {
+  #touch .touchGroup:not(.move) {
+    grid-template-columns: repeat(3, 44px);
+    gap: 4px;
+  }
+  #touch .touchGroup.move {
+    grid-template-columns: repeat(3, 44px);
+    gap: 4px;
+  }
+  #touch .touchGroup button {
+    width: 44px;
+  }
+  #touch .touchGroup.move button {
+    width: 44px;
+  }
+}
+@media (max-width: 380px) and (min-height: 501px) {
+  .touchStatus {
+    bottom: 211px;
+  }
+  #fightbar {
+    bottom: 264px;
+  }
+  .actionReadout {
+    bottom: 318px;
+  }
+  #trainingPanel {
+    max-height: calc(100dvh - 530px);
+  }
+}
+@media (max-height: 500px) {
+  .guidePanel {
+    max-height: 96dvh;
+  }
+  .guideHeader {
+    padding: 10px 16px;
+  }
+  .guideContext {
+    padding-bottom: 6px;
+  }
+  .guideTabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding-bottom: 8px;
+  }
+  .guideTabs button {
+    min-height: 36px;
+    font-size: 12px;
+  }
+  .guideContent {
+    padding-top: 12px;
+  }
+  .heroPortrait {
+    height: 150px;
+  }
+  #trainingPanel {
+    top: 140px;
+    max-height: calc(100dvh - 240px);
+  }
+  .viewStats p {
+    font-size: 10px;
+  }
+}
+@media (pointer: coarse) and (max-height: 500px) {
+  #touch .touchGroup:not(.move) {
+    grid-template-columns: repeat(6, 48px);
+  }
+  .touchStatus {
+    bottom: 104px;
+    left: 160px;
+  }
+  #fightbar {
+    bottom: 144px;
+  }
+  .actionReadout {
+    bottom: 192px;
+    font-size: 11px;
+  }
+  #senzuStatus {
+    top: 140px;
+  }
+  #trainingPanel {
+    top: 140px;
+    max-height: calc(100dvh - 250px);
+  }
+}

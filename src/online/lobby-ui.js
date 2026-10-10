@@ -6,13 +6,13 @@ export function register({ app, characters, match, ui, world }) {
     panel.id = 'onlineLobby';
     panel.hidden = true;
     panel.innerHTML =
-      '<div class="onlineShell"><header><div><div class="onlineEyebrow">少年武道会</div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">三个房间，每房两名选手。双方开战后，其他玩家可自由观战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><button id="onlineRetry" hidden>重新连接</button><div id="onlineRooms"></div></div>';
+      '<div class="onlineShell"><header><div><div class="onlineEyebrow">少年武道会</div><h1>联机对战</h1></div><button id="onlineHome">← 主菜单</button></header><p class="onlineIntro">选择房间，选好角色后准备。每房两名选手，双方准备后自动开战；对局中可加入观战。</p><p id="onlineStatus" role="status" aria-live="polite">正在连接…</p><button id="onlineRetry" hidden>重新连接</button><div id="onlineRooms"></div></div>';
     document.body.append(panel);
     const info = document.createElement('section');
     info.id = 'onlineRoomInfo';
     info.hidden = true;
     info.innerHTML =
-      '<div class="onlineRoomHeading"><h2 id="onlineRoomTitle"></h2></div><div id="onlinePlayers"></div><p id="onlineRoomStatus" role="status" aria-live="polite" hidden></p>';
+      '<div class="onlineRoomHeading"><h2 id="onlineRoomTitle"></h2></div><div id="onlinePlayers"></div><p id="onlineReadyHint" class="onlineReadyHint"></p><p id="onlineRoomStatus" role="status" aria-live="polite" hidden></p>';
     el('startBtn').before(info);
     let savedSelection;
     const selectionKeys = [
@@ -86,7 +86,7 @@ export function register({ app, characters, match, ui, world }) {
       el('backHome').textContent = '← 房间列表';
       el('onlineRoomTitle').textContent = `房间 ${room.id}`;
       el('heroOwner').textContent = `你的角色 · ${self.seat + 1}P`;
-      el('modeNote').textContent = '联机双人 · 99 秒 · 单回合';
+      el('modeNote').textContent = '联机双人 · 180 秒 · 单回合';
       el('selectionSummary').textContent =
         `${characters.CHARACTERS[self.character].name} VS ${foe ? characters.CHARACTERS[foe.character].name : '等待玩家加入'} · ${world.MAPS[room.map].name}`;
       el('playerTabs').hidden = true;
@@ -119,7 +119,17 @@ export function register({ app, characters, match, ui, world }) {
       ))
         node.disabled = !!room.match;
       el('startBtn').disabled = !!room.match;
-      el('startBtn').textContent = room.match ? '正在连接对手…' : self.ready ? '取消准备' : '准备';
+      el('startBtn').textContent = room.match ? '连接对手中' : self.ready ? '取消准备' : '准备对战';
+      el('onlineReadyHint').textContent = room.match
+        ? '双方已准备，正在连接'
+        : !foe
+          ? '等待另一名玩家加入；你可以先准备'
+          : self.ready
+            ? foe.ready
+              ? '双方已准备'
+              : '等待对手准备'
+            : '选好角色与舞台后，点击准备对战';
+      el('heroPractice').hidden = true;
     }
     el('homeOnline').onclick = () => {
       showLobby();
@@ -141,7 +151,7 @@ export function register({ app, characters, match, ui, world }) {
     };
     online.onStatus = (message) => {
       el('onlineStatus').textContent = message;
-      el('onlineRetry').hidden = !/重试|重新进入/.test(message);
+      el('onlineRetry').hidden = !/重试|重新进入|断开|失败|超时/.test(message);
       el('onlineRoomStatus').textContent = message;
       el('onlineRoomStatus').hidden = !/无效|停止|超时|中断|拥堵|失败|已满|更新|不能/.test(message);
     };
@@ -176,7 +186,7 @@ export function register({ app, characters, match, ui, world }) {
         button.textContent = room.players.length
           ? room.players.length === 2
             ? '房间已满'
-            : '加入房间'
+            : '加入对战'
           : '创建房间';
         button.disabled = !online.you || room.players.length === 2 || !!room.match;
         button.onclick = () =>
