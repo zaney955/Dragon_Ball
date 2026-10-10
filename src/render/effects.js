@@ -5,7 +5,14 @@ export function register({ render: renderModule }) {
   };
   let dustTexture;
   renderModule.spawnDust = function spawnDust(pos, count = 5, options = {}) {
-    count = Math.min(count, Math.max(0, 180 - renderModule.effects.length));
+    if (options.stageEffect && renderModule.stageDust) {
+      renderModule.stageDust(pos, count, options);
+      return;
+    }
+    count = Math.min(
+      count,
+      Math.max(0, 180 - renderModule.effects.length - (renderModule.activeStageParticles?.() ?? 0)),
+    );
     if (!count) return;
     if (!dustTexture) {
       const canvas = document.createElement('canvas');
@@ -76,7 +83,10 @@ export function register({ render: renderModule }) {
       });
   };
   renderModule.spawnSpark = function spawnSpark(pos, color, count, power = 1) {
-    count = Math.min(count, Math.max(0, 180 - renderModule.effects.length));
+    count = Math.min(
+      count,
+      Math.max(0, 180 - renderModule.effects.length - (renderModule.activeStageParticles?.() ?? 0)),
+    );
     for (let i = 0; i < count; i++) {
       const mat = new THREE.MeshBasicMaterial({
         color,

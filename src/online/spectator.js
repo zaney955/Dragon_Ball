@@ -93,7 +93,7 @@ export function createSpectator({ online, animation, combat, match, render, worl
   }
   function capture() {
     const map = world.currentMap;
-    const visible = [];
+    const visible = map.stageParticles?.snapshot() ?? [];
     const roots = [
       ...combat.youthEntities.map((e) => e.mesh),
       ...combat.v2Projectiles.map((e) => e.mesh),

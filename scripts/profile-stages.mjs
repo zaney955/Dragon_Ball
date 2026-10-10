@@ -38,6 +38,7 @@ const destructionStress = async () => {
     maxCalls,
     broken: d.map.destructibles.filter((p) => p.broken).length,
     effects: d.getEffects().length,
+    stageParticles: d.map.stageParticles?.activeCount() ?? 0,
     memory: { ...d.renderer.info.memory },
   };
 };

@@ -252,13 +252,15 @@
       "render.updateEffects"
     ],
     "requires": [
+      "render.activeStageParticles",
       "render.camera",
       "render.effects",
       "render.ringGeo",
       "render.scene",
       "render.sparkGeo",
       "render.spawnDust",
-      "render.spawnSpark"
+      "render.spawnSpark",
+      "render.stageDust"
     ]
   },
   {
@@ -2542,6 +2544,8 @@
     "testing": false,
     "provides": [
       "audio.stageSound",
+      "render.activeStageParticles",
+      "render.stageDust",
       "world.attachStageFeedback",
       "world.leaveStageRubble"
     ],
@@ -2555,6 +2559,7 @@
       "render.spawnDust",
       "world.MAPS",
       "world.attachStageFeedback",
+      "world.currentMap",
       "world.damageStageObject",
       "world.groundHeight",
       "world.stageCharacters"

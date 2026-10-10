@@ -115,6 +115,11 @@ export function syncDestruction(map, only = null) {
     const multiplier = node.material.color;
     const parentTint =
       item.building && node !== item.mesh ? item.mesh.material.color : { r: 1, g: 1, b: 1 };
+    const tint = [
+      multiplier.r * parentTint.r,
+      multiplier.g * parentTint.g,
+      multiplier.b * parentTint.b,
+    ];
     let visible = true;
     for (let parent = node; parent; parent = parent.parent)
       if (!parent.visible) {
@@ -123,11 +128,16 @@ export function syncDestruction(map, only = null) {
       }
     for (let i = 0; i < count; i++) {
       const k = (offset + i) * 3;
+      if (!visible || item.broken) {
+        r.positions[k] = r.positions[k + 2] = 0;
+        r.positions[k + 1] = -1000;
+        r.wind[offset + i] = 0;
+        continue;
+      }
       p.fromBufferAttribute(node.geometry.attributes.position, i).applyMatrix4(node.matrixWorld);
       n.fromBufferAttribute(node.geometry.attributes.normal, i)
         .applyMatrix3(normalMatrix)
         .normalize();
-      if (!visible || item.broken) p.set(0, -1000, 0);
       r.wind[offset + i] =
         item.tree && !item.fallen && !item.broken
           ? Math.max(0, Math.min(0.08, (p.y - item.mesh.position.y - 1) * 0.012))
@@ -138,12 +148,7 @@ export function syncDestruction(map, only = null) {
       r.normals[k] = n.x;
       r.normals[k + 1] = n.y;
       r.normals[k + 2] = n.z;
-      for (let j = 0; j < 3; j++)
-        r.colors[k + j] =
-          (r.baseColors?.[i * 3 + j] ?? 1) *
-          [multiplier.r * parentTint.r, multiplier.g * parentTint.g, multiplier.b * parentTint.b][
-            j
-          ];
+      for (let j = 0; j < 3; j++) r.colors[k + j] = (r.baseColors?.[i * 3 + j] ?? 1) * tint[j];
     }
     for (const attribute of [
       output.attributes.position,

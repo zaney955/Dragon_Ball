@@ -269,7 +269,15 @@ export function register({ characters, combat, match, testing, ai, audio, render
         assert(distance >= 4 && distance <= 6, '击飞水平距离不在4到6米之间：' + distance);
         assert(world.currentMap.damageEvents === damageEvents + 1);
         assert(world.currentMap.brokenTiles > 0);
-        assert(render.effects.some((e) => e.type === 'dust'));
+        assert(
+          render.effects.some((e) => e.type === 'dust') ||
+            world.currentMap.stageParticles
+              ?.snapshot()
+              .some(
+                (particle) => particle.geometry.type === 'PlaneGeometry' && particle.opacity > 0,
+              ),
+          '落地必须产生可见扬尘，兼容实例化粒子',
+        );
         ticks(60);
         assert(world.currentMap.damageEvents === damageEvents + 1 && e.state === 'idle');
       });

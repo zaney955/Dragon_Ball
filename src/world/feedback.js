@@ -1,5 +1,6 @@
 import { rebuildSpace } from './space.js';
 import { updateDestructionWind } from './destruction-batching.js';
+import { createStageParticles } from './stage-particles.js';
 import * as THREE from 'three';
 
 export function register({ world, match, render, audio, combat }) {
@@ -68,6 +69,12 @@ export function register({ world, match, render, audio, combat }) {
     rebuildSpace(map);
   };
   world.attachStageFeedback = (map) => {
+    Object.defineProperty(map, 'stageParticles', {
+      value: createStageParticles(map, render, world.stageCharacters),
+    });
+    render.stageDust = (pos, count, options) =>
+      world.currentMap?.stageParticles?.dust(pos, count, options);
+    render.activeStageParticles = () => world.currentMap?.stageParticles?.activeCount() ?? 0;
     map.rubbleSlots = [];
     map.rubbleCursor = 0;
     const rubbleGeometry = new THREE.BoxGeometry(0.85, 0.3, 0.6);
@@ -76,7 +83,7 @@ export function register({ world, match, render, audio, combat }) {
       mesh.name = 'stage-persistent-rubble';
       mesh.position.y = -100;
       mesh.visible = false;
-      mesh.receiveShadow = true;
+      mesh.castShadow = mesh.receiveShadow = true;
       mesh.userData.stageObject = { runtimeRubble: true };
       map.group.add(mesh);
       const item = {
@@ -173,6 +180,29 @@ export function register({ world, match, render, audio, combat }) {
     map.group.add(wallCracks);
     const wallStages = walls.map(() => -1);
     const turn = new THREE.Euler();
+    let birds = null;
+    if (id === 'wild' || id === 'kame') {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(
+          [0, 0, 0, -0.6, 0.08, -0.18, -0.3, 0, 0.1, 0, 0, 0, 0.6, 0.08, -0.18, 0.3, 0, 0.1],
+          3,
+        ),
+      );
+      birds = new THREE.InstancedMesh(
+        geometry,
+        new THREE.MeshBasicMaterial({
+          color: id === 'kame' ? 0xf5f1df : 0x6f7773,
+          side: THREE.DoubleSide,
+        }),
+        4,
+      );
+      birds.name = 'stage-ambient-birds';
+      birds.userData.cameraBlocker = false;
+      birds.frustumCulled = false;
+      map.group.add(birds);
+    }
     let cursor = 0,
       time = 0,
       ambient = 2,
@@ -181,8 +211,23 @@ export function register({ world, match, render, audio, combat }) {
     const update = map.update;
     map.update = (dt) => {
       update(dt);
+      map.stageParticles.update(dt);
       time += dt;
       updateDestructionWind(map, time);
+      if (birds) {
+        for (let i = 0; i < birds.count; i++) {
+          const angle = time * 0.14 + i * 1.55;
+          matrix.makeRotationY(-angle);
+          matrix.scale(new THREE.Vector3(1, 0.6 + Math.sin(time * 6 + i) * 0.4, 1));
+          matrix.setPosition(
+            Math.cos(angle) * 19,
+            13 + Math.sin(angle * 2) * 1.5 + i * 0.3,
+            -7 + Math.sin(angle) * 14,
+          );
+          birds.setMatrixAt(i, matrix);
+        }
+        birds.instanceMatrix.needsUpdate = true;
+      }
       map.edgePulse = Math.max(0, (map.edgePulse ?? 0) - dt);
       if (edgeFlow) edgeFlow.material.opacity = 0.06 + map.edgePulse * 0.4;
       map.reaction = Math.max(0, (map.reaction ?? 0) - dt * 1.4);

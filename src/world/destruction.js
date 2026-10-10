@@ -254,6 +254,11 @@ export function register({
     return map;
   };
   function stageDebris(pos, color, count = 9, kind = 'stone', power = 1, direction = null) {
+    const pool = worldModule.currentMap?.stageParticles;
+    if (pool) {
+      pool.debris(pos, color, count, kind, power, direction ?? new THREE.Vector3());
+      return;
+    }
     count = Math.min(count, Math.max(0, 160 - renderModule.effects.length));
     for (let i = 0; i < count; i++) {
       const size = 0.07 + Math.random() * 0.12,
@@ -426,7 +431,8 @@ export function register({
       dimensions = item.bounds.getSize(new THREE.Vector3());
     stageDebris(pos, item.debrisColor, 10, item.debrisKind, 1.1, dir);
     worldModule.leaveStageRubble?.(map, pos, item.debrisColor);
-    if (renderModule.effects.length < 175) {
+    if (map.stageParticles) map.stageParticles.block(pos, dimensions, item.debrisColor, dir);
+    else if (renderModule.effects.length < 175) {
       const mesh = new THREE.Mesh(
         new THREE.BoxGeometry(
           Math.min(1.4, dimensions.x * 0.45),
