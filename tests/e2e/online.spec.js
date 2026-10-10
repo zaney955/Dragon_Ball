@@ -501,9 +501,18 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
     await host.keyboard.down('KeyS');
     await host.keyboard.press('KeyR');
     await host.keyboard.up('KeyS');
-    await host.waitForFunction(() => window.__db.player.youth.form === 'fourArms', null, {
-      timeout: 10000,
-    });
+    // Hold the timed form while slow software-GPU pages join and inspect its snapshots.
+    // The real RAF, Worker and spectator publishing continue while combat is paused.
+    await host.waitForFunction(
+      () => {
+        const db = window.__db;
+        if (db.player.youth.form !== 'fourArms') return false;
+        db.game.paused = true;
+        return true;
+      },
+      null,
+      { timeout: 10000 },
+    );
     await viewer.locator('[data-watch-room="3"]').click();
     await viewer.waitForFunction(
       () => window.__db.online.spectating && window.__db.online.spectator.stats.received >= 3,
@@ -519,6 +528,7 @@ test('late spectators watch without seats or inputs, follow both fighters, and c
       expect(await page.evaluate(() => window.__db.player.youth.form)).toBe('fourArms');
       expect(await page.evaluate(() => window.__db.player.parts.extraArms.length)).toBe(2);
     }
+    await host.evaluate(() => (window.__db.game.paused = false));
     const participantHealth = await host.evaluate(() => [
       window.__db.player.hp,
       window.__db.enemy.hp,
