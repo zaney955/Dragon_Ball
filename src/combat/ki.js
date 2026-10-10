@@ -169,6 +169,19 @@ export function register({
           b.life = 0;
         }
       }
+      if (
+        b.life > 0 &&
+        worldModule.damageStageProjectile?.(
+          b.owner,
+          b.attack,
+          b.previous,
+          b.pos,
+          b.attack.width ?? 0.15,
+        )
+      ) {
+        b.hit = true;
+        b.life = 0;
+      }
       if (b.life <= 0 || b.distance >= combatModule.KI_RULES.blastRange || matchModule.game.over) {
         if (!b.hit && !matchModule.game.over && !b.source.whiffFired) {
           b.source.whiffFired = true;

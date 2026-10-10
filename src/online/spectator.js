@@ -228,10 +228,11 @@ export function createSpectator({ online, animation, combat, match, render, worl
     for (const [index, data, color] of snapshot.world.broken) {
       const item = map.destructibles?.[index];
       if (!item) continue;
-      if (!item.broken && item.tile) item.mesh.material = item.mesh.material.clone();
       item.broken = true;
       applyTransform(item.mesh, data);
+      item.mesh.material = item.mesh.material.clone();
       item.mesh.material.color.setHex(color);
+      if (!item.tile) item.mesh.visible = false;
     }
     // Host end-of-match state will remove the subscription and return viewers to the lobby.
     const ids = new Set();

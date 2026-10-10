@@ -108,13 +108,13 @@ export function register({
   worldModule.validSenzuPosition = function validSenzuPosition(x, z) {
     const map = worldModule.currentMap;
     if (!map || Math.abs(x) > map.bounds.x - 1.4 || Math.abs(z) > map.bounds.z - 1.2) return false;
-    for (const prop of map.destructibles ?? [])
-      if (
-        !prop.tile &&
-        !prop.broken &&
-        Math.hypot(x - prop.mesh.position.x, z - prop.mesh.position.z) < 1.35
-      )
-        return false;
+    for (const prop of map.destructibles ?? []) {
+      if (prop.tile || prop.broken) continue;
+      const at = prop.bounds
+        ? prop.bounds.getCenter(new THREE.Vector3())
+        : prop.mesh.getWorldPosition(new THREE.Vector3());
+      if (Math.hypot(x - at.x, z - at.z) < 1.35) return false;
+    }
     for (const b of map.walkObstacles ?? [])
       if (x > b.min.x - 0.7 && x < b.max.x + 0.7 && z > b.min.z - 0.7 && z < b.max.z + 0.7)
         return false;

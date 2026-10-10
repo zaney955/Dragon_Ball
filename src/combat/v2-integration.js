@@ -91,9 +91,8 @@ export function register({
         }
       }
       if (
-        worldModule.currentMap.destructibles.some(
-          (x) => !x.tile && !x.broken && x.mesh.position.distanceTo(b.pos) < 0.6,
-        )
+        b.life > 0 &&
+        worldModule.damageStageProjectile?.(b.owner, b.attack, b.previous, b.pos, b.r)
       ) {
         if (b.kind === 'blade') {
           b.returning = true;

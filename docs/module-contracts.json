@@ -248,6 +248,7 @@
       "render.updateEffects"
     ],
     "requires": [
+      "render.camera",
       "render.effects",
       "render.ringGeo",
       "render.scene",
@@ -268,9 +269,11 @@
       "world.worldClouds"
     ],
     "requires": [
+      "art.batchDecoration",
       "characters.M",
       "characters.ball",
       "characters.meshTo",
+      "render.effects",
       "render.scene",
       "world.currentMap",
       "world.disposeGroup"
@@ -807,23 +810,26 @@
     "testing": false,
     "provides": [
       "world.damageStage",
-      "world.enrichDestruction"
+      "world.damageStageProjectile",
+      "world.enrichDestruction",
+      "world.prepareBuilding"
     ],
     "requires": [
       "characters.M",
+      "characters.ball",
+      "characters.box",
       "characters.meshTo",
-      "characters.tube",
       "combat.flightPhysics",
       "input.inputEdges2",
       "input.readPlayer2Input",
       "render.effects",
       "render.scene",
       "render.spawnDust",
-      "render.spawnShockRing",
       "render.ultAudioHistory",
       "render.ultimateVisuals",
       "world.currentMap",
       "world.damageStage",
+      "world.damageStageProjectile",
       "world.disposeGroup"
     ]
   },
@@ -1198,6 +1204,7 @@
       "render.energyMat",
       "render.scene",
       "render.spawnSpark",
+      "world.damageStageProjectile",
       "world.disposeGroup"
     ]
   },
@@ -1678,7 +1685,7 @@
       "match.notify",
       "match.player",
       "render.spawnShockRing",
-      "world.currentMap"
+      "world.damageStageProjectile"
     ]
   },
   {
@@ -1906,6 +1913,7 @@
       "world.daylight",
       "world.enrichDestruction",
       "world.makeTextTexture",
+      "world.prepareBuilding",
       "world.roof",
       "world.surfaceTexture",
       "world.worldClouds"

@@ -222,6 +222,380 @@ export function register({ art: artModule, characters: charactersModule, world: 
       charactersModule.ball(a, skin, s * 0.15, 0.7, 0.15, 0.065);
     }
   }
+  function stageRibbon(g, material, points, width, y) {
+    const vertices = [];
+    for (let i = 0; i < points.length - 1; i++) {
+      const [x, z] = points[i],
+        [nx, nz] = points[i + 1];
+      vertices.push(x, y, z - width, x, y, z + width, nx, y, nz - width);
+      vertices.push(nx, y, nz - width, x, y, z + width, nx, y, nz + width);
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.computeVertexNormals();
+    return charactersModule.meshTo(g, geometry, material);
+  }
+  function stageFlowers(decor, id) {
+    const leaf = artModule.artMat(id === 'kame' ? 0x619569 : 0x648652),
+      petals = [0xe6ca72, 0xebd7be, 0xc48b87].map((color) => artModule.artMat(color));
+    for (let i = 0; i < 68; i++) {
+      const angle = i * 2.399,
+        radius = 16 + (i % 7) * 0.75,
+        x = Math.cos(angle) * radius,
+        z = Math.sin(angle) * radius * 0.68;
+      if (id === 'kame' && z > -6) continue;
+      for (let j = 0; j < 3; j++) {
+        const blade = artModule.artPatch(
+          decor,
+          leaf,
+          [
+            [-0.06, 0],
+            [0.11, 0.42 + j * 0.1],
+            [0.09, 0],
+          ],
+          0.001,
+        );
+        blade.position.set(x + j * 0.1, 0.08, z);
+        blade.rotation.y = angle + j;
+      }
+      if (i % 3 === 0) {
+        charactersModule.ball(decor, petals[(i / 3) % 3], x, 0.39, z, 0.09, [1, 0.45, 1]);
+        charactersModule.ball(
+          decor,
+          petals[(i / 3 + 1) % 3],
+          x + 0.16,
+          0.27,
+          z + 0.08,
+          0.07,
+          [1, 0.45, 1],
+        );
+      }
+    }
+  }
+  function stageAtmosphere(group, decor, id) {
+    const atmosphere = new THREE.Group(),
+      updates = [];
+    atmosphere.name = 'stage-atmosphere-' + id;
+    group.add(atmosphere);
+    const wood = artModule.artMat(0x806246),
+      stone = artModule.artMat(0xc4b796);
+    if (id === 'budokai') {
+      for (let x = -27; x <= 27; x += 3)
+        for (let z = -9; z <= 12; z += 3) {
+          if (Math.abs(x) < 15 && z < 8) continue;
+          const paving = charactersModule.box(decor, stone, x, -1.26, z, 2.86, 0.04, 2.86);
+          paving.rotation.y = (x + z) % 2 ? 0.012 : -0.012;
+        }
+      for (const side of [-1, 1]) {
+        for (let i = 0; i < 3; i++) {
+          const stall = new THREE.Group();
+          stall.position.set(side * (24 + i * 5.5), -1.2, -10 - i * 2);
+          decor.add(stall);
+          const cloth = artModule.artMat([0xc36c52, 0x5d8d88, 0xd3b465][i]);
+          charactersModule.box(stall, wood, 0, 1.05, 0, 3.8, 0.15, 2.2);
+          for (const x of [-1.7, 1.7]) charactersModule.box(stall, wood, x, 1.7, 0, 0.1, 3.4, 0.1);
+          worldModule.roof(stall, 0, 3, 0, 4.5, 3, 0.65, cloth.color.getHex());
+          for (let j = 0; j < 5; j++)
+            charactersModule.ball(stall, cloth, -1.35 + j * 0.65, 1.28, 0.2, 0.2, [1, 0.6, 1]);
+        }
+        artModule.artLine(
+          decor,
+          wood,
+          [
+            [side * 12, 7.6, -11.6],
+            [side * 6, 6.65, -10.9],
+            [0, 6.4, -10.6],
+          ],
+          0.022,
+        );
+      }
+      for (let i = 0; i < 12; i++) {
+        const x = -11 + i * 2,
+          flag = artModule.artPatch(
+            atmosphere,
+            artModule.artMat([0xb95a46, 0xe8c773, 0x648b9b][i % 3]),
+            [
+              [-0.38, 0],
+              [0.38, 0],
+              [0, -0.8],
+            ],
+            0.001,
+          );
+        flag.material.side = THREE.DoubleSide;
+        flag.position.set(x, 6.4 + Math.abs(x) * 0.1, -10.65 - Math.abs(x) * 0.06);
+        flag.castShadow = false;
+        updates.push((time) => {
+          flag.rotation.x = Math.sin(time * 1.7 + i) * 0.16;
+        });
+      }
+      for (const x of [-10, 10]) {
+        charactersModule.box(decor, wood, x, 0.8, -10, 2.6, 0.13, 0.85);
+        for (const dx of [-1, 1])
+          charactersModule.box(decor, wood, x + dx, 0.2, -10, 0.1, 1.1, 0.65);
+      }
+      const inlay = charactersModule.meshTo(
+        decor,
+        new THREE.RingGeometry(2.4, 2.43, 64),
+        artModule.artMat(0xc4b28c),
+        0,
+        0.003,
+        0,
+      );
+      inlay.rotation.x = -Math.PI / 2;
+    } else if (id === 'wild') {
+      stageFlowers(decor, id);
+      for (let i = 0; i < 7; i++) {
+        const hill = charactersModule.ball(
+          decor,
+          artModule.artMat(i % 2 ? 0x729b79 : 0x8cad87),
+          -54 + i * 18,
+          1,
+          -55 - (i % 3) * 8,
+          12 + (i % 3) * 3,
+          [1.6, 0.6, 1],
+        );
+        hill.castShadow = false;
+      }
+      const streamMat = new THREE.MeshStandardMaterial({
+          color: 0x71bab5,
+          roughness: 0.23,
+          metalness: 0.14,
+          side: THREE.DoubleSide,
+        }),
+        bank = artModule.artMat(0x9aab86),
+        points = Array.from({ length: 35 }, (_, i) => [-34 + i * 2, -18 + Math.sin(i * 0.33) * 2]);
+      stageRibbon(decor, bank, points, 2.1, 0.007);
+      stageRibbon(atmosphere, streamMat, points, 1.3, 0.025);
+      const foam = new THREE.MeshBasicMaterial({
+        color: 0xd8eee1,
+        transparent: true,
+        opacity: 0.5,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      for (let i = 0; i < 16; i++) {
+        const ripple = charactersModule.meshTo(
+          atmosphere,
+          new THREE.PlaneGeometry(0.65 + (i % 3) * 0.22, 0.035),
+          foam,
+          -29 + i * 4,
+          0.035,
+          -18 + Math.sin((i * 2 + 2) * 0.33) * 2,
+        );
+        ripple.rotation.x = -Math.PI / 2;
+        ripple.castShadow = false;
+        updates.push((time) => {
+          ripple.position.x = -29 + i * 4 + Math.sin(time * 0.6 + i) * 0.45;
+        });
+      }
+      artRock(decor, 24, -26, 10, 4.8, 83);
+      const falls = charactersModule.meshTo(
+        atmosphere,
+        new THREE.PlaneGeometry(2.3, 8),
+        new THREE.MeshBasicMaterial({
+          color: 0xb9e3de,
+          transparent: true,
+          opacity: 0.65,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          map: worldModule.surfaceTexture('water'),
+        }),
+        24,
+        4.3,
+        -21.9,
+      );
+      falls.castShadow = false;
+      updates.push((time) => {
+        falls.material.map.offset.y = -time * 0.27;
+      });
+      for (let i = 0; i < 5; i++)
+        charactersModule.ball(
+          decor,
+          artModule.artMat(0xc0c8a8),
+          21.8 + i * 0.8,
+          0.12,
+          -20.8,
+          0.4,
+          [1.4, 0.45, 1],
+        );
+      const motes = new Float32Array(48 * 3);
+      for (let i = 0; i < 48; i++)
+        motes.set([-24 + i * 1.03, 1 + (i % 5) * 0.7, -12 + ((i * 7) % 23)], i * 3);
+      const moteGeo = new THREE.BufferGeometry();
+      moteGeo.setAttribute('position', new THREE.BufferAttribute(motes, 3));
+      const pollen = new THREE.Points(
+        moteGeo,
+        new THREE.PointsMaterial({
+          color: 0xede3b1,
+          size: 0.055,
+          transparent: true,
+          opacity: 0.38,
+          depthWrite: false,
+        }),
+      );
+      atmosphere.add(pollen);
+      updates.push((time) => {
+        pollen.position.x = Math.sin(time * 0.12) * 1.4;
+        pollen.position.y = Math.sin(time * 0.35) * 0.25;
+      });
+      for (const x of [-18, 18]) {
+        charactersModule.box(decor, wood, x, 0.9, 3, 0.13, 1.8, 0.13);
+        charactersModule.box(
+          decor,
+          artModule.artMat(0xc5ae79),
+          x,
+          1.5,
+          3,
+          1.2,
+          0.45,
+          0.12,
+        ).rotation.z = x < 0 ? -0.1 : 0.1;
+      }
+    } else {
+      stageFlowers(decor, id);
+      const lagoon = charactersModule.meshTo(
+        decor,
+        new THREE.RingGeometry(25, 35, 96),
+        new THREE.MeshBasicMaterial({
+          color: 0x65cab9,
+          transparent: true,
+          opacity: 0.55,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        }),
+        0,
+        -0.41,
+        -2,
+        [1, 0.65, 1],
+      );
+      lagoon.rotation.x = -Math.PI / 2;
+      for (let i = 0; i < 3; i++) {
+        const wave = charactersModule.meshTo(
+          atmosphere,
+          new THREE.RingGeometry(25.2, 25.35, 96),
+          new THREE.MeshBasicMaterial({
+            color: 0xe3f3e7,
+            transparent: true,
+            opacity: 0.35,
+            depthWrite: false,
+            side: THREE.DoubleSide,
+          }),
+          0,
+          -0.22 + i * 0.006,
+          -2,
+        );
+        wave.rotation.x = -Math.PI / 2;
+        wave.castShadow = false;
+        updates.push((time) => {
+          const phase = (time * 0.12 + i / 3) % 1;
+          wave.scale.set(1 + phase * 0.035, 0.65 * (1 + phase * 0.035), 1);
+          wave.material.opacity = Math.sin(phase * Math.PI) * 0.4;
+        });
+      }
+      for (let i = 0; i < 22; i++) {
+        const x = 16.5 + i * 0.55;
+        charactersModule.box(decor, wood, x, 0.04, -6, 0.5, 0.13, 2.1);
+        if (i % 5 === 0)
+          for (const z of [-7, -5]) charactersModule.box(decor, wood, x, -0.4, z, 0.16, 1.15, 0.16);
+      }
+      const boat = new THREE.Group();
+      boat.position.set(31, -0.1, -3);
+      boat.rotation.y = 0.25;
+      atmosphere.add(boat);
+      charactersModule.meshTo(
+        boat,
+        new THREE.CylinderGeometry(1.2, 0.6, 0.65, 12),
+        artModule.artMat(0x946a47),
+        0,
+        0,
+        0,
+        [1.8, 1, 0.65],
+      );
+      charactersModule.box(boat, wood, 0, 1.8, 0, 0.08, 3.5, 0.08);
+      const sail = artModule.artPatch(
+        boat,
+        artModule.artMat(0xece4c9),
+        [
+          [0.04, 0.4],
+          [0.04, 3.5],
+          [1.55, 0.55],
+        ],
+        0.002,
+      );
+      sail.material.side = THREE.DoubleSide;
+      updates.push((time) => {
+        boat.position.y = -0.1 + Math.sin(time * 0.9) * 0.09;
+        boat.rotation.z = Math.sin(time * 0.7) * 0.035;
+      });
+      for (let i = 0; i < 24; i++) {
+        const angle = i * 2.399,
+          x = Math.cos(angle) * (16 + (i % 5)),
+          z = -2 + Math.sin(angle) * 11;
+        const shell = charactersModule.meshTo(
+          decor,
+          new THREE.SphereGeometry(0.11, 8, 5),
+          artModule.artMat(i % 2 ? 0xf2e6cd : 0xdca58b),
+          x,
+          0.1,
+          z,
+          [1, 0.3, 0.75],
+        );
+        shell.rotation.y = angle;
+      }
+      for (const x of [-9, -6]) charactersModule.box(decor, wood, x, 1.5, -12, 0.07, 3, 0.07);
+      artModule.artLine(
+        decor,
+        wood,
+        [
+          [-9, 2.7, -12],
+          [-7.5, 2.5, -12],
+          [-6, 2.7, -12],
+        ],
+        0.014,
+      );
+      for (let i = 0; i < 3; i++)
+        charactersModule.box(
+          decor,
+          artModule.artMat([0xc47161, 0x87b1ae, 0xe4c579][i]),
+          -8.5 + i * 0.8,
+          2.12,
+          -12,
+          0.6,
+          0.9,
+          0.018,
+        );
+    }
+    for (let i = 0; i < 5; i++) {
+      const bird = new THREE.Group();
+      bird.position.set(-30 + i * 12, 15 + (i % 3), -34 - i * 3);
+      atmosphere.add(bird);
+      for (const side of [-1, 1]) {
+        const wing = artModule.artPatch(
+          bird,
+          artModule.artMat(0x566d70),
+          [
+            [0, 0],
+            [side * 0.45, 0.08],
+            [side * 0.2, -0.1],
+          ],
+          0.001,
+        );
+        wing.material.side = THREE.DoubleSide;
+        wing.castShadow = false;
+        updates.push((time) => {
+          wing.rotation.z = side * Math.sin(time * 3.2 + i) * 0.3;
+        });
+      }
+      updates.push((time) => {
+        bird.position.x = -30 + i * 12 + Math.sin(time * 0.08 + i) * 8;
+      });
+    }
+    let time = 0;
+    return (dt) => {
+      time += dt;
+      for (const update of updates) update(time);
+    };
+  }
   function artStageBudokai() {
     worldModule.daylight();
     const group = new THREE.Group(),
@@ -355,6 +729,9 @@ export function register({ art: artModule, characters: charactersModule, world: 
           -12.2,
         );
     }
+    worldModule.prepareBuilding(temple, 'budokai-hall', { roofY: 6.3 });
+    group.add(temple);
+    const ambience = stageAtmosphere(group, decor, 'budokai');
     artModule.artShareMaterials(decor);
     artModule.batchDecoration(decor);
     const move = worldModule.worldClouds(group);
@@ -365,9 +742,246 @@ export function register({ art: artModule, characters: charactersModule, world: 
           x: 13.5,
           z: 6,
         },
-        update: move,
+        update: (dt) => {
+          move(dt);
+          ambience(dt);
+        },
       },
       'budokai',
+    );
+  }
+  function gokuMountainHome(group, decor) {
+    const white = artModule.artMat(0xdce3d9),
+      blue = artModule.artMat(0x719cb4),
+      wood = artModule.artMat(0x827c63),
+      timber = artModule.artMat(0x56534b),
+      roofMat = artModule.artMat(0x9b9a82),
+      red = artModule.artMat(0xa85347);
+    const dome = new THREE.Group();
+    dome.position.set(-6.7, 0.04, -12.2);
+    group.add(dome);
+    charactersModule.meshTo(dome, new THREE.CylinderGeometry(3.2, 3.25, 1, 32), white, 0, 0.5, 0);
+    charactersModule.meshTo(
+      dome,
+      new THREE.SphereGeometry(3.25, 32, 18, 0, Math.PI * 2, 0, Math.PI / 2),
+      white,
+      0,
+      1,
+      0,
+    );
+    charactersModule.meshTo(
+      dome,
+      new THREE.SphereGeometry(3.28, 32, 12, 0, Math.PI * 2, 0, Math.PI / 3.3),
+      blue,
+      0,
+      1,
+      0,
+    );
+    artModule.refinedWindow(dome, -0.9, 1.12, 3.11, 3.35, 0.68);
+    const doorway = new THREE.Group();
+    doorway.position.set(2.05, 0.04, 2.42);
+    doorway.rotation.y = 0.35;
+    dome.add(doorway);
+    artModule.artPatch(
+      doorway,
+      blue,
+      [
+        [-0.68, 0],
+        [0.68, 0],
+        [0.68, 1.3],
+        [0.45, 1.88],
+        [0, 2.12],
+        [-0.45, 1.88],
+        [-0.68, 1.3],
+      ],
+      0.18,
+    );
+    const door = artModule.artPatch(
+      doorway,
+      wood,
+      [
+        [-0.48, 0],
+        [0.48, 0],
+        [0.48, 1.25],
+        [0.32, 1.7],
+        [0, 1.86],
+        [-0.32, 1.7],
+        [-0.48, 1.25],
+      ],
+      0.035,
+    );
+    door.position.z = 0.2;
+    for (const x of [-0.25, 0, 0.25])
+      charactersModule.box(doorway, timber, x, 0.78, 0.245, 0.018, 1.48, 0.015);
+    charactersModule.ball(doorway, artModule.artMat(0xd5b568), 0.3, 0.77, 0.27, 0.045);
+    charactersModule.meshTo(
+      dome,
+      new THREE.CylinderGeometry(0.38, 0.42, 0.6, 16),
+      white,
+      0.45,
+      4.36,
+      -0.4,
+    );
+    charactersModule.meshTo(
+      dome,
+      new THREE.CylinderGeometry(0.55, 0.55, 0.26, 16),
+      blue,
+      0.45,
+      4.77,
+      -0.4,
+    );
+    for (let i = 0; i < 10; i++) {
+      const angle = (i / 10) * Math.PI * 2;
+      charactersModule.box(
+        dome,
+        timber,
+        0.45 + Math.cos(angle) * 0.5,
+        4.77,
+        -0.4 + Math.sin(angle) * 0.5,
+        0.03,
+        0.18,
+        0.03,
+      );
+    }
+    for (const side of [-1, 1]) {
+      const label = artModule.artDecal(dome, '福', side * 1.4, 2.72, 2.63, 1.0, 1.0, '#ad5549');
+      label.rotation.z = side * 0.25;
+    }
+    worldModule.prepareBuilding(dome, 'goku-dome', { roofY: 3, cellSize: 2.5 });
+    for (const [id, x, z, width, height] of [
+      ['goku-main-house', -12.3, -14.2, 5.3, 4.2],
+      ['goku-side-house', -1.2, -13.4, 4.3, 3.0],
+    ]) {
+      const house = new THREE.Group();
+      house.position.set(x, 0, z);
+      group.add(house);
+      charactersModule.box(house, white, 0, height / 2, 0, width, height, 4);
+      worldModule.roof(house, 0, height, 0, width + 0.65, 4.8, 1.65, roofMat.color.getHex());
+      const gable = artModule.artPatch(
+        house,
+        wood,
+        [
+          [-width / 2, 0],
+          [0, 1.65],
+          [width / 2, 0],
+        ],
+        0.08,
+      );
+      gable.position.set(0, height, 2.05);
+      for (let i = 0; i < 9; i++) {
+        const x = (i / 8 - 0.5) * width;
+        charactersModule.box(
+          house,
+          timber,
+          x,
+          height + (1 - Math.abs(x) / (width / 2)) * 0.75,
+          2.12,
+          0.055,
+          Math.max(0.08, (1 - Math.abs(x) / (width / 2)) * 1.55),
+          0.035,
+        );
+      }
+      for (const x of [-width / 2 + 0.12, width / 2 - 0.12])
+        charactersModule.box(house, timber, x, height / 2, 2.08, 0.12, height, 0.13);
+      artModule.refinedWindow(
+        house,
+        id === 'goku-main-house' ? -0.8 : 0.95,
+        height * 0.55,
+        2.12,
+        1.35,
+        1.4,
+      );
+      charactersModule.box(
+        house,
+        wood,
+        id === 'goku-main-house' ? 1.1 : -0.9,
+        1.1,
+        2.08,
+        1.15,
+        2.2,
+        0.12,
+      );
+      charactersModule.box(house, white, 0.8, height + 1.25, -0.6, 0.65, 1.35, 0.65);
+      for (let j = 0; j < 8; j++) {
+        const x = (j / 7 - 0.5) * (width + 0.65),
+          y = height + 1.65 * (1 - Math.abs(x) / ((width + 0.65) / 2));
+        charactersModule.box(house, timber, x, y + 0.04, 0, 0.045, 0.05, 4.9);
+      }
+      worldModule.prepareBuilding(house, id, { roofY: height, kind: 'wood', cellSize: 2.5 });
+    }
+    const shrine = new THREE.Group();
+    shrine.position.set(-19, 0.03, -11.5);
+    group.add(shrine);
+    charactersModule.box(shrine, white, 0, 1.3, 0, 2.9, 2.6, 2.9);
+    charactersModule.box(shrine, red, 0, 0.6, 0, 2.95, 1.2, 2.95);
+    charactersModule.box(shrine, blue, 0, 1.02, 1.5, 1.2, 2.04, 0.08);
+    for (const x of [-0.62, 0, 0.62])
+      charactersModule.box(shrine, white, x, 1.07, 1.57, 0.05, 2.15, 0.04);
+    for (let i = 0; i < 6; i++)
+      charactersModule.box(shrine, white, -1.35 + i * 0.54, 0.4, 1.51, 0.025, 0.78, 0.025);
+    const navy = artModule.artMat(0x34465f);
+    charactersModule.meshTo(
+      shrine,
+      new THREE.LatheGeometry(
+        [
+          [2.08, 2.68],
+          [1.68, 2.42],
+          [1.17, 2.9],
+          [0.62, 3.72],
+          [0.18, 4.75],
+          [0.05, 4.95],
+        ].map(([x, y]) => new THREE.Vector2(x, y)),
+        32,
+      ),
+      navy,
+    );
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      artModule.artLine(
+        shrine,
+        blue,
+        [
+          [Math.cos(a) * 2, 2.67, Math.sin(a) * 2],
+          [Math.cos(a) * 1.18, 2.95, Math.sin(a) * 1.18],
+          [Math.cos(a) * 0.6, 3.8, Math.sin(a) * 0.6],
+          [Math.cos(a) * 0.15, 4.77, Math.sin(a) * 0.15],
+        ],
+        0.02,
+      );
+    }
+    charactersModule.meshTo(
+      shrine,
+      new THREE.CylinderGeometry(0.06, 0.1, 0.65, 12),
+      navy,
+      0,
+      5.2,
+      0,
+    );
+    charactersModule.ball(shrine, navy, 0, 5.53, 0, 0.13);
+    worldModule.prepareBuilding(shrine, 'grandpa-gohan-shrine', { roofY: 2.5, cellSize: 2.5 });
+    const well = charactersModule.meshTo(
+      decor,
+      new THREE.TorusGeometry(0.75, 0.18, 8, 24),
+      artModule.artMat(0xb3b8a1),
+      -15.5,
+      0.2,
+      -8.5,
+    );
+    well.rotation.x = -Math.PI / 2;
+    charactersModule.box(decor, wood, -4.4, 0.65, -7.4, 0.08, 1.3, 0.08);
+    charactersModule.box(decor, red, -4.4, 1.28, -7.4, 0.65, 0.35, 0.45);
+    stageRibbon(
+      decor,
+      artModule.artMat(0xc9bd91),
+      [
+        [-0.5, -7],
+        [-3, -8],
+        [-6.5, -8.6],
+        [-11, -9],
+        [-16, -9.2],
+      ],
+      0.95,
+      0.023,
     );
   }
   function artStageWild() {
@@ -379,6 +993,8 @@ export function register({ art: artModule, characters: charactersModule, world: 
       earth = artModule.artMat(0xd0b785),
       leaf = artModule.artMat(0x557f4e),
       wood = artModule.artMat(0x7a6243);
+    grass.map = worldModule.surfaceTexture('grass');
+    earth.map = worldModule.surfaceTexture('earth');
     charactersModule.box(decor, grass, 0, -0.15, 0, 240, 0.2, 240);
     charactersModule.meshTo(
       decor,
@@ -443,16 +1059,7 @@ export function register({ art: artModule, characters: charactersModule, world: 
       }
     }
     // A small distant mountain dwelling grounds the scene in the early adventure setting.
-    const cabin = new THREE.Group();
-    cabin.position.set(-24, 0.1, -17);
-    cabin.rotation.y = 0.4;
-    decor.add(cabin);
-    charactersModule.box(cabin, artModule.artMat(0xd7c096), 0, 1.4, 0, 4.4, 2.8, 3.5);
-    const roofGroup = new THREE.Group();
-    cabin.add(roofGroup);
-    artTempleRoof(roofGroup, 5.8, 4.8, 2.75, 1.6);
-    charactersModule.box(cabin, wood, 0, 1.05, 1.77, 1.0, 2.1, 0.08);
-    artModule.refinedWindow(cabin, 1.35, 1.45, 1.78, 0.8, 0.85);
+    gokuMountainHome(group, decor);
     for (let i = 0; i < 20; i++) {
       const x = -15 + i * 1.6;
       artModule.artLine(
@@ -466,6 +1073,8 @@ export function register({ art: artModule, characters: charactersModule, world: 
         0.007,
       );
     }
+    const ambience = stageAtmosphere(group, decor, 'wild'),
+      move = worldModule.worldClouds(group);
     artModule.artShareMaterials(decor);
     artModule.batchDecoration(decor);
     return worldModule.enrichDestruction(
@@ -475,7 +1084,10 @@ export function register({ art: artModule, characters: charactersModule, world: 
           x: 13.5,
           z: 6,
         },
-        update: worldModule.worldClouds(group),
+        update: (dt) => {
+          move(dt);
+          ambience(dt);
+        },
       },
       'wild',
     );
@@ -500,6 +1112,7 @@ export function register({ art: artModule, characters: charactersModule, world: 
       0,
     );
     water.rotation.x = -Math.PI / 2;
+    const beachTexture = worldModule.surfaceTexture('sand');
     for (const [r, y, c] of [
       [25, -0.34, 0xd8c58c],
       [24, -0.11, 0xe7d099],
@@ -508,7 +1121,7 @@ export function register({ art: artModule, characters: charactersModule, world: 
       charactersModule.meshTo(
         decor,
         new THREE.CylinderGeometry(r, r + 0.65, 0.19, 96),
-        artModule.artMat(c),
+        Object.assign(artModule.artMat(c), { map: beachTexture }),
         0,
         y,
         -2,
@@ -528,6 +1141,7 @@ export function register({ art: artModule, characters: charactersModule, world: 
       cream = artModule.artMat(0xf6e4c5),
       wood = artModule.artMat(0x78573e),
       red = artModule.artMat(0xa64f3e);
+    const houseStart = decor.children.length;
     charactersModule.box(decor, pink, 0, 2.8, -11.5, 8, 5.6, 5);
     const attic = artModule.artPatch(
       decor,
@@ -601,6 +1215,10 @@ export function register({ art: artModule, characters: charactersModule, world: 
     charactersModule.box(decor, wood, 1.35, 8.28, -12.8, 0.85, 0.16, 0.83);
     for (let j = 0; j < 6; j++)
       charactersModule.box(decor, shade, 1.35, 6.55 + j * 0.28, -12.467, 0.66, 0.018, 0.015);
+    const house = new THREE.Group();
+    group.add(house);
+    for (const child of decor.children.slice(houseStart)) house.add(child);
+    worldModule.prepareBuilding(house, 'kame-house', { roofY: 5.6, kind: 'wood' });
     artPalm(decor, -6.2, -11, 9);
     artPalm(decor, 8, -12.3, 10);
     artPalm(decor, -13, -5.8, 7.5);
@@ -653,6 +1271,7 @@ export function register({ art: artModule, characters: charactersModule, world: 
         [1, 0.3, 0.8],
       );
     }
+    const ambience = stageAtmosphere(group, decor, 'kame');
     artModule.artShareMaterials(decor);
     artModule.batchDecoration(decor);
     const move = worldModule.worldClouds(group);
@@ -667,6 +1286,7 @@ export function register({ art: artModule, characters: charactersModule, world: 
         update: (dt) => {
           time += dt;
           move(dt);
+          ambience(dt);
           water.material.normalMap.offset.set(time * 0.003, time * 0.0015);
         },
       },
