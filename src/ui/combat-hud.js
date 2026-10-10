@@ -46,7 +46,7 @@ export function register({
         charge: '聚气',
         block: f.crouching ? '下段防御' : '站立防御',
         blockstun: '格挡硬直',
-        dash: f.dashKind === 'pursuit' ? '追击' : '闪身',
+        dash: f.dashKind === 'backflip' ? '连续后空翻' : f.dashKind === 'pursuit' ? '追击' : '闪身',
         hit: '受击 · Q 脱身 / L+Shift 解围',
         guardbreak: '破防',
         knockdown: '倒地',

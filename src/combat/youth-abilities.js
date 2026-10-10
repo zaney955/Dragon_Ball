@@ -1122,6 +1122,14 @@ export function register({ combat, characters, animation, match, render, world, 
               h.b.set(handle ? 0 : 0.56, handle ? -0.9 : 1.1, 0).applyMatrix4(weapon.matrix),
             );
             h.r = handle ? 0.16 : 0.13;
+            if (!handle) {
+              // The visible haft also strikes at close range, inside the blade's arc.
+              const haft = r.hit[1];
+              p.handR.localToWorld(haft.a.set(0, -0.695, 0).applyMatrix4(weapon.matrix));
+              p.handR.localToWorld(haft.b.set(0, 2.055, 0).applyMatrix4(weapon.matrix));
+              haft.r = 0.055 + 0.035;
+              haft.enabled = true;
+            }
           } else {
             p.handR.localToWorld(h.a.set(0, -0.7, 0.08));
             p.handR.localToWorld(h.b.set(0, 0.5, 0.08));

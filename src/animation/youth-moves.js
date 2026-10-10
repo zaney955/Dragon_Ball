@@ -576,6 +576,17 @@ export function register({ animation, combat, match }) {
         if (f.def.id === 'goku') q.y += Math.abs(Math.sin(match.game.simTime * 5)) * 0.025;
         if (f.def.id === 'oolong') q.t[2] += Math.sin(match.game.simTime * 3) * 0.04;
       }
+      if (f.state === 'dash' && f.dashKind === 'backflip') {
+        q.t = [0.08, 0, 0];
+        q.h = [0.1, 0, 0];
+        q.aR = [-0.7, 0, 0.35];
+        q.aL = [-0.7, 0, -0.35];
+        q.eR = q.eL = -1.2;
+        q.lR = [-0.55, 0, -0.08];
+        q.lL = [-0.55, 0, 0.08];
+        q.kR = q.kL = 1.1;
+        q.y = -0.08;
+      }
       return q;
     };
     combat.combatPose = function (f) {
@@ -625,7 +636,7 @@ export function register({ animation, combat, match }) {
         q.kR += crouch * 0.8;
         q.kL += crouch * 0.8;
         if (a.effector === 'axe') q.aR[2] -= 0.35 * reach;
-        if (a.motion === 'staffSmash') {
+        if (a.motion === 'staffSmash' || (a.effector === 'axe' && a.motion !== 'axeJab')) {
           const distance = Math.max(
             0.4,
             (a.targetDistance ?? a.range) - ((a.drive ?? 0) / 11) * (1 - Math.exp(-11 * a.hitT)),

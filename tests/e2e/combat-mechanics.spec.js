@@ -3,7 +3,9 @@ import { test, expect } from '@playwright/test';
 async function openGame(page) {
   await page.addInitScript(() => (window.requestAnimationFrame = () => 0));
   await page.goto('/?test=1');
-  await page.waitForFunction(() => window.__db?.fixtureYouth && window.__db?.tick);
+  await page.waitForFunction(() => window.__db?.fixtureYouth && window.__db?.tick, null, {
+    polling: 100,
+  });
 }
 
 test('every fighter advances all light and heavy animations through real queued inputs', async ({
@@ -503,4 +505,260 @@ test('goku ape form also completes five-hit light and heavy chains', async ({ pa
     expect(row.seen).toEqual([1, 2, 3, 4, 5].map((i) => row.type[0] + i));
     expect(row.hit).toEqual(row.seen);
   }
+});
+
+test('ox king light and heavy stages damage chichi at their real contact distance', async ({
+  page,
+}) => {
+  await openGame(page);
+  const failures = await page.evaluate(() => {
+    const d = window.__db,
+      failures = [];
+    for (const type of ['light', 'heavy']) {
+      for (let stage = 0; stage < 5; stage++) {
+        const [p, e] = d.fixtureYouth('gyumao', 'chichi', 1);
+        p.comboType = type;
+        p.comboIdx = stage - 1;
+        p.comboTimer = stage ? 1 : 0;
+        p.hitResult = 'hit';
+        p.startAttack(type);
+        const a = p.attack;
+        for (let t = 0; t < Math.ceil(a.dur / d.STEP) + 2; t++) {
+          d.tick();
+          d.game.hitStop = 0;
+        }
+        if (e.hp === e.maxHp) failures.push({ type, stage: stage + 1, motion: a.motion });
+      }
+    }
+    return failures;
+  });
+  expect(failures).toEqual([]);
+});
+
+test('all 196 fighter pairs damage standing targets through every light and heavy stage at close range', async ({
+  page,
+}) => {
+  await openGame(page);
+  const result = await page.evaluate(() => {
+    const d = window.__db,
+      failures = [];
+    let checks = 0;
+    for (const c of d.CHARACTERS)
+      for (const target of d.CHARACTERS) {
+        const [p, e] = d.fixtureYouth(c.id, target.id, 1);
+        const save = (f) =>
+          Object.fromEntries(
+            Object.entries(f)
+              .filter(
+                ([key, value]) =>
+                  value == null ||
+                  typeof value !== 'object' ||
+                  value.isVector3 ||
+                  ['queue', 'youth', 'v2'].includes(key),
+              )
+              .map(([key, value]) => [
+                key,
+                value?.isVector3
+                  ? value.clone()
+                  : Array.isArray(value)
+                    ? []
+                    : value && typeof value === 'object'
+                      ? { ...value }
+                      : value,
+              ]),
+          );
+        const baseline = [save(p), save(e)];
+        const reset = (f, saved) => {
+          for (const [key, value] of Object.entries(saved)) {
+            if (value?.isVector3) f[key].copy(value);
+            else
+              f[key] = Array.isArray(value)
+                ? []
+                : value && typeof value === 'object'
+                  ? { ...value }
+                  : value;
+          }
+          f.combatRig = null;
+        };
+        for (const type of ['light', 'heavy'])
+          for (let stage = 0; stage < c.combos[type].length; stage++)
+            for (const distance of c.id === 'gyumao' && type === 'heavy'
+              ? [0.55, 0.85, 1, 1.5, 2]
+              : [1]) {
+              reset(p, baseline[0]);
+              reset(e, baseline[1]);
+              e.pos.x = distance;
+              e.previousPos.copy(e.pos);
+              d.game.over = false;
+              d.game.hitStop = 0;
+              d.game.timeLeft = 180;
+              p.comboType = type;
+              p.comboIdx = stage - 1;
+              p.comboTimer = stage ? 1 : 0;
+              p.hitResult = 'hit';
+              p.startAttack(type);
+              const a = p.attack;
+              for (let t = 0; t < Math.ceil(a.dur / d.STEP) + 2; t++) {
+                d.tick();
+                d.game.hitStop = 0;
+              }
+              checks++;
+              if (e.hp === e.maxHp)
+                failures.push({
+                  attacker: c.id,
+                  target: target.id,
+                  type,
+                  stage: stage + 1,
+                  distance,
+                  motion: a.motion,
+                });
+            }
+      }
+    return { checks, failures };
+  });
+  console.log('close range melee checks:', result.checks);
+  expect(result.failures).toEqual([]);
+});
+
+test('backward pursuit performs three retreating flips for every fighter with cost, recovery and rig agreement', async ({
+  page,
+}) => {
+  await openGame(page);
+  const rows = await page.evaluate(() => {
+    const d = window.__db,
+      rows = [];
+    for (const c of d.CHARACTERS) {
+      const [p] = d.fixtureYouth(c.id, 'goku', 2);
+      d.tick({ down: true, actions: [{ type: 'pursuit', down: true }] });
+      const kind = p.dashKind,
+        cost = 100 - p.ki;
+      let maximumError = 0,
+        minimumPitch = 0;
+      for (let i = 0; i < 82; i++) {
+        d.tick({ down: true });
+        d.game.hitStop = 0;
+        p.render(1, 1);
+        p.root.updateMatrixWorld(true);
+        const r = d.sampleCombatRig(p);
+        maximumError = Math.max(
+          maximumError,
+          p.parts.head.getWorldPosition(p.pos.clone()).distanceTo(r.hurt[0].a),
+        );
+        minimumPitch = Math.min(minimumPitch, p.root.rotation.x);
+      }
+      rows.push({
+        id: c.id,
+        kind,
+        cost,
+        minimumPitch,
+        maximumError,
+        retreat: p.pos.x,
+        recovered: p.state !== 'dash',
+      });
+    }
+    const [poor] = d.fixtureYouth('goku', 'goku', 2);
+    poor.ki = 11;
+    d.tick({ down: true, actions: [{ type: 'pursuit' }] });
+    const insufficient = poor.dashKind !== 'backflip';
+    const [forward] = d.fixtureYouth('goku', 'goku', 4);
+    d.tick({ actions: [{ type: 'pursuit' }] });
+    return { rows, insufficient, normalPursuit: forward.dashKind };
+  });
+  for (const row of rows.rows) {
+    expect(row.kind, row.id).toBe('backflip');
+    expect(row.cost, row.id).toBe(12);
+    expect(row.minimumPitch, row.id).toBeLessThan(-17);
+    expect(row.maximumError, row.id).toBeLessThan(0.08);
+    expect(row.retreat, row.id).toBeLessThan(-3);
+    expect(row.recovered, row.id).toBe(true);
+  }
+  expect(rows.insufficient).toBe(true);
+  expect(rows.normalPursuit).toBe('pursuit');
+});
+
+test('life gauges overlap with the reserve underneath on desktop, mobile and split views', async ({
+  page,
+}) => {
+  await openGame(page);
+  for (const size of [
+    { width: 1280, height: 720 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(size);
+    const geometry = await page.evaluate(() => {
+      const d = window.__db;
+      d.fixtureYouth('gyumao', 'chichi', 2);
+      d.updateHUD();
+      d.renderGameViews();
+      return ['p1hp', 'p2hp', 'view1HP', 'view2HP'].map((id) => {
+        d.game.difficulty = id.startsWith('view') ? 'local' : 'training';
+        d.renderGameViews();
+        const main = document.getElementById(id).parentElement;
+        const reserve = main.nextElementSibling;
+        const a = main.getBoundingClientRect(),
+          b = reserve.getBoundingClientRect();
+        return {
+          id,
+          overlaps: b.top > a.top && b.top < a.bottom && b.bottom > a.bottom,
+          sameWidth: a.width === b.width,
+          above: +getComputedStyle(main).zIndex > +getComputedStyle(reserve).zIndex,
+        };
+      });
+    });
+    for (const row of geometry)
+      expect(row, row.id).toMatchObject({ overlaps: true, sameWidth: true, above: true });
+  }
+});
+
+test('keyboard backward plus burst reaches the backflip through the normal input reader', async ({
+  page,
+}) => {
+  await openGame(page);
+  await page.evaluate(() => window.__db.fixtureYouth('goku', 'chichi', 2));
+  await page.keyboard.down('s');
+  await page.keyboard.down('e');
+  const result = await page.evaluate(() => {
+    const d = window.__db,
+      input = d.readPlayerInput();
+    d.tick(input);
+    return {
+      kind: d.player.dashKind,
+      hp: d.player.hp,
+      ki: d.player.ki,
+      down: input.down,
+      action: input.actions[0]?.type,
+    };
+  });
+  await page.keyboard.up('e');
+  await page.keyboard.up('s');
+  expect(result).toMatchObject({ kind: 'backflip', down: true, action: 'pursuit', ki: 88 });
+});
+
+test('backward burst cancels a confirmed heavy hit into retreat and respects stun and cooldown', async ({
+  page,
+}) => {
+  await openGame(page);
+  const result = await page.evaluate(() => {
+    const d = window.__db;
+    let [p, e] = d.fixtureYouth('goku', 'chichi', 1);
+    p.startAttack('heavy');
+    const a = p.attack;
+    while (p.stateTimer < a.hitT + 0.06) {
+      d.tick();
+      d.game.hitStop = 0;
+    }
+    const confirmed = e.hp < e.maxHp;
+    d.tick({ down: true, actions: [{ type: 'pursuit', down: true }] });
+    const cancelled = p.dashKind === 'backflip' && !p.attack;
+    [p] = d.fixtureYouth('goku', 'chichi', 2);
+    p.pursuitCooldown = 1;
+    d.tick({ down: true, actions: [{ type: 'pursuit' }] });
+    const cooldown = p.dashKind !== 'backflip' && p.ki === 100;
+    [p] = d.fixtureYouth('goku', 'chichi', 2);
+    p.state = 'hit';
+    p.stunTime = 1;
+    d.tick({ down: true, actions: [{ type: 'pursuit' }] });
+    return { confirmed, cancelled, cooldown, stunned: p.state === 'hit' && p.ki === 100 };
+  });
+  expect(result).toEqual({ confirmed: true, cancelled: true, cooldown: true, stunned: true });
 });

@@ -434,6 +434,10 @@ export function register({
           return;
         }
         if (this.pull('pursuit')) {
+          if (input.down && !input.up) {
+            this.backflip(foe);
+            return;
+          }
           if (
             this.ki >= 12 &&
             this.pursuitCooldown <= 0 &&
@@ -825,7 +829,9 @@ export function register({
             ) {
               this.pull(q.type);
               this.attack = null;
-              this.pursue(foe);
+              if ((q.context.down && !q.context.up) || (input.down && !input.up))
+                this.backflip(foe);
+              else this.pursue(foe);
               return;
             }
             if (q.type === 'dash' && this.ki >= 8 && this.dashCooldown <= 0) {
@@ -864,6 +870,24 @@ export function register({
             this.queue = this.queue.filter((q) => !['light', 'heavy'].includes(q.type));
           }
         }
+      }
+      backflip(foe) {
+        if (this.ki < 12 || this.pursuitCooldown > 0) return false;
+        this.ki -= 12;
+        this.pursuitCooldown = 0.8;
+        this.dashCooldown = 0.8;
+        this.dashTime = 0.66;
+        this.dashKind = 'backflip';
+        this.attack = null;
+        this.state = 'dash';
+        this.stateTimer = 0;
+        this.crouching = false;
+        this.vel.copy(this.forward()).multiplyScalar(-13 * combatModule.mobilitySpeed(this));
+        this.invulnerable = Math.max(this.invulnerable, 0.08);
+        renderModule.spawnDust(this.pos, 6);
+        audioModule.sfxSwing();
+        combatModule.emitCombatEvent('backflip', this, foe, null, { cost: 12 });
+        return true;
       }
       pursue(foe) {
         if (!foe || this.ki < 12 || this.pursuitCooldown > 0 || foe.pos.distanceTo(this.pos) > 10)
@@ -1182,6 +1206,7 @@ export function register({
         this.visualAngle += delta * (1 - Math.exp(-30 * dt));
         this.root.rotation.set(0, this.visualAngle, 0);
         this.root.scale.setScalar(this.baseScale);
+        combatModule.applyBackflipTransform(this, this.root);
         let pose = this.attack
           ? combatModule.combatPose(this)
           : combatModule.neutralCombatPose(this);

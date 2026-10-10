@@ -17,6 +17,8 @@ export const FIGHTER_FIELDS = [
   'comboType',
   'comboTimer',
   'dashCooldown',
+  'dashKind',
+  'dashTime',
   'lastHitText',
   'receivedCombo',
   'damageTotal',

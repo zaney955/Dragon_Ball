@@ -725,7 +725,10 @@ export function register({ characters, combat, match, testing, ai, audio, render
           const [p] = fixture(c.id, target.id, 12);
           p.startAttack('light');
           const a = p.attack;
-          assert(!a.cancelRules.whiff.length);
+          assert(
+            a.cancelRules.whiff.every((type) => type === 'light'),
+            '打空只允许同类连招衔接，不得取消成追击或异类攻击',
+          );
           assert(!c.combos.light.at(-1).cancelRules.hit.includes('heavy'));
           ticks(100);
           assert(p.hitResult !== 'hit');

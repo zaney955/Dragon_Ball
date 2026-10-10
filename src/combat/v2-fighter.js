@@ -131,6 +131,7 @@ export function register({
       r.root.position.copy(f.pos);
       r.root.position.y += f.attack ? (pose.ry ?? 0) : 0;
       r.root.rotation.set(0, f.facingAngle, 0);
+      combatModule.applyBackflipTransform(f, r.root);
       if (f.launchFlight) {
         const lean = THREE.MathUtils.clamp(f.launchElapsed / 0.16, 0, 1);
         r.root.rotation.set(-lean * 1.15, f.facingAngle, 0, 'YXZ');
